@@ -7,3 +7,4 @@ ignore = ["E501"]
 
 [lint.per-file-ignores]
 "tests/*" = ["F401"]
+"tests/conftest.py" = ["F401", "E402"]
