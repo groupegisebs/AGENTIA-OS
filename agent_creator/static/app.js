@@ -5,6 +5,15 @@
 
 const AUTH_TOKEN_KEY = "agentia_token";
 
+/** URL API absolue depuis la racine du site (évite les 404 relatifs type /inscription/auth/...). */
+function apiUrl(path) {
+  if (/^https?:\/\//i.test(path)) return path;
+  const base = (document.querySelector('meta[name="agentia-api-base"]')?.content || "")
+    .replace(/\/$/, "");
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return `${window.location.origin}${base}${normalized}`;
+}
+
 function getToken() {
   return localStorage.getItem(AUTH_TOKEN_KEY);
 }
@@ -19,7 +28,7 @@ const API = {
     const headers = { "Content-Type": "application/json", ...options.headers };
     const token = getToken();
     if (token) headers.Authorization = `Bearer ${token}`;
-    const res = await fetch(path, { ...options, headers });
+    const res = await fetch(apiUrl(path), { ...options, headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: res.statusText }));
       throw new Error(typeof err.detail === "string" ? err.detail : JSON.stringify(err.detail));
@@ -180,6 +189,7 @@ function parseRoute() {
   if (path === "/architect") return { name: "architect" };
   if (path === "/inscription") return { name: "inscription" };
   if (path === "/connexion") return { name: "connexion" };
+  if (path === "/documentation") return { name: "docs" };
   if (path === "/mon-compte") return { name: "account" };
   if (path === "/abonnement") return { name: "subscription" };
   if (path === "/paiement/succes") return { name: "payment-success" };
@@ -188,7 +198,7 @@ function parseRoute() {
 }
 
 function requireAuth(routeName) {
-  const publicRoutes = new Set(["home", "inscription", "connexion", "marketplace", "architect", "payment-success", "payment-cancel"]);
+  const publicRoutes = new Set(["home", "inscription", "connexion", "docs", "marketplace", "architect", "payment-success", "payment-cancel"]);
   if (!getToken() && !publicRoutes.has(routeName)) {
     navigate("/connexion");
     return false;
@@ -221,36 +231,172 @@ function renderAuthNav() {
     return `<a href="/mon-compte" data-nav="/mon-compte">Mon compte</a>
       <button type="button" class="btn btn-ghost btn-sm" id="btn-logout">Déconnexion</button>`;
   }
-  return `<a href="/connexion" data-nav="/connexion">Connexion</a>
-    <a href="/inscription" data-nav="/inscription" class="btn btn-primary btn-sm" style="margin-left:0.5rem">Inscription</a>`;
+  return `<a href="/connexion" data-nav="/connexion" class="nav-link-login">Connexion</a>
+    <a href="/inscription" data-nav="/inscription" class="btn btn-primary btn-sm btn-glow">Commencer gratuitement</a>`;
+}
+
+function renderAuthIllustration() {
+  return `
+    <div class="auth-visual" aria-hidden="true">
+      <svg class="auth-visual-svg" viewBox="0 0 520 380" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="authGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#7c6cff" stop-opacity="0.9"/>
+            <stop offset="100%" stop-color="#3dd68c" stop-opacity="0.6"/>
+          </linearGradient>
+          <linearGradient id="authGradLine" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#7c6cff" stop-opacity="0"/>
+            <stop offset="50%" stop-color="#7c6cff" stop-opacity="0.8"/>
+            <stop offset="100%" stop-color="#a78bfa" stop-opacity="0"/>
+          </linearGradient>
+          <filter id="authGlow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <rect x="60" y="40" width="400" height="240" rx="16" fill="rgba(124,108,255,0.06)" stroke="rgba(124,108,255,0.25)" stroke-width="1"/>
+        <line x1="260" y1="60" x2="260" y2="260" stroke="rgba(124,108,255,0.15)" stroke-width="1" stroke-dasharray="4 6"/>
+        <line x1="120" y1="160" x2="400" y2="160" stroke="rgba(124,108,255,0.12)" stroke-width="1" stroke-dasharray="4 6"/>
+        <circle cx="260" cy="160" r="36" fill="rgba(124,108,255,0.2)" stroke="url(#authGrad1)" stroke-width="2" filter="url(#authGlow)" class="auth-node-pulse"/>
+        <text x="260" y="165" text-anchor="middle" fill="#eef0f6" font-size="11" font-family="DM Sans,sans-serif">Architecte IA</text>
+        <circle cx="120" cy="100" r="22" fill="rgba(61,214,140,0.15)" stroke="#3dd68c" stroke-width="1.5" class="auth-node-pulse auth-node-delay-1"/>
+        <text x="120" y="104" text-anchor="middle" fill="#9aa3b8" font-size="9">Agent CRM</text>
+        <circle cx="400" cy="100" r="22" fill="rgba(167,139,250,0.15)" stroke="#a78bfa" stroke-width="1.5" class="auth-node-pulse auth-node-delay-2"/>
+        <text x="400" y="104" text-anchor="middle" fill="#9aa3b8" font-size="9">Agent RH</text>
+        <circle cx="120" cy="220" r="22" fill="rgba(245,185,66,0.12)" stroke="#f5b942" stroke-width="1.5" class="auth-node-pulse auth-node-delay-3"/>
+        <text x="120" y="224" text-anchor="middle" fill="#9aa3b8" font-size="9">Workflow</text>
+        <circle cx="400" cy="220" r="22" fill="rgba(124,108,255,0.15)" stroke="#7c6cff" stroke-width="1.5" class="auth-node-pulse auth-node-delay-4"/>
+        <text x="400" y="224" text-anchor="middle" fill="#9aa3b8" font-size="9">API / DB</text>
+        <line x1="142" y1="115" x2="230" y2="145" stroke="url(#authGradLine)" stroke-width="1.5" class="auth-line-flow"/>
+        <line x1="378" y1="115" x2="290" y2="145" stroke="url(#authGradLine)" stroke-width="1.5" class="auth-line-flow auth-line-delay"/>
+        <line x1="142" y1="205" x2="230" y2="175" stroke="url(#authGradLine)" stroke-width="1.5" class="auth-line-flow auth-line-delay-2"/>
+        <line x1="378" y1="205" x2="290" y2="175" stroke="url(#authGradLine)" stroke-width="1.5" class="auth-line-flow auth-line-delay-3"/>
+        <rect x="180" y="300" width="160" height="28" rx="14" fill="rgba(124,108,255,0.12)" stroke="rgba(124,108,255,0.3)"/>
+        <text x="260" y="318" text-anchor="middle" fill="#c4b5fd" font-size="10" font-family="DM Sans,sans-serif">Déploiement 1 clic → Production</text>
+      </svg>
+      <div class="auth-visual-glow"></div>
+    </div>`;
+}
+
+function renderAuthStats() {
+  const stats = [
+    { value: "10 000+", label: "Agents créés" },
+    { value: "500+", label: "Templates" },
+    { value: "50+", label: "Intégrations" },
+    { value: "1 clic", label: "Déploiement" },
+  ];
+  return `<div class="auth-stats">${stats.map((s) => `
+    <div class="auth-stat">
+      <span class="auth-stat-value">${s.value}</span>
+      <span class="auth-stat-label">${s.label}</span>
+    </div>`).join("")}</div>`;
+}
+
+function renderAuthFeatures() {
+  const items = [
+    "Création No-Code",
+    "Orchestration Multi-Agents",
+    "Marketplace IA",
+    "Déploiement Cloud",
+  ];
+  return `<ul class="auth-features">${items.map((t) => `<li><span class="auth-check">✓</span>${t}</li>`).join("")}</ul>`;
+}
+
+function renderAuthOAuth() {
+  const providers = [
+    { id: "google", label: "Google", icon: "G" },
+    { id: "github", label: "GitHub", icon: "⌘" },
+    { id: "microsoft", label: "Microsoft", icon: "⊞" },
+  ];
+  return `
+    <div class="auth-oauth">
+      <p class="auth-oauth-divider"><span>ou continuer avec</span></p>
+      <div class="auth-oauth-buttons">
+        ${providers.map((p) => `
+          <button type="button" class="auth-oauth-btn" data-oauth="${p.id}" title="${p.label}">
+            <span class="auth-oauth-icon">${p.icon}</span>
+            <span class="auth-oauth-label">${p.label}</span>
+          </button>`).join("")}
+      </div>
+    </div>`;
+}
+
+function renderAuthPremiumLayout({ cardTitle, cardSubtitle, formHtml, footerLink }) {
+  return `
+    <div class="auth-premium">
+      <div class="auth-premium-bg" aria-hidden="true">
+        <div class="auth-gradient"></div>
+        <div class="auth-grid-lines"></div>
+        <div class="auth-particles">${Array.from({ length: 24 }, (_, i) => `<span style="--i:${i}"></span>`).join("")}</div>
+        <div class="auth-neural-ring auth-neural-ring-1"></div>
+        <div class="auth-neural-ring auth-neural-ring-2"></div>
+      </div>
+      <div class="auth-premium-grid">
+        <div class="auth-premium-left">
+          ${renderAuthIllustration()}
+          <h1 class="auth-hero-title">Construisez vos agents IA sans coder</h1>
+          <p class="auth-hero-sub">Créez, entraînez, déployez et monétisez vos agents intelligents sur une seule plateforme.</p>
+          ${renderAuthFeatures()}
+          ${renderAuthStats()}
+        </div>
+        <div class="auth-premium-right">
+          <div class="auth-card">
+            <div class="auth-card-header">
+              <h2>${cardTitle}</h2>
+              ${cardSubtitle ? `<p>${cardSubtitle}</p>` : ""}
+            </div>
+            ${formHtml}
+            ${footerLink}
+            ${renderAuthOAuth()}
+          </div>
+        </div>
+      </div>
+      <p class="auth-banner">Plus de <strong>500 agents</strong> disponibles dans la marketplace Agentia</p>
+    </div>`;
 }
 
 function renderInscription() {
-  return `
-    <section class="auth-page">
-      <h1>Créer votre compte</h1>
-      <p class="hero-sub">Inscription gratuite — plan Free inclus. Concevez vos solutions sans engagement.</p>
+  const formHtml = `
       <form id="form-register" class="auth-form">
-        <label>Nom complet<input name="full_name" required /></label>
-        <label>Organisation<input name="organization_name" required /></label>
-        <label>Email<input name="email" type="email" required /></label>
-        <label>Mot de passe<input name="password" type="password" minlength="8" required /></label>
-        <button type="submit" class="btn btn-primary btn-block">Créer mon compte</button>
-      </form>
-      <p class="auth-link">Déjà inscrit ? <a href="/connexion" data-nav="/connexion">Connexion</a></p>
-    </section>`;
+        <label>Nom complet<input name="full_name" required placeholder="Jean Dupont" autocomplete="name" /></label>
+        <label>Organisation<input name="organization_name" required placeholder="Mon entreprise" autocomplete="organization" /></label>
+        <label>Email<input name="email" type="email" required placeholder="vous@entreprise.com" autocomplete="email" /></label>
+        <label>Mot de passe<input name="password" type="password" minlength="8" required placeholder="8 caractères minimum" autocomplete="new-password" /></label>
+        <button type="submit" class="btn btn-primary btn-block btn-glow">Commencer gratuitement</button>
+      </form>`;
+  const footerLink = `<p class="auth-link">Déjà inscrit ? <a href="/connexion" data-nav="/connexion">Se connecter</a></p>`;
+  return renderAuthPremiumLayout({
+    cardTitle: "Créer votre compte",
+    cardSubtitle: "Plan Gratuit inclus — sans carte bancaire",
+    formHtml,
+    footerLink,
+  });
 }
 
 function renderConnexion() {
-  return `
-    <section class="auth-page">
-      <h1>Connexion</h1>
+  const formHtml = `
       <form id="form-login" class="auth-form">
-        <label>Email<input name="email" type="email" required /></label>
-        <label>Mot de passe<input name="password" type="password" required /></label>
-        <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
+        <label>Email<input name="email" type="email" required placeholder="vous@entreprise.com" autocomplete="email" /></label>
+        <label>Mot de passe<input name="password" type="password" required placeholder="••••••••" autocomplete="current-password" /></label>
+        <label class="auth-remember">
+          <input type="checkbox" name="remember" id="auth-remember" />
+          <span>Se souvenir de moi</span>
+        </label>
+        <button type="submit" class="btn btn-primary btn-block btn-glow">Se connecter</button>
       </form>
-      <p class="auth-link">Pas encore de compte ? <a href="/inscription" data-nav="/inscription">Inscription</a></p>
+      <p class="auth-forgot"><a href="#" id="auth-forgot-link">Mot de passe oublié ?</a></p>`;
+  const footerLink = `<p class="auth-link">Pas encore de compte ? <a href="/inscription" data-nav="/inscription">Créer un compte</a></p>`;
+  return renderAuthPremiumLayout({
+    cardTitle: "Connexion",
+    cardSubtitle: "Accédez à votre espace architecte",
+    formHtml,
+    footerLink,
+  });
+}
+
+function renderDocs() {
+  return `
+    <section class="page-header">
+      <h1>Documentation</h1>
+      <p>Guides API, déploiement et intégrations — bientôt disponible.</p>
+      <a href="/" data-nav="/" class="btn btn-secondary">Retour à l'accueil</a>
     </section>`;
 }
 
@@ -906,8 +1052,10 @@ function bindAuthEvents() {
   document.getElementById("form-login")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
+    const data = Object.fromEntries(fd);
+    delete data.remember;
     try {
-      const res = await API.login(Object.fromEntries(fd));
+      const res = await API.login(data);
       setToken(res.access_token);
       await loadUserContext();
       navigate("/");
@@ -919,6 +1067,22 @@ function bindAuthEvents() {
     setToken(null);
     navigate("/");
   });
+  document.querySelectorAll("[data-oauth]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      showToast("Connexion OAuth bientôt disponible.");
+    });
+  });
+  document.getElementById("auth-forgot-link")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    showToast("Contactez le support pour réinitialiser votre mot de passe.");
+  });
+  const remember = document.getElementById("auth-remember");
+  if (remember) {
+    remember.checked = localStorage.getItem("agentia_remember") === "1";
+    remember.addEventListener("change", () => {
+      localStorage.setItem("agentia_remember", remember.checked ? "1" : "0");
+    });
+  }
 }
 
 async function bindAccountEvents() {
@@ -987,6 +1151,8 @@ async function render() {
   const route = parseRoute();
   if (!requireAuth(route.name)) return;
 
+  document.body.classList.toggle("page-auth", route.name === "connexion" || route.name === "inscription");
+
   document.querySelectorAll(".auth-nav-slot").forEach((el) => {
     el.innerHTML = renderAuthNav();
   });
@@ -1002,6 +1168,9 @@ async function render() {
     case "connexion":
       view.innerHTML = renderConnexion();
       bindAuthEvents();
+      break;
+    case "docs":
+      view.innerHTML = renderDocs();
       break;
     case "account":
       view.innerHTML = renderAccount();

@@ -46,6 +46,8 @@ Guide complet : [deploy/servers/ubuntu1.md](deploy/servers/ubuntu1.md)
 
 ## Vérifications
 
+- `deploy/validate-gha-secrets.sh` — contrôle **tous** les secrets avant deploy (obligatoires + avertissements optionnels)
+- Après deploy : healthcheck + test `POST /auth/register` + présence dans OpenAPI
 - Le workflow `deploy-production.yml` assemble `.env` via `deploy/build-app-env.sh` **sans logger les valeurs**
 - Le fichier `.env` sur le serveur est en mode `600` (propriétaire uniquement)
 - L'endpoint `/health` n'expose **aucune** clé API ni URL de base de données

@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="agentia-api-base" content="" />
   <title>Agentia — Bureau d'architecture digitale</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -17,15 +18,44 @@
         <span class="brand-text">Agentia</span>
       </a>
       <nav class="topnav" aria-label="Navigation principale">
-        <a href="/architect" data-nav="/architect">Architecte IA</a>
-        <a href="/marketplace" data-nav="/marketplace">Modèles</a>
-        <a href="/cockpit" data-nav="/cockpit">Supervision</a>
+        <a href="/architect" data-nav="/architect">Créer un Agent</a>
+        <a href="/marketplace" data-nav="/marketplace">Marketplace</a>
+        <a href="/marketplace" data-nav="/marketplace">Templates</a>
+        <a href="/documentation" data-nav="/documentation" class="nav-docs">Documentation</a>
+        <a href="/abonnement" data-nav="/abonnement">Tarifs</a>
         <span class="auth-nav-slot"></span>
       </nav>
     </header>
     <main id="view" class="view" role="main"></main>
-    <footer class="footer">
-      <span>Agentia — Votre bureau d'architecture digitale</span>
+    <footer class="footer footer-premium">
+      <div class="footer-grid">
+        <div class="footer-brand-col">
+          <div class="footer-brand">
+            <span class="brand-mark">A</span>
+            <span>Agentia</span>
+          </div>
+          <p class="footer-tagline">Plateforme Agentic AI pour créer, déployer et monétiser vos agents intelligents.</p>
+        </div>
+        <div class="footer-col">
+          <h4>Plateforme</h4>
+          <a href="/architect" data-nav="/architect">Créer un agent</a>
+          <a href="/marketplace" data-nav="/marketplace">Marketplace d'agents</a>
+          <a href="/cockpit" data-nav="/cockpit">Supervision</a>
+        </div>
+        <div class="footer-col">
+          <h4>Entreprise</h4>
+          <a href="/abonnement" data-nav="/abonnement">Tarifs</a>
+          <a href="#" class="footer-link-muted">Déploiement Cloud</a>
+          <a href="#" class="footer-link-muted">API Enterprise</a>
+        </div>
+        <div class="footer-col">
+          <h4>Support</h4>
+          <a href="#" class="footer-link-muted">Documentation</a>
+          <a href="#" class="footer-link-muted">Contact</a>
+          <a href="/inscription" data-nav="/inscription">Commencer gratuitement</a>
+        </div>
+      </div>
+      <div class="footer-bottom">© 2026 Agentia — Tous droits réservés</div>
     </footer>
   </div>
   <div id="toast" class="toast" hidden></div>

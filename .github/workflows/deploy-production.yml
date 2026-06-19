@@ -66,7 +66,22 @@ jobs:
           test -f publish/requirements.txt
 
       - name: Prepare deploy scripts
-        run: chmod +x deploy/deploy-gha.sh deploy/gha-env.sh deploy/build-app-env.sh
+        run: chmod +x deploy/deploy-gha.sh deploy/gha-env.sh deploy/build-app-env.sh deploy/validate-gha-secrets.sh
+
+      - name: Validate production secrets
+        env:
+          AGENTIA_OS_SSH_PRIVATE_KEY: ${{ secrets.AGENTIA_OS_SSH_PRIVATE_KEY }}
+          SSH_PRIVATE_KEY_UBUNTU1: ${{ secrets.SSH_PRIVATE_KEY_UBUNTU1 }}
+          DATABASE_URL: ${{ secrets.AGENTIA_OS_DATABASE_URL }}
+          JWT_SECRET: ${{ secrets.AGENTIA_OS_JWT_SECRET }}
+          GEMINI_API_KEY: ${{ secrets.AGENTIA_OS_GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GISEBS_PAY_API_KEY: ${{ secrets.AGENTIA_OS_GISEBS_PAY_API_KEY }}
+          GISEBS_PAY_GATEWAY_URL: ${{ secrets.AGENTIA_OS_GISEBS_PAY_GATEWAY_URL }}
+          SSH_HOST: ${{ vars.SSH_HOST_UBUNTU1 || secrets.SSH_HOST_UBUNTU1 || '51.79.53.197' }}
+          SSH_USER: ${{ vars.SSH_USER_UBUNTU1 || secrets.SSH_USER_UBUNTU1 || 'ubuntu' }}
+          SSH_PORT: ${{ vars.SSH_PORT_UBUNTU1 || secrets.SSH_PORT_UBUNTU1 || '22' }}
+        run: bash deploy/validate-gha-secrets.sh
 
       - name: Load configuration
         env:
@@ -105,12 +120,10 @@ jobs:
           SERVICE_NAME_RAW=$(pick_first "$SERVICE_VAR" "$SERVICE_SECRET" "$DEFAULT_SERVICE_NAME") || true
           LISTEN_PORT_RAW=$(pick_first "$PORT_APP_VAR" "$PORT_APP_SECRET" "$DEFAULT_LISTEN_PORT") || true
 
-          missing=0
           if [ -z "$SSH_PRIVATE_KEY" ]; then
-            echo "::error::Clé SSH manquante (AGENTIA_OS_SSH_PRIVATE_KEY ou SSH_PRIVATE_KEY_UBUNTU1)."
-            missing=1
+            echo "::error::Clé SSH manquante (devrait être bloquée par validate-gha-secrets)."
+            exit 1
           fi
-          [ "$missing" -eq 0 ] || exit 1
 
           gha_write_env SSH_PRIVATE_KEY "$SSH_PRIVATE_KEY"
           gha_write_env SSH_HOST "$(gha_sanitize_host "$SSH_HOST_RAW")"
@@ -121,27 +134,6 @@ jobs:
           gha_write_env APP_NAME "$DEFAULT_APP_NAME"
           gha_write_env LISTEN_PORT "$(gha_sanitize "$LISTEN_PORT_RAW")"
           echo "OK → ${SSH_USER}@${SSH_HOST}:${SSH_PORT} service=${SERVICE_NAME}"
-
-      - name: Validate production secrets
-        env:
-          DATABASE_URL: ${{ secrets.AGENTIA_OS_DATABASE_URL }}
-          JWT_SECRET: ${{ secrets.AGENTIA_OS_JWT_SECRET }}
-        run: |
-          if [ -z "${DATABASE_URL}" ]; then
-            echo "::error::Secret AGENTIA_OS_DATABASE_URL manquant — URL PostgreSQL (ex. postgresql+asyncpg://user:pass@127.0.0.1:5432/agentia)"
-            exit 1
-          fi
-          case "${DATABASE_URL}" in
-            postgresql+asyncpg://*|postgresql://*|postgres://*) ;;
-            *)
-              echo "::error::AGENTIA_OS_DATABASE_URL doit être une chaîne PostgreSQL — jamais dans le repo, secret GitHub uniquement"
-              exit 1
-              ;;
-          esac
-          if [ -z "${JWT_SECRET}" ]; then
-            echo "::error::Secret AGENTIA_OS_JWT_SECRET manquant"
-            exit 1
-          fi
 
       - name: Build production .env from secrets
         env:

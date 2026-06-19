@@ -8,7 +8,7 @@ cd "$ROOT"
 PATTERNS=(
   'AIza[0-9A-Za-z_-]{20,}'
   'sk-[a-zA-Z0-9]{20,}'
-  'postgresql(\+asyncpg)?://[^@]+:[^@]+@'
+  'postgresql([+]asyncpg)?://[^@]+:[^@]+@'
   'Bearer [a-zA-Z0-9._-]{20,}'
 )
 

@@ -97,8 +97,7 @@ if [[ ! -f "${APP_DIR}/.env" ]]; then
   echo "::error::.env absent — le deploy doit injecter DATABASE_URL depuis le secret AGENTIA_OS_DATABASE_URL"
   exit 1
 fi
-if ! grep -qE '^DATABASE_URL=postgresql(\+asyncpg)?://' "${APP_DIR}/.env" \
-   && ! grep -qE '^DATABASE_URL=postgres://' "${APP_DIR}/.env"; then
+if ! grep -qE '^DATABASE_URL=postgres(ql([+]asyncpg)?)?://' "${APP_DIR}/.env"; then
   echo "::error::DATABASE_URL PostgreSQL requis dans .env (secret AGENTIA_OS_DATABASE_URL)"
   exit 1
 fi
@@ -144,13 +143,37 @@ PORT='${LISTEN_PORT}'
 for i in \$(seq 1 30); do
   if curl -fsS -o /dev/null "http://127.0.0.1:\${PORT}/health" 2>/dev/null; then
     echo "Healthcheck OK"
-    exit 0
+    break
+  fi
+  if [ "\${i}" -eq 30 ]; then
+    echo "::error::${SERVICE_NAME} ne répond pas sur /health"
+    journalctl -u '${SERVICE_NAME}' -n 30 --no-pager || true
+    exit 1
   fi
   sleep 2
 done
-echo "::error::${SERVICE_NAME} ne répond pas sur /health"
-journalctl -u '${SERVICE_NAME}' -n 30 --no-pager || true
-exit 1
+
+AUTH_CODE=\$(curl -s -o /dev/null -w "%{http_code}" -X POST "http://127.0.0.1:\${PORT}/auth/register" \\
+  -H "Content-Type: application/json" -d '{}' || echo "000")
+case "\${AUTH_CODE}" in
+  404|000)
+    echo "::error::POST /auth/register → HTTP \${AUTH_CODE} (routes API indisponibles)"
+    journalctl -u '${SERVICE_NAME}' -n 50 --no-pager || true
+    exit 1
+    ;;
+  422|400|201)
+    echo "API /auth/register accessible (HTTP \${AUTH_CODE})"
+    ;;
+  *)
+    echo "::warning::POST /auth/register → HTTP \${AUTH_CODE} (attendu 422/400/201)"
+    ;;
+esac
+
+if ! curl -fsS "http://127.0.0.1:\${PORT}/openapi.json" 2>/dev/null | grep -q '"/auth/register"'; then
+  echo "::error::Route /auth/register absente de OpenAPI"
+  exit 1
+fi
+echo "Verification API OK"
 REMOTE_HEALTH
 
 echo "Deploiement reussi sur ${SSH_HOST} (${SERVICE_NAME})."
