@@ -3,6 +3,8 @@
  * SPA vanilla JS avec routage côté client + authentification SaaS
  */
 
+import { renderAuthPremiumLayout } from "./auth-ui.js";
+
 const AUTH_TOKEN_KEY = "agentia_token";
 
 /** URL API absolue depuis la racine du site (évite les 404 relatifs type /inscription/auth/...). */
@@ -232,124 +234,21 @@ function renderAuthNav() {
       <button type="button" class="btn btn-ghost btn-sm" id="btn-logout">Déconnexion</button>`;
   }
   return `<a href="/connexion" data-nav="/connexion" class="nav-link-login">Connexion</a>
-    <a href="/inscription" data-nav="/inscription" class="btn btn-primary btn-sm btn-glow">Commencer gratuitement</a>`;
+    <a href="/inscription" data-nav="/inscription" class="btn btn-primary btn-sm btn-glow btn-nav-cta">Commencer gratuitement →</a>`;
 }
 
-function renderAuthIllustration() {
+function renderPasswordField({ name, placeholder, autocomplete, minlength }) {
+  const minAttr = minlength ? ` minlength="${minlength}"` : "";
   return `
-    <div class="auth-visual" aria-hidden="true">
-      <svg class="auth-visual-svg" viewBox="0 0 520 380" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="authGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#7c6cff" stop-opacity="0.9"/>
-            <stop offset="100%" stop-color="#3dd68c" stop-opacity="0.6"/>
-          </linearGradient>
-          <linearGradient id="authGradLine" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stop-color="#7c6cff" stop-opacity="0"/>
-            <stop offset="50%" stop-color="#7c6cff" stop-opacity="0.8"/>
-            <stop offset="100%" stop-color="#a78bfa" stop-opacity="0"/>
-          </linearGradient>
-          <filter id="authGlow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-        </defs>
-        <rect x="60" y="40" width="400" height="240" rx="16" fill="rgba(124,108,255,0.06)" stroke="rgba(124,108,255,0.25)" stroke-width="1"/>
-        <line x1="260" y1="60" x2="260" y2="260" stroke="rgba(124,108,255,0.15)" stroke-width="1" stroke-dasharray="4 6"/>
-        <line x1="120" y1="160" x2="400" y2="160" stroke="rgba(124,108,255,0.12)" stroke-width="1" stroke-dasharray="4 6"/>
-        <circle cx="260" cy="160" r="36" fill="rgba(124,108,255,0.2)" stroke="url(#authGrad1)" stroke-width="2" filter="url(#authGlow)" class="auth-node-pulse"/>
-        <text x="260" y="165" text-anchor="middle" fill="#eef0f6" font-size="11" font-family="DM Sans,sans-serif">Architecte IA</text>
-        <circle cx="120" cy="100" r="22" fill="rgba(61,214,140,0.15)" stroke="#3dd68c" stroke-width="1.5" class="auth-node-pulse auth-node-delay-1"/>
-        <text x="120" y="104" text-anchor="middle" fill="#9aa3b8" font-size="9">Agent CRM</text>
-        <circle cx="400" cy="100" r="22" fill="rgba(167,139,250,0.15)" stroke="#a78bfa" stroke-width="1.5" class="auth-node-pulse auth-node-delay-2"/>
-        <text x="400" y="104" text-anchor="middle" fill="#9aa3b8" font-size="9">Agent RH</text>
-        <circle cx="120" cy="220" r="22" fill="rgba(245,185,66,0.12)" stroke="#f5b942" stroke-width="1.5" class="auth-node-pulse auth-node-delay-3"/>
-        <text x="120" y="224" text-anchor="middle" fill="#9aa3b8" font-size="9">Workflow</text>
-        <circle cx="400" cy="220" r="22" fill="rgba(124,108,255,0.15)" stroke="#7c6cff" stroke-width="1.5" class="auth-node-pulse auth-node-delay-4"/>
-        <text x="400" y="224" text-anchor="middle" fill="#9aa3b8" font-size="9">API / DB</text>
-        <line x1="142" y1="115" x2="230" y2="145" stroke="url(#authGradLine)" stroke-width="1.5" class="auth-line-flow"/>
-        <line x1="378" y1="115" x2="290" y2="145" stroke="url(#authGradLine)" stroke-width="1.5" class="auth-line-flow auth-line-delay"/>
-        <line x1="142" y1="205" x2="230" y2="175" stroke="url(#authGradLine)" stroke-width="1.5" class="auth-line-flow auth-line-delay-2"/>
-        <line x1="378" y1="205" x2="290" y2="175" stroke="url(#authGradLine)" stroke-width="1.5" class="auth-line-flow auth-line-delay-3"/>
-        <rect x="180" y="300" width="160" height="28" rx="14" fill="rgba(124,108,255,0.12)" stroke="rgba(124,108,255,0.3)"/>
-        <text x="260" y="318" text-anchor="middle" fill="#c4b5fd" font-size="10" font-family="DM Sans,sans-serif">Déploiement 1 clic → Production</text>
-      </svg>
-      <div class="auth-visual-glow"></div>
-    </div>`;
-}
-
-function renderAuthStats() {
-  const stats = [
-    { value: "10 000+", label: "Agents créés" },
-    { value: "500+", label: "Templates" },
-    { value: "50+", label: "Intégrations" },
-    { value: "1 clic", label: "Déploiement" },
-  ];
-  return `<div class="auth-stats">${stats.map((s) => `
-    <div class="auth-stat">
-      <span class="auth-stat-value">${s.value}</span>
-      <span class="auth-stat-label">${s.label}</span>
-    </div>`).join("")}</div>`;
-}
-
-function renderAuthFeatures() {
-  const items = [
-    "Création No-Code",
-    "Orchestration Multi-Agents",
-    "Marketplace IA",
-    "Déploiement Cloud",
-  ];
-  return `<ul class="auth-features">${items.map((t) => `<li><span class="auth-check">✓</span>${t}</li>`).join("")}</ul>`;
-}
-
-function renderAuthOAuth() {
-  const providers = [
-    { id: "google", label: "Google", icon: "G" },
-    { id: "github", label: "GitHub", icon: "⌘" },
-    { id: "microsoft", label: "Microsoft", icon: "⊞" },
-  ];
-  return `
-    <div class="auth-oauth">
-      <p class="auth-oauth-divider"><span>ou continuer avec</span></p>
-      <div class="auth-oauth-buttons">
-        ${providers.map((p) => `
-          <button type="button" class="auth-oauth-btn" data-oauth="${p.id}" title="${p.label}">
-            <span class="auth-oauth-icon">${p.icon}</span>
-            <span class="auth-oauth-label">${p.label}</span>
-          </button>`).join("")}
-      </div>
-    </div>`;
-}
-
-function renderAuthPremiumLayout({ cardTitle, cardSubtitle, formHtml, footerLink }) {
-  return `
-    <div class="auth-premium">
-      <div class="auth-premium-bg" aria-hidden="true">
-        <div class="auth-gradient"></div>
-        <div class="auth-grid-lines"></div>
-        <div class="auth-particles">${Array.from({ length: 24 }, (_, i) => `<span style="--i:${i}"></span>`).join("")}</div>
-        <div class="auth-neural-ring auth-neural-ring-1"></div>
-        <div class="auth-neural-ring auth-neural-ring-2"></div>
-      </div>
-      <div class="auth-premium-grid">
-        <div class="auth-premium-left">
-          ${renderAuthIllustration()}
-          <h1 class="auth-hero-title">Construisez vos agents IA sans coder</h1>
-          <p class="auth-hero-sub">Créez, entraînez, déployez et monétisez vos agents intelligents sur une seule plateforme.</p>
-          ${renderAuthFeatures()}
-          ${renderAuthStats()}
-        </div>
-        <div class="auth-premium-right">
-          <div class="auth-card">
-            <div class="auth-card-header">
-              <h2>${cardTitle}</h2>
-              ${cardSubtitle ? `<p>${cardSubtitle}</p>` : ""}
-            </div>
-            ${formHtml}
-            ${footerLink}
-            ${renderAuthOAuth()}
-          </div>
-        </div>
-      </div>
-      <p class="auth-banner">Plus de <strong>500 agents</strong> disponibles dans la marketplace Agentia</p>
-    </div>`;
+    <label class="auth-password-wrap">
+      Mot de passe
+      <span class="auth-password-input">
+        <input name="${name}" type="password" required placeholder="${placeholder}" autocomplete="${autocomplete}"${minAttr} />
+        <button type="button" class="auth-password-toggle" aria-label="Afficher le mot de passe" title="Afficher le mot de passe">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </span>
+    </label>`;
 }
 
 function renderInscription() {
@@ -358,8 +257,8 @@ function renderInscription() {
         <label>Nom complet<input name="full_name" required placeholder="Jean Dupont" autocomplete="name" /></label>
         <label>Organisation<input name="organization_name" required placeholder="Mon entreprise" autocomplete="organization" /></label>
         <label>Email<input name="email" type="email" required placeholder="vous@entreprise.com" autocomplete="email" /></label>
-        <label>Mot de passe<input name="password" type="password" minlength="8" required placeholder="8 caractères minimum" autocomplete="new-password" /></label>
-        <button type="submit" class="btn btn-primary btn-block btn-glow">Commencer gratuitement</button>
+        ${renderPasswordField({ name: "password", placeholder: "8 caractères minimum", autocomplete: "new-password", minlength: 8 })}
+        <button type="submit" class="btn btn-primary btn-block btn-glow">Commencer gratuitement →</button>
       </form>`;
   const footerLink = `<p class="auth-link">Déjà inscrit ? <a href="/connexion" data-nav="/connexion">Se connecter</a></p>`;
   return renderAuthPremiumLayout({
@@ -374,14 +273,16 @@ function renderConnexion() {
   const formHtml = `
       <form id="form-login" class="auth-form">
         <label>Email<input name="email" type="email" required placeholder="vous@entreprise.com" autocomplete="email" /></label>
-        <label>Mot de passe<input name="password" type="password" required placeholder="••••••••" autocomplete="current-password" /></label>
-        <label class="auth-remember">
-          <input type="checkbox" name="remember" id="auth-remember" />
-          <span>Se souvenir de moi</span>
-        </label>
-        <button type="submit" class="btn btn-primary btn-block btn-glow">Se connecter</button>
-      </form>
-      <p class="auth-forgot"><a href="#" id="auth-forgot-link">Mot de passe oublié ?</a></p>`;
+        ${renderPasswordField({ name: "password", placeholder: "••••••••", autocomplete: "current-password" })}
+        <div class="auth-form-row">
+          <label class="auth-remember">
+            <input type="checkbox" name="remember" id="auth-remember" />
+            <span>Se souvenir de moi</span>
+          </label>
+          <a href="#" class="auth-forgot" id="auth-forgot-link">Mot de passe oublié ?</a>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block btn-glow">Se connecter →</button>
+      </form>`;
   const footerLink = `<p class="auth-link">Pas encore de compte ? <a href="/inscription" data-nav="/inscription">Créer un compte</a></p>`;
   return renderAuthPremiumLayout({
     cardTitle: "Connexion",
@@ -1070,6 +971,16 @@ function bindAuthEvents() {
   document.querySelectorAll("[data-oauth]").forEach((btn) => {
     btn.addEventListener("click", () => {
       showToast("Connexion OAuth bientôt disponible.");
+    });
+  });
+  document.querySelectorAll(".auth-password-toggle").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const input = btn.closest(".auth-password-input")?.querySelector("input");
+      if (!input) return;
+      const show = input.type === "password";
+      input.type = show ? "text" : "password";
+      btn.setAttribute("aria-label", show ? "Masquer le mot de passe" : "Afficher le mot de passe");
+      btn.classList.toggle("is-visible", show);
     });
   });
   document.getElementById("auth-forgot-link")?.addEventListener("click", (e) => {
