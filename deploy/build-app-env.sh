@@ -1,75 +1,42 @@
 #!/usr/bin/env bash
-# Assemble le fichier .env de production à partir de variables d'environnement (secrets GHA).
-# Ne JAMAIS afficher les valeurs — uniquement les noms des variables écrites.
+# Assemble le .env minimal de production (modèle GiseBsPayGateway).
+# GitHub : SSH + connection string uniquement. JWT/Gemini → secrets.json serveur.
 
 set -euo pipefail
 
 OUT="${1:-/tmp/agentia-os.app.env}"
+APP_ROOT="${APP_ROOT:-/opt/apps/agentia-os}"
 umask 077
 : > "$OUT"
 
-write_if_set() {
-  local name="$1"
-  local value="${!name:-}"
-  if [ -n "$value" ]; then
-    # Valeur sur une ligne ; pas d'expansion shell dans le secret
-    printf '%s=%s\n' "$name" "$value" >> "$OUT"
-    echo "$name"
-  fi
+normalize_db_url() {
+  local raw="$1"
+  python3 "$(dirname "$0")/normalize_db_url.py" "$raw"
 }
 
-WRITTEN=()
-
-append() {
-  local name="$1"
-  if write_if_set "$name" > /dev/null; then
-    WRITTEN+=("$name")
-  fi
-}
-
-# --- Secrets obligatoires en production ---
-append DATABASE_URL
-append JWT_SECRET
-append GEMINI_API_KEY
-
-# --- LLM (Gemini prioritaire si clé présente) ---
-append LLM_PROVIDER
-append GEMINI_MODEL
-append OPENAI_API_KEY
-append OPENAI_BASE_URL
-append OPENAI_MODEL
-
-# --- GiseBsPayGateway ---
-append GISEBS_PAY_GATEWAY_URL
-append GISEBS_PAY_APP_CODE
-append GISEBS_PAY_API_KEY
-append GISEBS_PAY_SUCCESS_URL
-append GISEBS_PAY_CANCEL_URL
-
-# --- Non-secrets (peuvent venir de vars GHA) ---
-append HOST
-append PORT
-append BILLING_CURRENCY
-
-chmod 600 "$OUT"
-echo "Fichier .env généré : ${OUT} (${#WRITTEN[@]} variable(s) : ${WRITTEN[*]})"
-
-if [ -z "${DATABASE_URL:-}" ]; then
-  echo "::error::DATABASE_URL manquant — définir le secret GitHub AGENTIA_OS_DATABASE_URL (PostgreSQL)"
+if [ -z "${CONNECTION_STRING:-}" ] && [ -z "${DATABASE_URL:-}" ]; then
+  echo "::error::Connection string manquante — secret AGENTIA_OS_CONNECTION_STRING ou AGENTIA_OS_DATABASE_URL"
   exit 1
 fi
+
+RAW_DB="${DATABASE_URL:-${CONNECTION_STRING:-}}"
+DATABASE_URL="$(normalize_db_url "$RAW_DB")"
+
 case "${DATABASE_URL}" in
-  postgresql+asyncpg://*|postgresql://*|postgres://*) ;;
+  postgresql+asyncpg://*) ;;
   *)
-    echo "::error::AGENTIA_OS_DATABASE_URL doit être une URL PostgreSQL (ex. postgresql+asyncpg://user:pass@127.0.0.1:5432/agentia)"
-    echo "::error::La chaîne de connexion ne doit jamais être dans le dépôt — secret GitHub uniquement."
+    echo "::error::URL PostgreSQL invalide après conversion"
     exit 1
     ;;
 esac
-if [ -z "${JWT_SECRET:-}" ]; then
-  echo "::error::JWT_SECRET manquant — définir le secret AGENTIA_OS_JWT_SECRET"
-  exit 1
-fi
-if [ -z "${GEMINI_API_KEY:-}" ] && [ -z "${OPENAI_API_KEY:-}" ]; then
-  echo "::warning::Aucune clé LLM (GEMINI_API_KEY / OPENAI_API_KEY) — mode mock en production"
-fi
+
+{
+  printf 'DATABASE_URL=%s\n' "$DATABASE_URL"
+  printf 'AGENTIA_SECRETS_FILE=%s/secrets.json\n' "$APP_ROOT"
+  printf 'HOST=0.0.0.0\n'
+  printf 'PORT=%s\n' "${LISTEN_PORT:-8000}"
+} >> "$OUT"
+
+chmod 600 "$OUT"
+echo "Fichier .env minimal généré : ${OUT} (DATABASE_URL + AGENTIA_SECRETS_FILE)"
+echo "JWT/Gemini/GiseBsPay → voir deploy/SERVER-SECRETS.md (secrets.json sur le serveur)"

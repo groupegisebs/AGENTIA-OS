@@ -68,16 +68,29 @@ jobs:
       - name: Prepare deploy scripts
         run: chmod +x deploy/deploy-gha.sh deploy/gha-env.sh deploy/build-app-env.sh deploy/validate-gha-secrets.sh
 
+      - name: Diagnose secrets (noms acceptés)
+        run: |
+          echo "Dépôt : ${{ github.repository }}"
+          echo ""
+          echo "Secrets SSH (un seul suffit) :"
+          echo "  SSH_PRIVATE_KEY_UBUNTU1      → ${{ secrets.SSH_PRIVATE_KEY_UBUNTU1 != '' && 'OK' || 'manquant' }}"
+          echo "  AGENTIA_OS_SSH_PRIVATE_KEY   → ${{ secrets.AGENTIA_OS_SSH_PRIVATE_KEY != '' && 'OK' || 'manquant' }}"
+          echo ""
+          echo "Connection string (un seul suffit) :"
+          echo "  AGENTIA_OS_CONNECTION_STRING → ${{ secrets.AGENTIA_OS_CONNECTION_STRING != '' && 'OK' || 'manquant' }}"
+          echo "  AGENTIA_OS_DATABASE_URL      → ${{ secrets.AGENTIA_OS_DATABASE_URL != '' && 'OK' || 'manquant' }}"
+          echo ""
+          echo "JWT/Gemini/GiseBsPay → secrets.json sur le serveur (pas GitHub)"
+          echo "Guide : https://github.com/${{ github.repository }}/blob/main/deploy/GITHUB-SECRETS.md"
+
       - name: Validate production secrets
         env:
           AGENTIA_OS_SSH_PRIVATE_KEY: ${{ secrets.AGENTIA_OS_SSH_PRIVATE_KEY }}
           SSH_PRIVATE_KEY_UBUNTU1: ${{ secrets.SSH_PRIVATE_KEY_UBUNTU1 }}
-          DATABASE_URL: ${{ secrets.AGENTIA_OS_DATABASE_URL }}
-          JWT_SECRET: ${{ secrets.AGENTIA_OS_JWT_SECRET }}
-          GEMINI_API_KEY: ${{ secrets.AGENTIA_OS_GEMINI_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          GISEBS_PAY_API_KEY: ${{ secrets.AGENTIA_OS_GISEBS_PAY_API_KEY }}
-          GISEBS_PAY_GATEWAY_URL: ${{ secrets.AGENTIA_OS_GISEBS_PAY_GATEWAY_URL }}
+          AGENTIA_OS_DATABASE_URL: ${{ secrets.AGENTIA_OS_DATABASE_URL }}
+          AGENTIA_OS_CONNECTION_STRING: ${{ secrets.AGENTIA_OS_CONNECTION_STRING }}
+          AGENTIA_OS_JWT_SECRET: ${{ secrets.AGENTIA_OS_JWT_SECRET }}
+          AGENTIA_OS_GEMINI_API_KEY: ${{ secrets.AGENTIA_OS_GEMINI_API_KEY }}
           SSH_HOST: ${{ vars.SSH_HOST_UBUNTU1 || secrets.SSH_HOST_UBUNTU1 || '51.79.53.197' }}
           SSH_USER: ${{ vars.SSH_USER_UBUNTU1 || secrets.SSH_USER_UBUNTU1 || 'ubuntu' }}
           SSH_PORT: ${{ vars.SSH_PORT_UBUNTU1 || secrets.SSH_PORT_UBUNTU1 || '22' }}
@@ -93,6 +106,8 @@ jobs:
           USER_SECRET: ${{ secrets.SSH_USER_UBUNTU1 }}
           PORT_VAR: ${{ vars.SSH_PORT_UBUNTU1 }}
           PORT_SECRET: ${{ secrets.SSH_PORT_UBUNTU1 }}
+          CONN_AGENTIA: ${{ secrets.AGENTIA_OS_CONNECTION_STRING }}
+          CONN_URL: ${{ secrets.AGENTIA_OS_DATABASE_URL }}
           APP_ROOT_VAR: ${{ vars.AGENTIA_OS_APP_ROOT }}
           APP_ROOT_SECRET: ${{ secrets.AGENTIA_OS_APP_ROOT }}
           SERVICE_VAR: ${{ vars.AGENTIA_OS_SERVICE_NAME }}
@@ -116,14 +131,23 @@ jobs:
           SSH_HOST_RAW=$(pick_first "$HOST_VAR" "$HOST_SECRET" "$DEFAULT_SSH_HOST") || true
           SSH_USER_RAW=$(pick_first "$USER_VAR" "$USER_SECRET" "$DEFAULT_SSH_USER") || true
           SSH_PORT_RAW=$(pick_first "$PORT_VAR" "$PORT_SECRET" "$DEFAULT_SSH_PORT") || true
+          CONNECTION_STRING_RAW=$(pick_first "$CONN_AGENTIA" "$CONN_URL") || true
           APP_ROOT_RAW=$(pick_first "$APP_ROOT_VAR" "$APP_ROOT_SECRET" "$DEFAULT_APP_ROOT") || true
           SERVICE_NAME_RAW=$(pick_first "$SERVICE_VAR" "$SERVICE_SECRET" "$DEFAULT_SERVICE_NAME") || true
           LISTEN_PORT_RAW=$(pick_first "$PORT_APP_VAR" "$PORT_APP_SECRET" "$DEFAULT_LISTEN_PORT") || true
 
+          missing=0
           if [ -z "$SSH_PRIVATE_KEY" ]; then
-            echo "::error::Clé SSH manquante (devrait être bloquée par validate-gha-secrets)."
-            exit 1
+            echo "::error::Clé SSH manquante."
+            echo "→ deploy/GITHUB-SECRETS.md"
+            missing=1
           fi
+          if [ -z "$CONNECTION_STRING_RAW" ]; then
+            echo "::error::Connection string PostgreSQL manquante."
+            echo "→ AGENTIA_OS_CONNECTION_STRING avec Database=agentia"
+            missing=1
+          fi
+          [ "$missing" -eq 0 ] || exit 1
 
           gha_write_env SSH_PRIVATE_KEY "$SSH_PRIVATE_KEY"
           gha_write_env SSH_HOST "$(gha_sanitize_host "$SSH_HOST_RAW")"
@@ -133,20 +157,15 @@ jobs:
           gha_write_env SERVICE_NAME "$(gha_sanitize "$SERVICE_NAME_RAW")"
           gha_write_env APP_NAME "$DEFAULT_APP_NAME"
           gha_write_env LISTEN_PORT "$(gha_sanitize "$LISTEN_PORT_RAW")"
+          gha_write_env CONNECTION_STRING "$(gha_sanitize "$CONNECTION_STRING_RAW")"
           echo "OK → ${SSH_USER}@${SSH_HOST}:${SSH_PORT} service=${SERVICE_NAME}"
 
       - name: Build production .env from secrets
         env:
-          DATABASE_URL: ${{ secrets.AGENTIA_OS_DATABASE_URL }}
-          JWT_SECRET: ${{ secrets.AGENTIA_OS_JWT_SECRET }}
-          GEMINI_API_KEY: ${{ secrets.AGENTIA_OS_GEMINI_API_KEY }}
-          GEMINI_MODEL: ${{ vars.AGENTIA_OS_GEMINI_MODEL || 'gemini-2.0-flash' }}
-          LLM_PROVIDER: ${{ vars.AGENTIA_OS_LLM_PROVIDER || 'gemini' }}
-          GISEBS_PAY_GATEWAY_URL: ${{ secrets.AGENTIA_OS_GISEBS_PAY_GATEWAY_URL }}
-          GISEBS_PAY_APP_CODE: ${{ vars.AGENTIA_OS_GISEBS_PAY_APP_CODE || 'AGENTIAOS' }}
-          GISEBS_PAY_API_KEY: ${{ secrets.AGENTIA_OS_GISEBS_PAY_API_KEY }}
-          GISEBS_PAY_SUCCESS_URL: ${{ vars.AGENTIA_OS_GISEBS_PAY_SUCCESS_URL }}
-          GISEBS_PAY_CANCEL_URL: ${{ vars.AGENTIA_OS_GISEBS_PAY_CANCEL_URL }}
+          CONNECTION_STRING: ${{ env.CONNECTION_STRING }}
+          DATABASE_URL: ${{ env.CONNECTION_STRING }}
+          APP_ROOT: ${{ env.APP_ROOT }}
+          LISTEN_PORT: ${{ env.LISTEN_PORT }}
         run: |
           bash deploy/build-app-env.sh /tmp/agentia-os.app.env
           echo "APP_ENV_FILE=/tmp/agentia-os.app.env" >> "$GITHUB_ENV"

@@ -1,53 +1,31 @@
-# Secrets GitHub Actions — Agentia OS
+# Secrets — Agentia OS
 
-**Ne jamais committer de secrets dans le dépôt.** Toutes les valeurs sensibles passent par les **Secrets** du repository GitHub (Settings → Secrets and variables → Actions).
+**Modèle identique à [GiseBsPayGateWay](https://github.com/groupegisebs/GiseBsPayGateWay).**
 
-## Secrets obligatoires (production)
+| Guide | Contenu |
+|-------|---------|
+| **[GITHUB-SECRETS.md](./GITHUB-SECRETS.md)** | 2 secrets GitHub obligatoires (SSH + PostgreSQL) |
+| **[SERVER-SECRETS.md](./SERVER-SECRETS.md)** | JWT, Gemini, GiseBsPay → `secrets.json` sur le serveur |
 
-**Base de données : PostgreSQL uniquement.** La chaîne de connexion complète (utilisateur, mot de passe, hôte, base) est **exclusivement** dans le secret GitHub — jamais dans le code, jamais commitée, jamais saisie à la main sur le serveur.
+## Résumé rapide
 
-| Secret GitHub | Variable `.env` | Description |
-|---------------|-----------------|-------------|
-| `AGENTIA_OS_DATABASE_URL` | `DATABASE_URL` | **Obligatoire.** URL async PostgreSQL, ex. `postgresql+asyncpg://agentia:MOT_DE_PASSE@127.0.0.1:5432/agentia` |
-| `AGENTIA_OS_JWT_SECRET` | `JWT_SECRET` | Chaîne aléatoire longue (≥ 32 caractères) |
-| `AGENTIA_OS_GEMINI_API_KEY` | `GEMINI_API_KEY` | Clé API Google Gemini |
+### GitHub Actions (2 secrets)
 
-## Secrets recommandés
+1. `SSH_PRIVATE_KEY_UBUNTU1` (org) **ou** `AGENTIA_OS_SSH_PRIVATE_KEY`
+2. `AGENTIA_OS_CONNECTION_STRING` **ou** `AGENTIA_OS_DATABASE_URL`
 
-| Secret GitHub | Variable `.env` |
-|---------------|-----------------|
-| `AGENTIA_OS_GISEBS_PAY_API_KEY` | `GISEBS_PAY_API_KEY` |
-| `AGENTIA_OS_GISEBS_PAY_GATEWAY_URL` | `GISEBS_PAY_GATEWAY_URL` |
-| `AGENTIA_OS_SSH_PRIVATE_KEY` | *(déploiement SSH)* |
+Format connection string (comme GiseBsPay) :
 
-## Variables non sensibles (GitHub Variables)
+```
+Host=51.79.53.197;Port=5432;Database=agentia;Username=gisedocuser;Password=...
+```
 
-Peuvent être définies dans **Variables** (pas Secrets) :
+### Serveur Linux (`/opt/apps/agentia-os/secrets.json`)
 
-- `AGENTIA_OS_APP_ROOT`, `AGENTIA_OS_SERVICE_NAME`, `AGENTIA_OS_LISTEN_PORT`
-- `GISEBS_PAY_APP_CODE`, URLs de succès/annulation
+JWT, Gemini, GiseBsPay — voir [secrets.example.json](./secrets.example.json)
 
-## Serveur de déploiement (Linux ubuntu1)
+## Vérifications deploy
 
-Production sur le **serveur Linux BedigaCorps** (`ubuntu1` — `51.79.53.197`) :
-
-- Déploiement SSH + systemd + venv Python
-- PostgreSQL sur le même serveur (ou accessible depuis celui-ci)
-- Secrets **uniquement** dans GitHub Actions → injectés dans `.env` sur le serveur
-
-Guide complet : [deploy/servers/ubuntu1.md](deploy/servers/ubuntu1.md)
-
-## Développement local
-
-1. Copier `.env.example` → `.env` (`.env` est dans `.gitignore`)
-2. En local, SQLite est accepté pour dev ; en **production**, seul PostgreSQL via `AGENTIA_OS_DATABASE_URL`
-3. Renseigner localement `GEMINI_API_KEY`, `JWT_SECRET` (et `DATABASE_URL` si PostgreSQL local)
-4. **Ne jamais** `git add .env` ni mettre la chaîne PostgreSQL dans un fichier du repo
-
-## Vérifications
-
-- `deploy/validate-gha-secrets.sh` — contrôle **tous** les secrets avant deploy (obligatoires + avertissements optionnels)
-- Après deploy : healthcheck + test `POST /auth/register` + présence dans OpenAPI
-- Le workflow `deploy-production.yml` assemble `.env` via `deploy/build-app-env.sh` **sans logger les valeurs**
-- Le fichier `.env` sur le serveur est en mode `600` (propriétaire uniquement)
-- L'endpoint `/health` n'expose **aucune** clé API ni URL de base de données
+- Étape **Diagnose secrets** dans GitHub Actions
+- `deploy/validate-gha-secrets.sh` avant le SSH
+- Post-deploy : `/health` + `POST /auth/register` (≠ 404)

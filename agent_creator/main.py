@@ -33,28 +33,9 @@ API_PATH_PREFIXES = (
     "conversations",
     "organizations",
     "billing",
-    "plans",
+    "plans/",
     "architect/",
-    "health",
-    "openapi.json",
-    "redoc",
-    "static/",
 )
-
-SPA_EXACT_PATHS = frozenset({
-    "/",
-    "/workspace",
-    "/cockpit",
-    "/marketplace",
-    "/architect",
-    "/inscription",
-    "/connexion",
-    "/mon-compte",
-    "/abonnement",
-    "/documentation",
-    "/paiement/succes",
-    "/paiement/annule",
-})
 
 
 @asynccontextmanager
@@ -109,53 +90,58 @@ def _is_api_path(path: str) -> bool:
     normalized = path.lstrip("/")
     if not normalized:
         return False
-    return any(normalized.startswith(prefix.rstrip("/")) for prefix in API_PATH_PREFIXES if prefix != "health") or normalized == "health"
+    if normalized in ("health", "openapi.json"):
+        return True
+    return normalized.startswith(API_PATH_PREFIXES)
 
 
 if STATIC_DIR.is_dir():
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-if SPA_INDEX.is_file():
 
-    @app.get("/")
-    @app.get("/workspace")
-    @app.get("/cockpit")
-    @app.get("/marketplace")
-    @app.get("/architect")
-    @app.get("/inscription")
-    @app.get("/connexion")
-    @app.get("/mon-compte")
-    @app.get("/abonnement")
-    @app.get("/documentation")
-    @app.get("/paiement/succes")
-    @app.get("/paiement/annule")
-    async def spa_sections() -> FileResponse:
-        return _spa_index()
+@app.get("/")
+@app.get("/workspace")
+@app.get("/cockpit")
+@app.get("/marketplace")
+@app.get("/architect")
+@app.get("/inscription")
+@app.get("/connexion")
+@app.get("/mon-compte")
+@app.get("/abonnement")
+@app.get("/documentation")
+@app.get("/paiement/succes")
+@app.get("/paiement/annule")
+async def spa_sections() -> FileResponse:
+    return _spa_index()
 
-    @app.get("/solution/{conversation_id}")
-    @app.get("/editor/{conversation_id}")
-    async def spa_with_id(conversation_id: str) -> FileResponse:
-        return _spa_index()
 
-    @app.get("/{full_path:path}")
-    async def spa_fallback(full_path: str) -> FileResponse:
-        """Routes SPA non listées explicitement (refresh navigateur sur une URL client)."""
-        if _is_api_path(full_path):
-            raise HTTPException(status_code=404, detail="Not Found")
-        if full_path.startswith("docs") or full_path.startswith("redoc"):
-            raise HTTPException(status_code=404, detail="Not Found")
-        return _spa_index()
+@app.get("/solution/{conversation_id}")
+@app.get("/editor/{conversation_id}")
+async def spa_with_id(conversation_id: str) -> FileResponse:
+    return _spa_index()
 
 
 @app.get("/health")
-async def health() -> dict[str, str]:
+async def health() -> dict[str, str | bool]:
     return {
         "status": "ok",
         "service": "agent-creator",
         "version": __version__,
         "llm_mode": llm.mode_label,
         "payment_provider": payment_provider.provider_name,
+        "spa_index": str(SPA_INDEX),
+        "spa_ready": SPA_INDEX.is_file(),
     }
+
+
+@app.get("/{full_path:path}")
+async def spa_fallback(full_path: str) -> FileResponse:
+    """Refresh navigateur sur une route SPA non listée explicitement."""
+    if _is_api_path(full_path):
+        raise HTTPException(status_code=404, detail="Not Found")
+    if full_path.startswith("docs") or full_path.startswith("redoc"):
+        raise HTTPException(status_code=404, detail="Not Found")
+    return _spa_index()
 
 
 def run() -> None:

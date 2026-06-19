@@ -8,6 +8,7 @@ set -euo pipefail
 : "${APP_ROOT:?APP_ROOT requis}"
 : "${SERVICE_NAME:?SERVICE_NAME requis}"
 : "${LISTEN_PORT:=8000}"
+: "${CONNECTION_STRING:?CONNECTION_STRING requis}"
 : "${PUBLISH_DIR:=publish}"
 : "${SSH_PORT:=22}"
 : "${APP_NAME:=Agentia Factory — Agent Creator}"
@@ -25,6 +26,7 @@ SSH_PORT=$(sanitize "${SSH_PORT}")
 APP_ROOT=$(sanitize "${APP_ROOT}")
 SERVICE_NAME=$(sanitize "${SERVICE_NAME}")
 LISTEN_PORT=$(sanitize "${LISTEN_PORT}")
+CONNECTION_STRING=$(sanitize "${CONNECTION_STRING}")
 
 APP_DIR="${APP_ROOT}/app"
 BACKUP_DIR="${APP_ROOT}/backups"
@@ -65,27 +67,27 @@ elif [[ -n "${APP_ENV_CONTENT:-}" ]]; then
   rm -f "${ENV_FILE}"
 fi
 
+DB_NAME="$(printf '%s' "${CONNECTION_STRING}" | sed -n 's/.*[Dd]atabase=\([^;]*\).*/\1/p')"
+if [[ -z "${DB_NAME}" ]]; then
+  DB_NAME="$(python3 "$(dirname "$0")/normalize_db_url.py" "${CONNECTION_STRING}" | sed -n 's|.*/\([^/?]*\).*|\1|p')"
+fi
+DB_NAME="${DB_NAME:-agentia}"
+DB_OWNER="$(printf '%s' "${CONNECTION_STRING}" | sed -n 's/.*[Uu]sername=\([^;]*\).*/\1/p')"
+if [[ -z "${DB_OWNER}" ]]; then
+  DB_OWNER="$(python3 "$(dirname "$0")/normalize_db_url.py" "${CONNECTION_STRING}" | sed -n 's|.*://\([^:]*\):.*|\1|p')"
+fi
+DB_OWNER="${DB_OWNER:-gisedocuser}"
+
 ssh "${SSH_OPTS[@]}" "${SSH_TARGET}" bash -s <<REMOTE_DEPLOY
 set -eu
 echo "Arret ${SERVICE_NAME}..."
 sudo systemctl stop '${SERVICE_NAME}' || true
 sleep 1
 
-sudo rsync -a --delete '${STAGING_REMOTE}/' '${APP_DIR}/'
+sudo rsync -a --delete \
+  --exclude '.env' \
+  '${STAGING_REMOTE}/' '${APP_DIR}/'
 rm -rf '${STAGING_REMOTE}'
-
-if [[ ! -d '${VENV_DIR}' ]]; then
-  python3 -m venv '${VENV_DIR}'
-fi
-'${VENV_DIR}/bin/pip' install --upgrade pip
-'${VENV_DIR}/bin/pip' install -r '${APP_DIR}/requirements.txt'
-
-echo "Initialisation base de donnees..."
-'${VENV_DIR}/bin/python' -c "import asyncio; from agent_creator.db.session import init_db; asyncio.run(init_db())"
-
-if [[ -f "${APP_DIR}/alembic.ini" ]]; then
-  '${VENV_DIR}/bin/alembic' -c '${APP_DIR}/alembic.ini' upgrade head || true
-fi
 
 if [[ -f "/tmp/${SERVICE_NAME}.app.env" ]]; then
   sudo mv "/tmp/${SERVICE_NAME}.app.env" "${APP_DIR}/.env"
@@ -94,12 +96,45 @@ if [[ -f "/tmp/${SERVICE_NAME}.app.env" ]]; then
 fi
 
 if [[ ! -f "${APP_DIR}/.env" ]]; then
-  echo "::error::.env absent — le deploy doit injecter DATABASE_URL depuis le secret AGENTIA_OS_DATABASE_URL"
+  echo "::error::.env absent — voir deploy/GITHUB-SECRETS.md"
   exit 1
 fi
 if ! grep -qE '^DATABASE_URL=postgres(ql([+]asyncpg)?)?://' "${APP_DIR}/.env"; then
-  echo "::error::DATABASE_URL PostgreSQL requis dans .env (secret AGENTIA_OS_DATABASE_URL)"
+  echo "::error::DATABASE_URL PostgreSQL requis dans .env"
   exit 1
+fi
+
+SECRETS_FILE='${APP_ROOT}/secrets.json'
+if [[ ! -f "\${SECRETS_FILE}" ]]; then
+  echo "::warning::\${SECRETS_FILE} absent — deploy/SERVER-SECRETS.md (JWT, Gemini)"
+fi
+
+DB_NAME='${DB_NAME}'
+DB_OWNER='${DB_OWNER}'
+if command -v psql >/dev/null 2>&1; then
+  if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='\${DB_NAME}'" | grep -q 1; then
+    echo "Creation base \${DB_NAME}..."
+    sudo -u postgres psql -v ON_ERROR_STOP=1 -c "CREATE DATABASE \"\${DB_NAME}\" OWNER \${DB_OWNER};" || true
+  fi
+  sudo -u postgres psql -d "\${DB_NAME}" -v ON_ERROR_STOP=1 -c "GRANT ALL ON SCHEMA public TO \${DB_OWNER};" || true
+fi
+
+if [[ ! -d '${VENV_DIR}' ]]; then
+  python3 -m venv '${VENV_DIR}'
+fi
+'${VENV_DIR}/bin/pip' install --upgrade pip
+'${VENV_DIR}/bin/pip' install -r '${APP_DIR}/requirements.txt'
+
+set -a
+# shellcheck disable=SC1091
+source "${APP_DIR}/.env"
+set +a
+
+echo "Initialisation base de donnees..."
+'${VENV_DIR}/bin/python' -c "import asyncio; from agent_creator.db.session import init_db; asyncio.run(init_db())"
+
+if [[ -f "${APP_DIR}/alembic.ini" ]]; then
+  '${VENV_DIR}/bin/alembic' -c '${APP_DIR}/alembic.ini' upgrade head || true
 fi
 
 sudo chown -R ${SSH_USER}:${SSH_USER} '${APP_DIR}'

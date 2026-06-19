@@ -1,87 +1,51 @@
 #!/usr/bin/env bash
-# Vérifie la présence des secrets GitHub Actions avant déploiement.
-# N'affiche jamais les valeurs — uniquement présent / absent / format.
+# Vérifie les 2 secrets GitHub obligatoires (modèle GiseBsPayGateway).
 
 set -euo pipefail
 
 MISSING=0
 
-ok() {
-  echo "OK   $1"
-}
+echo "Dépôt : ${GITHUB_REPOSITORY:-local}"
+echo ""
 
-fail() {
-  echo "::error::$1"
-  MISSING=1
-}
-
-warn() {
-  echo "::warning::$1"
-}
-
-# --- SSH (obligatoire : l'un des deux) ---
+echo "Secrets SSH (un seul suffit) :"
 if [ -n "${AGENTIA_OS_SSH_PRIVATE_KEY:-}" ]; then
-  ok "AGENTIA_OS_SSH_PRIVATE_KEY"
+  echo "  AGENTIA_OS_SSH_PRIVATE_KEY  → OK"
 elif [ -n "${SSH_PRIVATE_KEY_UBUNTU1:-}" ]; then
-  ok "SSH_PRIVATE_KEY_UBUNTU1 (org)"
+  echo "  SSH_PRIVATE_KEY_UBUNTU1     → OK (org)"
 else
-  fail "Clé SSH manquante — définir AGENTIA_OS_SSH_PRIVATE_KEY ou SSH_PRIVATE_KEY_UBUNTU1"
+  echo "  SSH_PRIVATE_KEY_UBUNTU1     → manquant"
+  echo "  AGENTIA_OS_SSH_PRIVATE_KEY  → manquant"
+  echo "::error::Clé SSH manquante — voir deploy/GITHUB-SECRETS.md"
+  MISSING=1
 fi
 
-# --- PostgreSQL (obligatoire) ---
-if [ -z "${DATABASE_URL:-}" ]; then
-  fail "Secret AGENTIA_OS_DATABASE_URL manquant (DATABASE_URL)"
+echo ""
+echo "Connection string (un seul suffit) :"
+if [ -n "${AGENTIA_OS_DATABASE_URL:-}" ]; then
+  echo "  AGENTIA_OS_DATABASE_URL       → OK"
+elif [ -n "${AGENTIA_OS_CONNECTION_STRING:-}" ]; then
+  echo "  AGENTIA_OS_CONNECTION_STRING  → OK"
+elif [ -n "${CONNECTION_STRING:-}" ]; then
+  echo "  CONNECTION_STRING (workflow)  → OK"
 else
-  case "${DATABASE_URL}" in
-    postgresql+asyncpg://*|postgresql://*|postgres://*)
-      ok "AGENTIA_OS_DATABASE_URL (PostgreSQL)"
-      ;;
-    *)
-      fail "AGENTIA_OS_DATABASE_URL doit être une URL PostgreSQL (postgresql+asyncpg://...)"
-      ;;
-  esac
+  echo "  AGENTIA_OS_CONNECTION_STRING  → manquant"
+  echo "  AGENTIA_OS_DATABASE_URL       → manquant"
+  echo "::error::Connection string PostgreSQL manquante — Database=agentia"
+  MISSING=1
 fi
 
-# --- JWT (obligatoire) ---
-if [ -z "${JWT_SECRET:-}" ]; then
-  fail "Secret AGENTIA_OS_JWT_SECRET manquant"
-elif [ "${#JWT_SECRET}" -lt 32 ]; then
-  fail "AGENTIA_OS_JWT_SECRET trop court (minimum 32 caractères)"
-else
-  ok "AGENTIA_OS_JWT_SECRET"
+echo ""
+echo "Secrets serveur (non GitHub — optionnel au deploy) :"
+echo "  secrets.json sur ubuntu1      → JWT, Gemini, GiseBsPay (deploy/SERVER-SECRETS.md)"
+
+if [ -n "${AGENTIA_OS_JWT_SECRET:-}" ] || [ -n "${AGENTIA_OS_GEMINI_API_KEY:-}" ]; then
+  echo "::warning::JWT/Gemini détectés dans GitHub — préférez secrets.json sur le serveur"
 fi
 
-# --- LLM (recommandé) ---
-if [ -z "${GEMINI_API_KEY:-}" ] && [ -z "${OPENAI_API_KEY:-}" ]; then
-  warn "Aucune clé LLM — AGENTIA_OS_GEMINI_API_KEY ou OPENAI_API_KEY (mode mock en production)"
-else
-  [ -n "${GEMINI_API_KEY:-}" ] && ok "AGENTIA_OS_GEMINI_API_KEY"
-  [ -n "${OPENAI_API_KEY:-}" ] && ok "OPENAI_API_KEY"
-fi
+echo ""
+echo "Cible : ${SSH_USER:-ubuntu}@${SSH_HOST:-51.79.53.197}:${SSH_PORT:-22}"
+echo "Guide : deploy/GITHUB-SECRETS.md"
 
-# --- Paiements (recommandé) ---
-if [ -z "${GISEBS_PAY_API_KEY:-}" ]; then
-  warn "AGENTIA_OS_GISEBS_PAY_API_KEY absent — paiements simulés"
-else
-  ok "AGENTIA_OS_GISEBS_PAY_API_KEY"
-fi
-
-if [ -z "${GISEBS_PAY_GATEWAY_URL:-}" ]; then
-  warn "AGENTIA_OS_GISEBS_PAY_GATEWAY_URL absent — paiements simulés"
-else
-  ok "AGENTIA_OS_GISEBS_PAY_GATEWAY_URL"
-fi
-
-# --- Cible SSH (info, défauts workflow) ---
-HOST="${SSH_HOST:-51.79.53.197}"
-USER="${SSH_USER:-ubuntu}"
-PORT="${SSH_PORT:-22}"
-echo "Cible deploy : ${USER}@${HOST}:${PORT}"
-
-if [ "$MISSING" -ne 0 ]; then
-  echo ""
-  echo "Secrets obligatoires manquants — voir deploy/SECRETS.md"
-  exit 1
-fi
-
-echo "Validation secrets OK"
+[ "$MISSING" -eq 0 ] || exit 1
+echo "Validation secrets GitHub OK"

@@ -119,4 +119,10 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    from agent_creator.secrets_loader import load_server_secret_overrides
+
+    settings = Settings()
+    overrides = load_server_secret_overrides()
+    if overrides:
+        settings = settings.model_copy(update=overrides)
+    return settings
