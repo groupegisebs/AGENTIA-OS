@@ -9,10 +9,12 @@ from agent_creator.schemas import (
     MessageResponse,
     SendMessageRequest,
 )
+from agent_creator.schemas_ui import EstimatesResponse
 from agent_creator.schemas_billing import BillingEventResponse, ConfirmPaymentRequest, DeployResponse, DeploymentResponse
-from agent_creator.services.billing import DeploymentLimitExceeded
+from agent_creator.services.billing import BillingService, DeploymentLimitExceeded
 from agent_creator.services.deployment import DeploymentService
 from agent_creator.services.blueprint_generator import BlueprintGenerator
+from agent_creator.services.estimates import build_estimates
 from agent_creator.services.llm import LLMService
 from agent_creator.services.store import ConversationStore
 
@@ -147,6 +149,40 @@ async def send_message(
             created_at=assistant_msg.created_at,
         ),
     )
+
+
+def get_billing_service() -> BillingService:
+    from agent_creator.main import billing_service
+
+    return billing_service
+
+
+def get_org_store():
+    from agent_creator.main import org_store
+
+    return org_store
+
+
+@router.get("/{conversation_id}/estimates", response_model=EstimatesResponse)
+async def get_estimates(
+    conversation_id: str,
+    store: ConversationStore = Depends(get_store),
+    billing: BillingService = Depends(get_billing_service),
+    org_id: str = Depends(get_default_org_id),
+    org_store=Depends(get_org_store),
+) -> EstimatesResponse:
+    """Estimation temps réel (complexité, délai, coût, ROI) pour le workspace."""
+    conversation = store.get(conversation_id)
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation introuvable")
+
+    org = org_store.get(org_id)
+    if not org:
+        raise HTTPException(status_code=404, detail="Organisation introuvable")
+
+    blueprint = store.get_blueprint(conversation_id)
+    data = build_estimates(conversation, blueprint, org, billing)
+    return EstimatesResponse(**data)
 
 
 @router.get("/{conversation_id}/blueprint", response_model=BlueprintResponse)

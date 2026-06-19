@@ -1,12 +1,15 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import AsyncIterator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from agent_creator import __version__
 from agent_creator.config import get_settings
-from agent_creator.routers import conversations, organizations, plans
+from agent_creator.routers import architect, conversations, organizations, plans
 from agent_creator.services.billing import BillingService
 from agent_creator.services.blueprint_generator import BlueprintGenerator
 from agent_creator.services.deployment import DeploymentService
@@ -58,6 +61,30 @@ app.add_middleware(
 app.include_router(conversations.router)
 app.include_router(plans.router)
 app.include_router(organizations.router)
+app.include_router(architect.router)
+
+STATIC_DIR = Path(__file__).parent / "static"
+if STATIC_DIR.is_dir():
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+    def _spa_index() -> FileResponse:
+        return FileResponse(STATIC_DIR / "index.html")
+
+    @app.get("/")
+    async def spa_home() -> FileResponse:
+        return _spa_index()
+
+    @app.get("/workspace")
+    @app.get("/cockpit")
+    @app.get("/marketplace")
+    @app.get("/architect")
+    async def spa_sections() -> FileResponse:
+        return _spa_index()
+
+    @app.get("/solution/{conversation_id}")
+    @app.get("/editor/{conversation_id}")
+    async def spa_with_id(conversation_id: str) -> FileResponse:
+        return _spa_index()
 
 
 @app.get("/health")

@@ -72,7 +72,25 @@ Configurer les produits/plans correspondants dans l'admin GiseBsPayGateway pour 
 uvicorn agent_creator.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Documentation interactive : http://localhost:8000/docs
+### Interface web
+
+Une interface web visuelle est intégrée au serveur FastAPI (HTML/CSS/JS vanilla, sans build Node).
+
+| URL | Description |
+|-----|-------------|
+| http://localhost:8000/ | **Application web** — tableau de bord, chat, blueprint, abonnements, facturation |
+| http://localhost:8000/docs | Documentation API interactive (Swagger) |
+
+**Sections de l'interface :**
+
+- **Tableau de bord** — branding Agentia Factory, plan actuel, quota de déploiements
+- **Créateur d'agent** — dialogue visuel (bulles de chat) pour décrire le besoin métier
+- **Blueprint** — affichage structuré (type de solution, composants, exigences, flux)
+- **Déploiement** — estimation du coût et bouton de déploiement (redirection GiseBsPayGateway si paiement en attente)
+- **Abonnements** — plans Gratuit / Professionnel / Business / Entreprise avec souscription
+- **Facturation** — historique des déploiements et événements de facturation
+
+Documentation API (développeurs) : http://localhost:8000/docs
 
 ## API
 
@@ -186,6 +204,10 @@ AGENTIA-OS/
 │   │   ├── llm.py
 │   │   ├── extractor.py
 │   │   └── blueprint_generator.py
+│   ├── static/                  # Interface web (HTML, CSS, JS)
+│   │   ├── index.html
+│   │   ├── css/styles.css
+│   │   └── js/app.js
 │   └── routers/
 │       ├── conversations.py
 │       ├── plans.py
