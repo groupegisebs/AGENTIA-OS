@@ -44,7 +44,7 @@ jobs:
           bash deploy/check-no-secrets.sh
           ruff check agent_creator tests
           python -c "from agent_creator.main import app"
-          pytest tests -q
+          PYTHONPATH=. pytest tests -q
 
   build-and-deploy:
     name: Build and deploy

@@ -40,4 +40,4 @@ jobs:
         run: python -c "from agent_creator.main import app; print('import ok', app.title)"
 
       - name: Pytest
-        run: pytest tests -q
+        run: PYTHONPATH=. pytest tests -q
