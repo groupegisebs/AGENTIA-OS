@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from agent_creator.dependencies import UserContext, get_current_user, get_db_store
 from agent_creator.db.repository import DbStore
 from agent_creator.schemas_auth import ConfirmBillingRequest
-from agent_creator.schemas_billing import BillingEventResponse, DeployResponse, DeploymentResponse, SubscribeResponse
+from agent_creator.schemas_billing import BillingEventResponse, DeploymentResponse
 from agent_creator.services.billing import BillingService
 from agent_creator.services.payment import create_payment_provider
 from agent_creator.config import get_settings

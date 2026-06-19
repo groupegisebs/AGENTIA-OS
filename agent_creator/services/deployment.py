@@ -1,8 +1,8 @@
 from agent_creator.db.repository import DbStore
-from agent_creator.models.billing import BillingEvent, BillingEventStatus, BillingEventType
+from agent_creator.models.billing import BillingEvent, BillingEventStatus
 from agent_creator.models.deployment import Deployment, DeploymentStatus
 from agent_creator.models.organization import Organization
-from agent_creator.models.subscription import SubscriptionPlan, SubscriptionPlanConfig
+from agent_creator.models.subscription import SubscriptionPlanConfig
 from agent_creator.services.billing import BillingService
 from agent_creator.services.plans import get_plan_config, list_plans
 

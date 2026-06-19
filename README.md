@@ -54,17 +54,37 @@ cp .env.example .env   # ou copier manuellement sur Windows
 
 Sans `OPENAI_API_KEY`, le service fonctionne en **mode mock** (réponses rule-based, démo hors-ligne). Sans configuration **GiseBsPayGateway**, la facturation utilise un **fournisseur simulé** (aucune clé API requise).
 
+## Comptes et authentification
+
+| Méthode | Endpoint | Description |
+|---------|----------|-------------|
+| `POST` | `/auth/register` | Inscription (crée user + org plan Gratuit + JWT) |
+| `POST` | `/auth/login` | Connexion |
+| `GET` | `/auth/me` | Profil, organisation, plan et quotas |
+
+Toutes les routes `/conversations`, `/organizations` et `/billing` requièrent `Authorization: Bearer <token>`.
+
 ## Paiements (GiseBsPayGateway)
 
 Les abonnements et les frais de déploiement passent par [GiseBsPayGateway](https://github.com/BedigaCorps/GiseBsPayGateWay) lorsque les variables `GISEBS_PAY_GATEWAY_URL`, `GISEBS_PAY_APP_CODE` et `GISEBS_PAY_API_KEY` sont définies.
 
 | Flux | Endpoint | Comportement |
 |------|----------|--------------|
-| Abonnement | `POST /organizations/{id}/subscribe` | Crée une session checkout (`AGENT-SUB` + plan mensuel) |
-| Déploiement | `POST /conversations/{id}/deploy` | Crée une session one-time (`AGENT-DEPLOY` / `ONE-TIME`) |
-| Confirmation | `POST /conversations/{id}/deploy/confirm` | Vérifie le paiement et finalise le déploiement |
+| Abonnement | `POST /organizations/me/subscribe` | Session checkout (`AGENT-SUB` + plan mensuel) |
+| Confirmation abonnement | `POST /organizations/me/subscribe/confirm` | Active le plan après paiement |
+| Déploiement | `POST /conversations/{id}/deploy` | Session one-time (`AGENT-DEPLOY` / `DEPLOY-S|M|L`) |
+| Confirmation unifiée | `POST /billing/confirm` | Confirme abonnement ou déploiement |
+| Polling statut | `GET /billing/payments/{code}/status` | Vérification côté frontend |
+
+**Tiers déploiement GiseBsPay :** `DEPLOY-S` (29 €), `DEPLOY-M` (49 €), `DEPLOY-L` (79 €) selon la complexité.
 
 Configurer les produits/plans correspondants dans l'admin GiseBsPayGateway pour l'application `AGENTIAOS`.
+
+## Persistance
+
+- **SQLite** par défaut (`DATABASE_URL=sqlite+aiosqlite:///./data/agentia.db`)
+- **PostgreSQL** en production : `postgresql+asyncpg://user:pass@host:5432/agentia`
+- Migrations : `alembic upgrade head` (ou `init_db` au démarrage)
 
 ## Lancer le serveur
 
@@ -81,14 +101,14 @@ Une interface web visuelle est intégrée au serveur FastAPI (HTML/CSS/JS vanill
 | http://localhost:8000/ | **Application web** — tableau de bord, chat, blueprint, abonnements, facturation |
 | http://localhost:8000/docs | Documentation API interactive (Swagger) |
 
-**Sections de l'interface :**
+**Parcours utilisateur :**
 
-- **Tableau de bord** — branding Agentia Factory, plan actuel, quota de déploiements
-- **Créateur d'agent** — dialogue visuel (bulles de chat) pour décrire le besoin métier
-- **Blueprint** — affichage structuré (type de solution, composants, exigences, flux)
-- **Déploiement** — estimation du coût et bouton de déploiement (redirection GiseBsPayGateway si paiement en attente)
-- **Abonnements** — plans Gratuit / Professionnel / Business / Entreprise avec souscription
-- **Facturation** — historique des déploiements et événements de facturation
+- **Inscription / Connexion** — compte + organisation (plan Gratuit)
+- **Accueil** — décrire le besoin métier, concevoir la solution
+- **Workspace** — dialogue avec l'architecte digital, architecture live, estimations
+- **Solution proposée** — résumé exécutif, vue métier, déploiement
+- **Mon compte / Abonnements** — plan actuel, upgrade via GiseBsPayGateway
+- **Supervision** — solutions déployées et facturation réelle
 
 Documentation API (développeurs) : http://localhost:8000/docs
 

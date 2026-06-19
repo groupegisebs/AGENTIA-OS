@@ -16,6 +16,18 @@ def anyio_backend() -> str:
     return "asyncio"
 
 
+@pytest.fixture(autouse=True)
+async def setup_database():
+    import agent_creator.db.session as db_session
+
+    db_session._engine = None
+    db_session._async_session_factory = None
+    from agent_creator.db.session import init_db
+
+    await init_db()
+    yield
+
+
 @pytest.fixture
 async def client():
     from agent_creator.main import app

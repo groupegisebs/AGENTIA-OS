@@ -29,9 +29,10 @@ blueprint_generator = BlueprintGenerator(extractor)
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     Path("data").mkdir(exist_ok=True)
     await init_db()
-    mode = "mock (hors-ligne)" if llm.is_mock_mode else f"OpenAI ({settings.openai_model})"
+    llm_mode = llm.mode_label
     pay_mode = payment_provider.provider_name
-    print(f"Agent Creator démarré — LLM : {mode} — paiement : {pay_mode} — DB : {settings.database_url.split('://')[0]}")
+    db_scheme = settings.database_url.split("://", 1)[0]
+    print(f"Agent Creator démarré — LLM : {llm_mode} — paiement : {pay_mode} — DB : {db_scheme}")
     yield
 
 
@@ -93,7 +94,7 @@ async def health() -> dict[str, str]:
         "status": "ok",
         "service": "agent-creator",
         "version": __version__,
-        "llm_mode": "mock" if llm.is_mock_mode else "openai",
+        "llm_mode": llm.mode_label,
         "payment_provider": payment_provider.provider_name,
     }
 

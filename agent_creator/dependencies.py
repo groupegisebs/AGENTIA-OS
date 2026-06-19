@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 
@@ -73,7 +75,7 @@ async def get_optional_user(
         return None
 
 
-async def get_deployment_service(db: DbStore = Depends(get_db_store)) -> "DeploymentService":
+async def get_deployment_service(db: DbStore = Depends(get_db_store)):
     from agent_creator.main import billing_service
     from agent_creator.services.deployment import DeploymentService
 

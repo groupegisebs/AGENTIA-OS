@@ -24,7 +24,7 @@ async def test_register_login_and_me(client) -> None:
     data = me.json()
     assert data["user"]["email"] == "test@example.com"
     assert data["organization"]["name"] == "Cabinet Test"
-    assert data["plan_name"] == "Free"
+    assert data["plan_name"] == "Gratuit"
 
     login = await client.post(
         "/auth/login",

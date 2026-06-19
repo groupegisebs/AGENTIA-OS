@@ -11,14 +11,20 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     openai_base_url: str = "https://api.openai.com/v1"
     openai_model: str = "gpt-4o-mini"
+
+    # Google Gemini (prioritaire en production si LLM_PROVIDER=gemini ou clé seule)
+    gemini_api_key: str | None = None
+    gemini_model: str = "gemini-2.0-flash"
+    llm_provider: str = "auto"  # auto | gemini | openai | mock
+
     host: str = "0.0.0.0"
     port: int = 8000
 
-    # Base de données (SQLite local par défaut, PostgreSQL en production)
+    # Base de données — en production : uniquement via secret GHA (DATABASE_URL)
     database_url: str = "sqlite+aiosqlite:///./data/agentia.db"
 
-    # Authentification JWT
-    jwt_secret: str = "change-me-in-production-agentia-os"
+    # Authentification JWT — en production : secret GHA obligatoire
+    jwt_secret: str = "dev-only-change-in-production"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24 * 7
 
@@ -49,8 +55,47 @@ class Settings(BaseSettings):
     gisebs_pay_request_timeout_seconds: float = 30.0
 
     @property
-    def llm_enabled(self) -> bool:
+    def gemini_enabled(self) -> bool:
+        return bool(self.gemini_api_key and self.gemini_api_key.strip())
+
+    @property
+    def openai_enabled(self) -> bool:
         return bool(self.openai_api_key and self.openai_api_key.strip())
+
+    @property
+    def llm_enabled(self) -> bool:
+        provider = (self.llm_provider or "auto").lower()
+        if provider == "mock":
+            return False
+        if provider == "gemini":
+            return self.gemini_enabled
+        if provider == "openai":
+            return self.openai_enabled
+        return self.gemini_enabled or self.openai_enabled
+
+    @property
+    def active_llm_provider(self) -> str:
+        provider = (self.llm_provider or "auto").lower()
+        if provider == "mock" or not self.llm_enabled:
+            return "mock"
+        if provider == "openai" and self.openai_enabled:
+            return "openai"
+        if provider == "gemini" and self.gemini_enabled:
+            return "gemini"
+        if provider == "auto":
+            if self.gemini_enabled:
+                return "gemini"
+            if self.openai_enabled:
+                return "openai"
+        return "mock"
+
+    @property
+    def is_production_secrets_ok(self) -> bool:
+        """True si JWT et DATABASE ne sont pas les valeurs de dev par défaut."""
+        return (
+            self.jwt_secret != "dev-only-change-in-production"
+            and "agentia.db" not in self.database_url
+        )
 
     @property
     def gisebs_pay_configured(self) -> bool:

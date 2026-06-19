@@ -1,6 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
 
-from agent_creator.models.subscription import SubscriptionPlan
 from agent_creator.schemas_billing import OrganizationResponse
 
 

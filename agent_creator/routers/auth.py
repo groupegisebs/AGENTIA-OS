@@ -6,14 +6,12 @@ from agent_creator.dependencies import (
     get_auth_service,
     get_current_user,
     get_db,
-    get_db_store,
     get_deployment_service,
 )
 from agent_creator.schemas_auth import AuthMeResponse, LoginRequest, RegisterRequest, TokenResponse, UserResponse
 from agent_creator.schemas_billing import OrganizationResponse
 from agent_creator.services.auth import AuthError, AuthService
 from agent_creator.services.deployment import DeploymentService
-from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/auth", tags=["authentification"])
 

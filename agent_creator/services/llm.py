@@ -27,9 +27,15 @@ class LLMService:
     def is_mock_mode(self) -> bool:
         return not self._settings.llm_enabled
 
+    @property
+    def mode_label(self) -> str:
+        return self._settings.active_llm_provider
+
     async def chat(self, messages: list[dict[str, str]]) -> str:
         if self.is_mock_mode:
             return self._mock_chat(messages)
+        if self._settings.active_llm_provider == "gemini":
+            return await self._gemini_chat(messages)
         return await self._openai_chat(messages)
 
     async def structured_completion(
@@ -44,7 +50,10 @@ class LLMService:
             {"role": "system", "content": f"{system_prompt}\n\nRéponds uniquement en JSON valide.\n{schema_hint}"},
             {"role": "user", "content": user_prompt},
         ]
-        raw = await self._openai_chat(payload_messages, json_mode=True)
+        if self._settings.active_llm_provider == "gemini":
+            raw = await self._gemini_chat(payload_messages, json_mode=True)
+        else:
+            raw = await self._openai_chat(payload_messages, json_mode=True)
         try:
             return json.loads(raw)
         except json.JSONDecodeError:
@@ -52,6 +61,37 @@ class LLMService:
             if match:
                 return json.loads(match.group())
             raise
+
+    async def _gemini_chat(self, messages: list[dict[str, str]], json_mode: bool = False) -> str:
+        """Appel Google Gemini — clé via GEMINI_API_KEY (secret GHA, jamais loggée)."""
+        system_parts: list[str] = []
+        contents: list[dict[str, Any]] = []
+        for msg in messages:
+            if msg["role"] == "system":
+                system_parts.append(msg["content"])
+                continue
+            role = "user" if msg["role"] == "user" else "model"
+            contents.append({"role": role, "parts": [{"text": msg["content"]}]})
+
+        body: dict[str, Any] = {"contents": contents}
+        if system_parts:
+            body["systemInstruction"] = {"parts": [{"text": "\n".join(system_parts)}]}
+        if json_mode:
+            body["generationConfig"] = {"responseMimeType": "application/json"}
+
+        model = self._settings.gemini_model
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+        params = {"key": self._settings.gemini_api_key}
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(url, params=params, json=body)
+            response.raise_for_status()
+            data = response.json()
+            candidates = data.get("candidates") or []
+            if not candidates:
+                raise RuntimeError("Réponse Gemini vide")
+            parts = candidates[0].get("content", {}).get("parts") or []
+            return "".join(p.get("text", "") for p in parts)
 
     async def _openai_chat(self, messages: list[dict[str, str]], json_mode: bool = False) -> str:
         headers = {

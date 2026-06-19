@@ -41,7 +41,7 @@ def get_billing_service() -> BillingService:
 
 
 def _llm_mode_label(llm: LLMService) -> str:
-    return "mock" if llm.is_mock_mode else "openai"
+    return llm.mode_label
 
 
 async def _assistant_reply(conversation: Conversation, llm: LLMService) -> str:
