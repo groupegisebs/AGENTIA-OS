@@ -1,0 +1,148 @@
+name: Deploy Production
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-agentia-os
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.11"
+  DEFAULT_SSH_HOST: "51.79.53.197"
+  DEFAULT_SSH_USER: "ubuntu"
+  DEFAULT_SSH_PORT: "22"
+  DEFAULT_APP_ROOT: "/opt/apps/agentia-os"
+  DEFAULT_SERVICE_NAME: "agentia-os"
+  DEFAULT_LISTEN_PORT: "8000"
+  DEFAULT_APP_NAME: "Agentia Factory — Agent Creator"
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Test
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install ruff pytest pytest-asyncio httpx
+          ruff check agent_creator tests
+          python -c "from agent_creator.main import app"
+          pytest tests -q
+
+  build-and-deploy:
+    name: Build and deploy
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare publish bundle
+        run: |
+          mkdir -p publish
+          cp -r agent_creator publish/
+          cp requirements.txt publish/
+          cp -r deploy publish/deploy 2>/dev/null || true
+          test -f publish/requirements.txt
+
+      - name: Prepare deploy scripts
+        run: chmod +x deploy/deploy-gha.sh deploy/gha-env.sh
+
+      - name: Load configuration
+        env:
+          KEY_UBUNTU1: ${{ secrets.SSH_PRIVATE_KEY_UBUNTU1 }}
+          KEY_AGENTIA: ${{ secrets.AGENTIA_OS_SSH_PRIVATE_KEY }}
+          HOST_VAR: ${{ vars.SSH_HOST_UBUNTU1 }}
+          HOST_SECRET: ${{ secrets.SSH_HOST_UBUNTU1 }}
+          USER_VAR: ${{ vars.SSH_USER_UBUNTU1 }}
+          USER_SECRET: ${{ secrets.SSH_USER_UBUNTU1 }}
+          PORT_VAR: ${{ vars.SSH_PORT_UBUNTU1 }}
+          PORT_SECRET: ${{ secrets.SSH_PORT_UBUNTU1 }}
+          APP_ROOT_VAR: ${{ vars.AGENTIA_OS_APP_ROOT }}
+          APP_ROOT_SECRET: ${{ secrets.AGENTIA_OS_APP_ROOT }}
+          SERVICE_VAR: ${{ vars.AGENTIA_OS_SERVICE_NAME }}
+          SERVICE_SECRET: ${{ secrets.AGENTIA_OS_SERVICE_NAME }}
+          PORT_APP_VAR: ${{ vars.AGENTIA_OS_LISTEN_PORT }}
+          PORT_APP_SECRET: ${{ secrets.AGENTIA_OS_LISTEN_PORT }}
+          APP_ENV: ${{ secrets.AGENTIA_OS_APP_ENV }}
+        run: |
+          source deploy/gha-env.sh
+
+          pick_first() {
+            for v in "$@"; do
+              if [ -n "$v" ]; then
+                printf '%s' "$v"
+                return 0
+              fi
+            done
+            return 1
+          }
+
+          SSH_PRIVATE_KEY=$(pick_first "$KEY_AGENTIA" "$KEY_UBUNTU1") || true
+          SSH_HOST_RAW=$(pick_first "$HOST_VAR" "$HOST_SECRET" "$DEFAULT_SSH_HOST") || true
+          SSH_USER_RAW=$(pick_first "$USER_VAR" "$USER_SECRET" "$DEFAULT_SSH_USER") || true
+          SSH_PORT_RAW=$(pick_first "$PORT_VAR" "$PORT_SECRET" "$DEFAULT_SSH_PORT") || true
+          APP_ROOT_RAW=$(pick_first "$APP_ROOT_VAR" "$APP_ROOT_SECRET" "$DEFAULT_APP_ROOT") || true
+          SERVICE_NAME_RAW=$(pick_first "$SERVICE_VAR" "$SERVICE_SECRET" "$DEFAULT_SERVICE_NAME") || true
+          LISTEN_PORT_RAW=$(pick_first "$PORT_APP_VAR" "$PORT_APP_SECRET" "$DEFAULT_LISTEN_PORT") || true
+
+          missing=0
+          if [ -z "$SSH_PRIVATE_KEY" ]; then
+            echo "::error::Clé SSH manquante (AGENTIA_OS_SSH_PRIVATE_KEY ou SSH_PRIVATE_KEY_UBUNTU1)."
+            missing=1
+          fi
+          [ "$missing" -eq 0 ] || exit 1
+
+          gha_write_env SSH_PRIVATE_KEY "$SSH_PRIVATE_KEY"
+          gha_write_env SSH_HOST "$(gha_sanitize_host "$SSH_HOST_RAW")"
+          gha_write_env SSH_USER "$(gha_sanitize "$SSH_USER_RAW")"
+          gha_write_env SSH_PORT "$(gha_sanitize "$SSH_PORT_RAW")"
+          gha_write_env APP_ROOT "$(gha_sanitize "$APP_ROOT_RAW")"
+          gha_write_env SERVICE_NAME "$(gha_sanitize "$SERVICE_NAME_RAW")"
+          gha_write_env APP_NAME "$DEFAULT_APP_NAME"
+          gha_write_env LISTEN_PORT "$(gha_sanitize "$LISTEN_PORT_RAW")"
+          gha_write_env APP_ENV_CONTENT "$(gha_sanitize "$APP_ENV")"
+          echo "OK → ${SSH_USER}@${SSH_HOST}:${SSH_PORT} service=${SERVICE_NAME}"
+
+      - name: Setup SSH key
+        id: ssh
+        run: |
+          mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/deploy_key"
+          chmod 600 "$HOME/.ssh/deploy_key"
+          ssh-keygen -y -f "$HOME/.ssh/deploy_key" > /dev/null 2>&1 || {
+            echo "::error::Clé SSH invalide"
+            exit 1
+          }
+          echo "SSH_KEY_PATH=$HOME/.ssh/deploy_key" >> "$GITHUB_ENV"
+
+      - name: Add server to known_hosts
+        run: ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> "$HOME/.ssh/known_hosts"
+
+      - name: Deploy
+        env:
+          SSH_KEY_PATH: ${{ env.SSH_KEY_PATH }}
+          PUBLISH_DIR: publish
+        run: bash deploy/deploy-gha.sh
+
+      - name: Service status
+        if: always() && steps.ssh.outcome == 'success'
+        run: |
+          ssh -i "$SSH_KEY_PATH" -p "$SSH_PORT" -o BatchMode=yes "${SSH_USER}@${SSH_HOST}" \
+            "sudo systemctl status ${SERVICE_NAME} --no-pager || true"
