@@ -55,8 +55,11 @@ REMOTE_BACKUP
 ssh "${SSH_OPTS[@]}" "${SSH_TARGET}" "mkdir -p '${STAGING_REMOTE}'"
 scp "${SCP_OPTS[@]}" -r "${PUBLISH_DIR}/." "${SSH_TARGET}:${STAGING_REMOTE}/"
 
-if [[ -n "${APP_ENV_CONTENT:-}" ]]; then
+if [[ -n "${APP_ENV_FILE:-}" && -f "${APP_ENV_FILE}" ]]; then
+  scp "${SCP_OPTS[@]}" "${APP_ENV_FILE}" "${SSH_TARGET}:/tmp/${SERVICE_NAME}.app.env"
+elif [[ -n "${APP_ENV_CONTENT:-}" ]]; then
   ENV_FILE="$(mktemp)"
+  umask 077
   printf '%s\n' "${APP_ENV_CONTENT}" > "${ENV_FILE}"
   scp "${SCP_OPTS[@]}" "${ENV_FILE}" "${SSH_TARGET}:/tmp/${SERVICE_NAME}.app.env"
   rm -f "${ENV_FILE}"

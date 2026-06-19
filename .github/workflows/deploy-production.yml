@@ -62,7 +62,7 @@ jobs:
           test -f publish/requirements.txt
 
       - name: Prepare deploy scripts
-        run: chmod +x deploy/deploy-gha.sh deploy/gha-env.sh
+        run: chmod +x deploy/deploy-gha.sh deploy/gha-env.sh deploy/build-app-env.sh
 
       - name: Load configuration
         env:
@@ -80,7 +80,6 @@ jobs:
           SERVICE_SECRET: ${{ secrets.AGENTIA_OS_SERVICE_NAME }}
           PORT_APP_VAR: ${{ vars.AGENTIA_OS_LISTEN_PORT }}
           PORT_APP_SECRET: ${{ secrets.AGENTIA_OS_LISTEN_PORT }}
-          APP_ENV: ${{ secrets.AGENTIA_OS_APP_ENV }}
         run: |
           source deploy/gha-env.sh
 
@@ -117,8 +116,23 @@ jobs:
           gha_write_env SERVICE_NAME "$(gha_sanitize "$SERVICE_NAME_RAW")"
           gha_write_env APP_NAME "$DEFAULT_APP_NAME"
           gha_write_env LISTEN_PORT "$(gha_sanitize "$LISTEN_PORT_RAW")"
-          gha_write_env APP_ENV_CONTENT "$(gha_sanitize "$APP_ENV")"
           echo "OK → ${SSH_USER}@${SSH_HOST}:${SSH_PORT} service=${SERVICE_NAME}"
+
+      - name: Build production .env from secrets
+        env:
+          DATABASE_URL: ${{ secrets.AGENTIA_OS_DATABASE_URL }}
+          JWT_SECRET: ${{ secrets.AGENTIA_OS_JWT_SECRET }}
+          GEMINI_API_KEY: ${{ secrets.AGENTIA_OS_GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.AGENTIA_OS_GEMINI_MODEL || 'gemini-2.0-flash' }}
+          LLM_PROVIDER: ${{ vars.AGENTIA_OS_LLM_PROVIDER || 'gemini' }}
+          GISEBS_PAY_GATEWAY_URL: ${{ secrets.AGENTIA_OS_GISEBS_PAY_GATEWAY_URL }}
+          GISEBS_PAY_APP_CODE: ${{ vars.AGENTIA_OS_GISEBS_PAY_APP_CODE || 'AGENTIAOS' }}
+          GISEBS_PAY_API_KEY: ${{ secrets.AGENTIA_OS_GISEBS_PAY_API_KEY }}
+          GISEBS_PAY_SUCCESS_URL: ${{ vars.AGENTIA_OS_GISEBS_PAY_SUCCESS_URL }}
+          GISEBS_PAY_CANCEL_URL: ${{ vars.AGENTIA_OS_GISEBS_PAY_CANCEL_URL }}
+        run: |
+          bash deploy/build-app-env.sh /tmp/agentia-os.app.env
+          echo "APP_ENV_FILE=/tmp/agentia-os.app.env" >> "$GITHUB_ENV"
 
       - name: Setup SSH key
         id: ssh
@@ -139,6 +153,7 @@ jobs:
         env:
           SSH_KEY_PATH: ${{ env.SSH_KEY_PATH }}
           PUBLISH_DIR: publish
+          APP_ENV_FILE: ${{ env.APP_ENV_FILE }}
         run: bash deploy/deploy-gha.sh
 
       - name: Service status
