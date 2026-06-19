@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 class BillingEventType(str, Enum):
     DEPLOYMENT_CHARGE = "deployment_charge"
+    SUBSCRIPTION = "subscription"
     SUBSCRIPTION_RENEWAL = "subscription_renewal"
     REFUND = "refund"
 

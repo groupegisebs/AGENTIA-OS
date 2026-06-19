@@ -45,6 +45,7 @@ class PaymentProvider(ABC):
         metadata: dict | None = None,
         customer_email: str | None = None,
         organization_id: str | None = None,
+        deploy_plan_code: str | None = None,
     ) -> ChargeResult:
         ...
 
@@ -91,6 +92,7 @@ class MockPaymentProvider(PaymentProvider):
         metadata: dict | None = None,
         customer_email: str | None = None,
         organization_id: str | None = None,
+        deploy_plan_code: str | None = None,
     ) -> ChargeResult:
         import random
 
@@ -135,6 +137,9 @@ class MockPaymentProvider(PaymentProvider):
     def charges(self) -> list[dict]:
         return list(self._charges)
 
+    async def confirm_payment(self, payment_code: str) -> ChargeResult:
+        return ChargeResult(success=True, charge_id=payment_code, payment_code=payment_code)
+
 
 class GiseBsPayGatewayProvider(PaymentProvider):
     """Facturation via GiseBsPayGateway (checkout Stripe + abonnements)."""
@@ -159,10 +164,12 @@ class GiseBsPayGatewayProvider(PaymentProvider):
         metadata: dict | None = None,
         customer_email: str | None = None,
         organization_id: str | None = None,
+        deploy_plan_code: str | None = None,
     ) -> ChargeResult:
         org_id = organization_id or customer_id or "unknown"
         email = customer_email or f"{org_id}@agentia.factory"
         customer_code = customer_id or f"AF-{org_id}"
+        plan_code = deploy_plan_code or self._settings.gisebs_pay_deployment_plan_code
 
         charge_metadata = {
             "type": "deployment_charge",
@@ -177,7 +184,7 @@ class GiseBsPayGatewayProvider(PaymentProvider):
                 customer_code=customer_code,
                 email=email,
                 product_code=self._settings.gisebs_pay_deployment_product_code,
-                plan_code=self._settings.gisebs_pay_deployment_plan_code,
+                plan_code=plan_code,
                 full_name=customer_code,
                 external_user_id=org_id,
                 metadata=charge_metadata,

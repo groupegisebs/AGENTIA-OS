@@ -26,6 +26,7 @@ class ConversationStatus(str, Enum):
 
 class Conversation(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
+    organization_id: str = ""
     title: str | None = None
     status: ConversationStatus = ConversationStatus.ACTIVE
     messages: list[Message] = Field(default_factory=list)

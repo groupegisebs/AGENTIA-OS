@@ -77,6 +77,13 @@ fi
 '${VENV_DIR}/bin/pip' install --upgrade pip
 '${VENV_DIR}/bin/pip' install -r '${APP_DIR}/requirements.txt'
 
+echo "Initialisation base de donnees..."
+'${VENV_DIR}/bin/python' -c "import asyncio; from agent_creator.db.session import init_db; asyncio.run(init_db())"
+
+if [[ -f "${APP_DIR}/alembic.ini" ]]; then
+  '${VENV_DIR}/bin/alembic' -c '${APP_DIR}/alembic.ini' upgrade head || true
+fi
+
 if [[ -f "/tmp/${SERVICE_NAME}.app.env" ]]; then
   sudo mv "/tmp/${SERVICE_NAME}.app.env" "${APP_DIR}/.env"
   sudo chmod 600 "${APP_DIR}/.env"

@@ -9,25 +9,17 @@ from fastapi.staticfiles import StaticFiles
 
 from agent_creator import __version__
 from agent_creator.config import get_settings
-from agent_creator.routers import architect, conversations, organizations, plans
+from agent_creator.db.session import init_db
+from agent_creator.routers import architect, auth, billing, conversations, organizations, plans
 from agent_creator.services.billing import BillingService
 from agent_creator.services.blueprint_generator import BlueprintGenerator
-from agent_creator.services.deployment import DeploymentService
 from agent_creator.services.extractor import RequirementExtractor
 from agent_creator.services.llm import LLMService
-from agent_creator.services.organization_store import OrganizationStore
 from agent_creator.services.payment import create_payment_provider
-from agent_creator.services.store import ConversationStore
 
 settings = get_settings()
-store = ConversationStore()
-org_store = OrganizationStore(
-    default_org_id=settings.default_organization_id,
-    default_org_name=settings.default_organization_name,
-)
 payment_provider = create_payment_provider(settings)
 billing_service = BillingService(settings, payment_provider)
-deployment_service = DeploymentService(store, org_store, billing_service)
 llm = LLMService(settings)
 extractor = RequirementExtractor(llm)
 blueprint_generator = BlueprintGenerator(extractor)
@@ -35,17 +27,19 @@ blueprint_generator = BlueprintGenerator(extractor)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    Path("data").mkdir(exist_ok=True)
+    await init_db()
     mode = "mock (hors-ligne)" if llm.is_mock_mode else f"OpenAI ({settings.openai_model})"
     pay_mode = payment_provider.provider_name
-    print(f"Agent Creator démarré — mode LLM : {mode} — paiement : {pay_mode}")
+    print(f"Agent Creator démarré — LLM : {mode} — paiement : {pay_mode} — DB : {settings.database_url.split('://')[0]}")
     yield
 
 
 app = FastAPI(
     title="Agentia Factory — Agent Creator",
     description=(
-        "Agentia Factory — SaaS avec abonnement et facturation au déploiement. "
-        "Dialogue naturel → blueprint (gratuit) → déploiement d'agent (facturable)."
+        "Agentia Factory — SaaS avec comptes, abonnement et facturation au déploiement. "
+        "Dialogue naturel → blueprint (gratuit) → déploiement (facturable)."
     ),
     version=__version__,
     lifespan=lifespan,
@@ -58,12 +52,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
+app.include_router(billing.router)
 app.include_router(conversations.router)
 app.include_router(plans.router)
 app.include_router(organizations.router)
 app.include_router(architect.router)
 
 STATIC_DIR = Path(__file__).parent / "static"
+
 if STATIC_DIR.is_dir():
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
@@ -71,13 +68,16 @@ if STATIC_DIR.is_dir():
         return FileResponse(STATIC_DIR / "index.html")
 
     @app.get("/")
-    async def spa_home() -> FileResponse:
-        return _spa_index()
-
     @app.get("/workspace")
     @app.get("/cockpit")
     @app.get("/marketplace")
     @app.get("/architect")
+    @app.get("/inscription")
+    @app.get("/connexion")
+    @app.get("/mon-compte")
+    @app.get("/abonnement")
+    @app.get("/paiement/succes")
+    @app.get("/paiement/annule")
     async def spa_sections() -> FileResponse:
         return _spa_index()
 

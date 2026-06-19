@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from agent_creator.config import Settings
+from agent_creator.db.repository import DbStore, PaymentIntent, PaymentIntentStatus, PaymentIntentType, new_payment_intent
 from agent_creator.models.billing import BillingEvent, BillingEventStatus, BillingEventType
 from agent_creator.models.blueprint import Blueprint
 from agent_creator.models.deployment import Deployment, DeploymentStatus
@@ -34,6 +35,13 @@ class BillingService:
         if blueprint.solution_type.value in ("hybrid", "microservice"):
             base += 0.2
         return round(base, 2)
+
+    def resolve_deploy_plan_code(self, complexity_score: float) -> str:
+        if complexity_score <= 1.15:
+            return self._settings.gisebs_pay_deploy_plan_small
+        if complexity_score <= 1.45:
+            return self._settings.gisebs_pay_deploy_plan_medium
+        return self._settings.gisebs_pay_deploy_plan_large
 
     def calculate_deployment_cost(self, organization: Organization, blueprint: Blueprint) -> float:
         plan_config = get_plan_config(organization.plan)
@@ -84,18 +92,21 @@ class BillingService:
 
     async def charge_deployment(
         self,
+        db: DbStore,
         organization: Organization,
         deployment: Deployment,
-        blueprint_title: str,
-    ) -> BillingEvent:
+        blueprint: Blueprint,
+    ) -> tuple[BillingEvent, PaymentIntent | None]:
         event = BillingEvent(
             organization_id=organization.id,
             event_type=BillingEventType.DEPLOYMENT_CHARGE,
             amount=deployment.deployment_cost,
             currency=self.CURRENCY,
             deployment_id=deployment.id,
-            description=f"Déploiement agent : {blueprint_title}",
+            description=f"Déploiement solution : {blueprint.title}",
         )
+
+        plan_code = self.resolve_deploy_plan_code(deployment.complexity_score)
 
         result = await self._payment.create_charge(
             amount=deployment.deployment_cost,
@@ -106,10 +117,15 @@ class BillingService:
                 "deployment_id": deployment.id,
                 "organization_id": organization.id,
                 "conversation_id": deployment.conversation_id,
+                "complexity_score": deployment.complexity_score,
+                "deploy_plan_code": plan_code,
             },
             customer_email=organization.billing_email,
             organization_id=organization.id,
+            deploy_plan_code=plan_code,
         )
+
+        payment_intent: PaymentIntent | None = None
 
         if result.success:
             event.status = BillingEventStatus.SUCCEEDED
@@ -124,20 +140,31 @@ class BillingService:
             deployment.status = DeploymentStatus.BILLING
             deployment.billing_event_id = event.id
             deployment.error_message = result.error_message
+            payment_intent = new_payment_intent(
+                organization_id=organization.id,
+                intent_type=PaymentIntentType.DEPLOY,
+                status=PaymentIntentStatus.PENDING,
+                payment_code=result.payment_code,
+                amount=deployment.deployment_cost,
+                currency=self.CURRENCY,
+                conversation_id=deployment.conversation_id,
+                deployment_id=deployment.id,
+                billing_event_id=event.id,
+            )
         else:
             event.status = BillingEventStatus.FAILED
             deployment.status = DeploymentStatus.FAILED
             deployment.error_message = result.error_message
 
-        return event
+        return event, payment_intent
 
     async def confirm_deployment_payment(
         self,
+        db: DbStore,
         deployment: Deployment,
         billing_event: BillingEvent,
         payment_code: str,
     ) -> BillingEvent:
-        """Finalise un déploiement dont le paiement était en attente (GiseBsPayGateway)."""
         result = await self._payment.confirm_payment(payment_code)
         if not result.success:
             billing_event.status = BillingEventStatus.PENDING
@@ -149,22 +176,30 @@ class BillingService:
         deployment.status = DeploymentStatus.DEPLOYED
         deployment.billed_at = datetime.utcnow()
         deployment.error_message = None
+
+        intent = await db.get_payment_intent_by_code(payment_code)
+        if intent:
+            intent.status = PaymentIntentStatus.SUCCEEDED
+            await db.save_payment_intent(intent)
+
         return billing_event
 
     async def create_subscription_checkout(
         self,
+        db: DbStore,
         organization: Organization,
         target_plan: SubscriptionPlan,
-    ) -> SubscriptionCheckoutResult:
+    ) -> tuple[SubscriptionCheckoutResult, PaymentIntent | None]:
         if target_plan == SubscriptionPlan.FREE:
             organization.plan = SubscriptionPlan.FREE
             organization.touch()
-            return SubscriptionCheckoutResult(success=True)
+            await db.save_organization(organization)
+            return SubscriptionCheckoutResult(success=True), None
 
         email = organization.billing_email or f"{organization.id}@agentia.factory"
         customer_code = organization.stripe_customer_id or f"AF-{organization.id}"
 
-        return await self._payment.create_subscription_checkout(
+        result = await self._payment.create_subscription_checkout(
             organization_id=organization.id,
             customer_code=customer_code,
             email=email,
@@ -172,10 +207,99 @@ class BillingService:
             full_name=organization.name,
         )
 
+        payment_intent = None
+        if result.success and result.payment_code:
+            plan_config = get_plan_config(target_plan)
+            payment_intent = new_payment_intent(
+                organization_id=organization.id,
+                intent_type=PaymentIntentType.SUBSCRIBE,
+                status=PaymentIntentStatus.PENDING,
+                payment_code=result.payment_code,
+                amount=plan_config.monthly_price_eur,
+                currency=self.CURRENCY,
+                target_plan=target_plan.value,
+            )
+
+        return result, payment_intent
+
+    async def confirm_subscription_payment(
+        self,
+        db: DbStore,
+        organization: Organization,
+        payment_code: str,
+        target_plan: SubscriptionPlan | None = None,
+    ) -> Organization:
+        intent = await db.get_payment_intent_by_code(payment_code)
+        if intent and intent.organization_id != organization.id:
+            raise ValueError("Paiement non associé à cette organisation")
+
+        plan = target_plan
+        if intent and intent.target_plan:
+            plan = SubscriptionPlan(intent.target_plan)
+        if not plan:
+            raise ValueError("Plan cible introuvable pour cette confirmation")
+
+        result = await self._payment.confirm_payment(payment_code)
+        if not result.success:
+            raise ValueError(result.error_message or "Paiement non finalisé")
+
+        organization.plan = plan
+        organization.touch()
+        await db.save_organization(organization)
+
+        event = BillingEvent(
+            organization_id=organization.id,
+            event_type=BillingEventType.SUBSCRIPTION,
+            status=BillingEventStatus.SUCCEEDED,
+            amount=get_plan_config(plan).monthly_price_eur,
+            currency=self.CURRENCY,
+            description=f"Abonnement {get_plan_config(plan).name}",
+            payment_provider_charge_id=payment_code,
+        )
+        await db.save_billing_event(event)
+
+        if intent:
+            intent.status = PaymentIntentStatus.SUCCEEDED
+            await db.save_payment_intent(intent)
+
+        return organization
+
+    async def confirm_payment_unified(
+        self,
+        db: DbStore,
+        organization: Organization,
+        payment_code: str,
+    ) -> dict:
+        intent = await db.get_payment_intent_by_code(payment_code)
+        if not intent or intent.organization_id != organization.id:
+            raise ValueError("Intention de paiement introuvable")
+
+        if intent.intent_type == PaymentIntentType.SUBSCRIBE:
+            org = await self.confirm_subscription_payment(
+                db, organization, payment_code,
+                SubscriptionPlan(intent.target_plan) if intent.target_plan else None,
+            )
+            return {"type": "subscribe", "organization": org, "success": True}
+
+        if intent.intent_type == PaymentIntentType.DEPLOY and intent.conversation_id:
+            deployments = await db.list_deployments_for_conversation(intent.conversation_id)
+            pending = next((d for d in deployments if d.status == DeploymentStatus.BILLING), None)
+            if not pending:
+                raise ValueError("Déploiement en attente introuvable")
+            billing_event = await db.get_billing_event(pending.billing_event_id or "")
+            if not billing_event:
+                raise ValueError("Événement de facturation introuvable")
+            billing_event = await self.confirm_deployment_payment(db, pending, billing_event, payment_code)
+            await db.save_billing_event(billing_event)
+            await db.save_deployment(pending)
+            return {"type": "deploy", "deployment": pending, "billing_event": billing_event, "success": True}
+
+        raise ValueError("Type de paiement non pris en charge")
+
     def estimate_deployment_cost_message(self, organization: Organization, blueprint: Blueprint) -> str:
         cost = self.calculate_deployment_cost(organization, blueprint)
         plan_name = get_plan_config(organization.plan).name
         return (
-            f"Le déploiement de cet agent coûtera environ {cost:.2f} {self.CURRENCY} "
-            f"(plan {plan_name}). La génération du blueprint reste gratuite."
+            f"Le déploiement de cette solution coûtera environ {cost:.2f} {self.CURRENCY} "
+            f"(plan {plan_name}). La conception reste gratuite."
         )

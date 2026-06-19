@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 
+from agent_creator.dependencies import UserContext, get_current_user, get_db_store, get_deployment_service
+from agent_creator.db.repository import DbStore
 from agent_creator.models.conversation import Conversation, ConversationStatus, MessageRole
 from agent_creator.schemas import (
     AssistantReplyResponse,
@@ -12,19 +14,12 @@ from agent_creator.schemas import (
 from agent_creator.schemas_ui import EstimatesResponse
 from agent_creator.schemas_billing import BillingEventResponse, ConfirmPaymentRequest, DeployResponse, DeploymentResponse
 from agent_creator.services.billing import BillingService, DeploymentLimitExceeded
-from agent_creator.services.deployment import DeploymentService
 from agent_creator.services.blueprint_generator import BlueprintGenerator
+from agent_creator.services.deployment import DeploymentService
 from agent_creator.services.estimates import build_estimates
 from agent_creator.services.llm import LLMService
-from agent_creator.services.store import ConversationStore
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
-
-
-def get_store() -> ConversationStore:
-    from agent_creator.main import store
-
-    return store
 
 
 def get_llm() -> LLMService:
@@ -39,26 +34,17 @@ def get_blueprint_generator() -> BlueprintGenerator:
     return blueprint_generator
 
 
-def get_deployment_service() -> DeploymentService:
-    from agent_creator.main import deployment_service
+def get_billing_service() -> BillingService:
+    from agent_creator.main import billing_service
 
-    return deployment_service
-
-
-def get_default_org_id() -> str:
-    from agent_creator.main import org_store
-
-    return org_store.default_org_id
+    return billing_service
 
 
 def _llm_mode_label(llm: LLMService) -> str:
     return "mock" if llm.is_mock_mode else "openai"
 
 
-async def _assistant_reply(
-    conversation: Conversation,
-    llm: LLMService,
-) -> str:
+async def _assistant_reply(conversation: Conversation, llm: LLMService) -> str:
     messages = [{"role": "system", "content": llm.SYSTEM_PROMPT}]
     for msg in conversation.messages:
         messages.append({"role": msg.role.value, "content": msg.content})
@@ -68,11 +54,11 @@ async def _assistant_reply(
 @router.post("", response_model=AssistantReplyResponse, status_code=201)
 async def create_conversation(
     body: CreateConversationRequest,
-    store: ConversationStore = Depends(get_store),
+    ctx: UserContext = Depends(get_current_user),
+    db: DbStore = Depends(get_db_store),
     llm: LLMService = Depends(get_llm),
 ) -> AssistantReplyResponse:
-    """Démarre une nouvelle conversation avec le premier message utilisateur."""
-    conversation = Conversation()
+    conversation = Conversation(organization_id=ctx.organization.id)
     conversation.add_message(MessageRole.USER, body.message)
 
     reply = await _assistant_reply(conversation, llm)
@@ -85,7 +71,7 @@ async def create_conversation(
         req = await extractor.extract(conversation)
         conversation.clarifying_questions = req.missing_information[:5]
 
-    store.create(conversation)
+    await db.create_conversation(conversation)
     mode = _llm_mode_label(llm)
     return AssistantReplyResponse(
         conversation=ConversationResponse.from_conversation(conversation, mode),
@@ -100,20 +86,23 @@ async def create_conversation(
 
 @router.get("", response_model=list[ConversationResponse])
 async def list_conversations(
-    store: ConversationStore = Depends(get_store),
+    ctx: UserContext = Depends(get_current_user),
+    db: DbStore = Depends(get_db_store),
     llm: LLMService = Depends(get_llm),
 ) -> list[ConversationResponse]:
     mode = _llm_mode_label(llm)
-    return [ConversationResponse.from_conversation(c, mode) for c in store.list_all()]
+    convos = await db.list_conversations(ctx.organization.id)
+    return [ConversationResponse.from_conversation(c, mode) for c in convos]
 
 
 @router.get("/{conversation_id}", response_model=ConversationResponse)
 async def get_conversation(
     conversation_id: str,
-    store: ConversationStore = Depends(get_store),
+    ctx: UserContext = Depends(get_current_user),
+    db: DbStore = Depends(get_db_store),
     llm: LLMService = Depends(get_llm),
 ) -> ConversationResponse:
-    conversation = store.get(conversation_id)
+    conversation = await db.get_conversation(conversation_id, ctx.organization.id)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation introuvable")
     return ConversationResponse.from_conversation(conversation, _llm_mode_label(llm))
@@ -123,11 +112,11 @@ async def get_conversation(
 async def send_message(
     conversation_id: str,
     body: SendMessageRequest,
-    store: ConversationStore = Depends(get_store),
+    ctx: UserContext = Depends(get_current_user),
+    db: DbStore = Depends(get_db_store),
     llm: LLMService = Depends(get_llm),
 ) -> AssistantReplyResponse:
-    """Continue le dialogue avec un nouveau message utilisateur."""
-    conversation = store.get(conversation_id)
+    conversation = await db.get_conversation(conversation_id, ctx.organization.id)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation introuvable")
 
@@ -138,7 +127,7 @@ async def send_message(
     if len(conversation.user_messages) >= 2:
         conversation.status = ConversationStatus.READY_FOR_BLUEPRINT
 
-    store.save(conversation)
+    await db.save_conversation(conversation)
     mode = _llm_mode_label(llm)
     return AssistantReplyResponse(
         conversation=ConversationResponse.from_conversation(conversation, mode),
@@ -151,66 +140,48 @@ async def send_message(
     )
 
 
-def get_billing_service() -> BillingService:
-    from agent_creator.main import billing_service
-
-    return billing_service
-
-
-def get_org_store():
-    from agent_creator.main import org_store
-
-    return org_store
-
-
 @router.get("/{conversation_id}/estimates", response_model=EstimatesResponse)
 async def get_estimates(
     conversation_id: str,
-    store: ConversationStore = Depends(get_store),
+    ctx: UserContext = Depends(get_current_user),
+    db: DbStore = Depends(get_db_store),
     billing: BillingService = Depends(get_billing_service),
-    org_id: str = Depends(get_default_org_id),
-    org_store=Depends(get_org_store),
 ) -> EstimatesResponse:
-    """Estimation temps réel (complexité, délai, coût, ROI) pour le workspace."""
-    conversation = store.get(conversation_id)
+    conversation = await db.get_conversation(conversation_id, ctx.organization.id)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation introuvable")
 
-    org = org_store.get(org_id)
-    if not org:
-        raise HTTPException(status_code=404, detail="Organisation introuvable")
-
-    blueprint = store.get_blueprint(conversation_id)
-    data = build_estimates(conversation, blueprint, org, billing)
+    blueprint = await db.get_blueprint(conversation_id)
+    data = build_estimates(conversation, blueprint, ctx.organization, billing)
     return EstimatesResponse(**data)
 
 
 @router.get("/{conversation_id}/blueprint", response_model=BlueprintResponse)
 async def get_blueprint(
     conversation_id: str,
-    store: ConversationStore = Depends(get_store),
+    ctx: UserContext = Depends(get_current_user),
+    db: DbStore = Depends(get_db_store),
     llm: LLMService = Depends(get_llm),
     generator: BlueprintGenerator = Depends(get_blueprint_generator),
-    org_id: str = Depends(get_default_org_id),
+    billing: BillingService = Depends(get_billing_service),
 ) -> BlueprintResponse:
-    """Génère et retourne le blueprint de solution pour la conversation (gratuit)."""
-    conversation = store.get(conversation_id)
+    conversation = await db.get_conversation(conversation_id, ctx.organization.id)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation introuvable")
 
     if not conversation.user_messages:
         raise HTTPException(status_code=400, detail="La conversation ne contient aucun message utilisateur")
 
-    existing = store.get_blueprint(conversation_id)
+    existing = await db.get_blueprint(conversation_id)
     if existing:
         blueprint = existing
     else:
         blueprint = await generator.generate(conversation)
         conversation.status = ConversationStatus.BLUEPRINT_GENERATED
-        store.save(conversation)
-        store.save_blueprint(blueprint)
+        await db.save_conversation(conversation)
+        await db.save_blueprint(blueprint)
 
-    deployment_hint = _deployment_hint(org_id, blueprint)
+    deployment_hint = billing.estimate_deployment_cost_message(ctx.organization, blueprint)
     return BlueprintResponse(
         blueprint=blueprint,
         llm_mode=_llm_mode_label(llm),
@@ -221,13 +192,12 @@ async def get_blueprint(
 @router.post("/{conversation_id}/deploy", response_model=DeployResponse, status_code=201)
 async def deploy_conversation(
     conversation_id: str,
+    ctx: UserContext = Depends(get_current_user),
     deployment_service: DeploymentService = Depends(get_deployment_service),
-    org_id: str = Depends(get_default_org_id),
 ) -> DeployResponse:
-    """Déploie l'agent à partir du blueprint — action facturable (paiement à chaque déploiement)."""
     try:
         deployment, billing_event = await deployment_service.deploy_blueprint(
-            conversation_id, org_id
+            conversation_id, ctx.organization.id
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -245,7 +215,7 @@ async def deploy_conversation(
         return DeployResponse(
             deployment=DeploymentResponse.from_deployment(deployment),
             billing_event=None,
-            message="Cet agent est déjà déployé pour cette conversation.",
+            message="Cette solution est déjà déployée pour cette conversation.",
         )
 
     if deployment.status.value == "failed":
@@ -261,10 +231,7 @@ async def deploy_conversation(
         return DeployResponse(
             deployment=DeploymentResponse.from_deployment(deployment),
             billing_event=BillingEventResponse.from_event(billing_event),
-            message=(
-                "Paiement en attente — finalisez le checkout GiseBsPayGateway "
-                f"puis confirmez avec POST /conversations/{conversation_id}/deploy/confirm."
-            ),
+            message="Paiement en attente — finalisez le checkout puis confirmez.",
             checkout_url=billing_event.checkout_url,
             payment_code=billing_event.payment_provider_charge_id,
             payment_pending=True,
@@ -273,9 +240,7 @@ async def deploy_conversation(
     return DeployResponse(
         deployment=DeploymentResponse.from_deployment(deployment),
         billing_event=BillingEventResponse.from_event(billing_event),
-        message=(
-            f"Déploiement réussi — {deployment.deployment_cost:.2f} {deployment.currency} facturés."
-        ),
+        message=f"Déploiement réussi — {deployment.deployment_cost:.2f} {deployment.currency} facturés.",
     )
 
 
@@ -283,13 +248,12 @@ async def deploy_conversation(
 async def confirm_deployment_payment(
     conversation_id: str,
     body: ConfirmPaymentRequest,
+    ctx: UserContext = Depends(get_current_user),
     deployment_service: DeploymentService = Depends(get_deployment_service),
-    org_id: str = Depends(get_default_org_id),
 ) -> DeployResponse:
-    """Confirme un paiement GiseBsPayGateway en attente et finalise le déploiement."""
     try:
         deployment, billing_event = await deployment_service.confirm_deployment_payment(
-            conversation_id, org_id, body.payment_code
+            conversation_id, ctx.organization.id, body.payment_code
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -306,16 +270,5 @@ async def confirm_deployment_payment(
     return DeployResponse(
         deployment=DeploymentResponse.from_deployment(deployment),
         billing_event=BillingEventResponse.from_event(billing_event),
-        message=(
-            f"Déploiement confirmé — {deployment.deployment_cost:.2f} {deployment.currency} facturés."
-        ),
+        message=f"Déploiement confirmé — {deployment.deployment_cost:.2f} {deployment.currency} facturés.",
     )
-
-
-def _deployment_hint(org_id: str, blueprint) -> str | None:
-    from agent_creator.main import billing_service, org_store
-
-    org = org_store.get(org_id)
-    if not org:
-        return None
-    return billing_service.estimate_deployment_cost_message(org, blueprint)

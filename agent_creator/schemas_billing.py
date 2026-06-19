@@ -176,6 +176,11 @@ class ConfirmPaymentRequest(BaseModel):
     payment_code: str
 
 
+class SubscribeConfirmRequest(BaseModel):
+    payment_code: str
+    plan: SubscriptionPlan | None = None
+
+
 class BillingSummaryResponse(BaseModel):
     organization: OrganizationResponse
     plan_name: str

@@ -14,6 +14,14 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
 
+    # Base de données (SQLite local par défaut, PostgreSQL en production)
+    database_url: str = "sqlite+aiosqlite:///./data/agentia.db"
+
+    # Authentification JWT
+    jwt_secret: str = "change-me-in-production-agentia-os"
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: int = 60 * 24 * 7
+
     # Facturation SaaS (devise : EUR)
     default_organization_id: str = "org-demo-0001"
     default_organization_name: str = "Organisation démo"
@@ -28,7 +36,10 @@ class Settings(BaseSettings):
     gisebs_pay_success_url: str = "http://localhost:8000/paiement/succes"
     gisebs_pay_cancel_url: str = "http://localhost:8000/paiement/annule"
     gisebs_pay_deployment_product_code: str = "AGENT-DEPLOY"
-    gisebs_pay_deployment_plan_code: str = "ONE-TIME"
+    gisebs_pay_deployment_plan_code: str = "DEPLOY-M"
+    gisebs_pay_deploy_plan_small: str = "DEPLOY-S"
+    gisebs_pay_deploy_plan_medium: str = "DEPLOY-M"
+    gisebs_pay_deploy_plan_large: str = "DEPLOY-L"
     gisebs_pay_subscription_product_code: str = "AGENT-SUB"
     gisebs_pay_plan_professional: str = "MONTHLY-PRO"
     gisebs_pay_plan_business: str = "MONTHLY-BUSINESS"
