@@ -30,6 +30,9 @@ jobs:
           pip install -r requirements.txt
           pip install ruff pytest pytest-asyncio httpx
 
+      - name: Check no secrets in repo
+        run: bash deploy/check-no-secrets.sh
+
       - name: Ruff
         run: ruff check agent_creator tests
 

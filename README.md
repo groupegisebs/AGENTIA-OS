@@ -52,7 +52,9 @@ pip install -r requirements.txt
 cp .env.example .env   # ou copier manuellement sur Windows
 ```
 
-Sans `OPENAI_API_KEY`, le service fonctionne en **mode mock** (réponses rule-based, démo hors-ligne). Sans configuration **GiseBsPayGateway**, la facturation utilise un **fournisseur simulé** (aucune clé API requise).
+Sans `GEMINI_API_KEY` ni `OPENAI_API_KEY`, le service fonctionne en **mode mock** (réponses rule-based). Sans configuration **GiseBsPayGateway**, la facturation utilise un **fournisseur simulé**.
+
+> **Sécurité** : ne jamais committer `.env` ni de clés API. En production, voir [deploy/SECRETS.md](deploy/SECRETS.md).
 
 ## Comptes et authentification
 
@@ -247,16 +249,16 @@ AGENTIA-OS/
 
 ## Configuration
 
-| Variable | Description | Défaut |
-|----------|-------------|--------|
-| `OPENAI_API_KEY` | Clé API | *(vide = mock)* |
-| `DEFAULT_ORGANIZATION_ID` | Tenant MVP | `org-demo-0001` |
-| `DEPLOYMENT_BASE_FEE` | Override frais de base (0 = plan) | `0` |
-| `DEPLOYMENT_COMPLEXITY_MULTIPLIER` | Majoration par composant | `0.15` |
-| `BILLING_CURRENCY` | Devise | `EUR` |
-| `GISEBS_PAY_GATEWAY_URL` | URL GiseBsPayGateway | *(vide = mock)* |
-| `GISEBS_PAY_APP_CODE` | Code application cliente | `AGENTIAOS` |
-| `GISEBS_PAY_API_KEY` | Clé API application | *(vide = mock)* |
+| Variable | Secret GHA | Description |
+|----------|------------|-------------|
+| `DATABASE_URL` | `AGENTIA_OS_DATABASE_URL` | PostgreSQL production (**obligatoire**) |
+| `JWT_SECRET` | `AGENTIA_OS_JWT_SECRET` | Signature JWT (**obligatoire**) |
+| `GEMINI_API_KEY` | `AGENTIA_OS_GEMINI_API_KEY` | Clé Google Gemini (**obligatoire prod**) |
+| `GEMINI_MODEL` | variable `AGENTIA_OS_GEMINI_MODEL` | Modèle Gemini (défaut `gemini-2.0-flash`) |
+| `LLM_PROVIDER` | variable `AGENTIA_OS_LLM_PROVIDER` | `gemini`, `openai`, `auto`, `mock` |
+| `GISEBS_PAY_API_KEY` | `AGENTIA_OS_GISEBS_PAY_API_KEY` | Paiements GiseBsPayGateway |
+
+Liste complète : [deploy/SECRETS.md](deploy/SECRETS.md)
 
 ## Déploiement (GitHub Actions)
 
@@ -277,13 +279,18 @@ Le dépôt suit le même modèle que les autres projets BedigaCorps (SSH vers `u
 
 | Secret | Description |
 |--------|-------------|
+| `AGENTIA_OS_DATABASE_URL` | URL PostgreSQL (`postgresql+asyncpg://...`) — **jamais dans le repo** |
+| `AGENTIA_OS_JWT_SECRET` | Secret JWT (chaîne aléatoire longue) |
+| `AGENTIA_OS_GEMINI_API_KEY` | Clé API Google Gemini — **jamais dans le repo** |
 | `AGENTIA_OS_SSH_PRIVATE_KEY` ou `SSH_PRIVATE_KEY_UBUNTU1` | Clé SSH de déploiement |
-| `SSH_HOST_UBUNTU1` (variable ou secret) | Hôte (défaut `51.79.53.197`) |
-| `SSH_USER_UBUNTU1` | Utilisateur SSH (défaut `ubuntu`) |
-| `AGENTIA_OS_APP_ROOT` | Répertoire (défaut `/opt/apps/agentia-os`) |
-| `AGENTIA_OS_SERVICE_NAME` | Service systemd (défaut `agentia-os`) |
-| `AGENTIA_OS_LISTEN_PORT` | Port (défaut `8000`) |
-| `AGENTIA_OS_APP_ENV` | Contenu multiligne du fichier `.env` de production |
+| `AGENTIA_OS_GISEBS_PAY_API_KEY` | Clé GiseBsPayGateway (optionnel) |
+| `AGENTIA_OS_GISEBS_PAY_GATEWAY_URL` | URL gateway paiement (optionnel) |
+
+Le workflow assemble `.env` via `deploy/build-app-env.sh` **sans afficher les valeurs** dans les logs.
+
+Variables non sensibles (GitHub **Variables**) : `SSH_HOST_UBUNTU1`, `AGENTIA_OS_APP_ROOT`, `AGENTIA_OS_GEMINI_MODEL`, etc.
+
+Voir [deploy/SECRETS.md](deploy/SECRETS.md) pour la procédure complète.
 
 ### Docker (optionnel)
 
