@@ -55,9 +55,17 @@ chmod 600 "$OUT"
 echo "Fichier .env généré : ${OUT} (${#WRITTEN[@]} variable(s) : ${WRITTEN[*]})"
 
 if [ -z "${DATABASE_URL:-}" ]; then
-  echo "::error::DATABASE_URL manquant — définir le secret AGENTIA_OS_DATABASE_URL"
+  echo "::error::DATABASE_URL manquant — définir le secret GitHub AGENTIA_OS_DATABASE_URL (PostgreSQL)"
   exit 1
 fi
+case "${DATABASE_URL}" in
+  postgresql+asyncpg://*|postgresql://*|postgres://*) ;;
+  *)
+    echo "::error::AGENTIA_OS_DATABASE_URL doit être une URL PostgreSQL (ex. postgresql+asyncpg://user:pass@127.0.0.1:5432/agentia)"
+    echo "::error::La chaîne de connexion ne doit jamais être dans le dépôt — secret GitHub uniquement."
+    exit 1
+    ;;
+esac
 if [ -z "${JWT_SECRET:-}" ]; then
   echo "::error::JWT_SECRET manquant — définir le secret AGENTIA_OS_JWT_SECRET"
   exit 1

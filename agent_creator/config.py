@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
 
-    # Base de données — en production : uniquement via secret GHA (DATABASE_URL)
+    # Base de données — production : PostgreSQL via secret GHA AGENTIA_OS_DATABASE_URL
     database_url: str = "sqlite+aiosqlite:///./data/agentia.db"
 
     # Authentification JWT — en production : secret GHA obligatoire
@@ -90,12 +90,14 @@ class Settings(BaseSettings):
         return "mock"
 
     @property
+    def is_postgresql(self) -> bool:
+        url = self.database_url.lower()
+        return url.startswith(("postgresql+asyncpg://", "postgresql://", "postgres://"))
+
+    @property
     def is_production_secrets_ok(self) -> bool:
-        """True si JWT et DATABASE ne sont pas les valeurs de dev par défaut."""
-        return (
-            self.jwt_secret != "dev-only-change-in-production"
-            and "agentia.db" not in self.database_url
-        )
+        """True si JWT fort et DATABASE_URL PostgreSQL (secret GHA)."""
+        return self.jwt_secret != "dev-only-change-in-production" and self.is_postgresql
 
     @property
     def gisebs_pay_configured(self) -> bool:

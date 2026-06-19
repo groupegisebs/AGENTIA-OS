@@ -84,8 +84,9 @@ Configurer les produits/plans correspondants dans l'admin GiseBsPayGateway pour 
 
 ## Persistance
 
-- **SQLite** par défaut (`DATABASE_URL=sqlite+aiosqlite:///./data/agentia.db`)
-- **PostgreSQL** en production : `postgresql+asyncpg://user:pass@host:5432/agentia`
+- **Production** : **PostgreSQL** — chaîne de connexion dans le secret GitHub `AGENTIA_OS_DATABASE_URL` uniquement (jamais dans le repo)
+- **Développement local** : SQLite par défaut (`.env` gitignored)
+- Format production : `postgresql+asyncpg://user:pass@127.0.0.1:5432/agentia`
 - Migrations : `alembic upgrade head` (ou `init_db` au démarrage)
 
 ## Lancer le serveur
@@ -260,9 +261,18 @@ AGENTIA-OS/
 
 Liste complète : [deploy/SECRETS.md](deploy/SECRETS.md)
 
-## Déploiement (GitHub Actions)
+## Déploiement (GitHub Actions → serveur Linux ubuntu1)
 
-Le dépôt suit le même modèle que les autres projets BedigaCorps (SSH vers `ubuntu1`, service systemd).
+Production sur **ubuntu1** (`51.79.53.197`) — même infrastructure que ComptaDoc-PME et GiseBsPayGateway.
+
+| Élément | Valeur |
+|---------|--------|
+| Serveur | Linux Ubuntu (`ubuntu@51.79.53.197`) |
+| Chemin app | `/opt/apps/agentia-os` |
+| Service | `agentia-os` (systemd) |
+| Port | `8000` |
+
+Guide détaillé : [deploy/servers/ubuntu1.md](deploy/servers/ubuntu1.md)
 
 ### CI (`ci.yml`)
 

@@ -93,6 +93,16 @@ if [[ -f "/tmp/${SERVICE_NAME}.app.env" ]]; then
   sudo chown ${SSH_USER}:${SSH_USER} "${APP_DIR}/.env"
 fi
 
+if [[ ! -f "${APP_DIR}/.env" ]]; then
+  echo "::error::.env absent — le deploy doit injecter DATABASE_URL depuis le secret AGENTIA_OS_DATABASE_URL"
+  exit 1
+fi
+if ! grep -qE '^DATABASE_URL=postgresql(\+asyncpg)?://' "${APP_DIR}/.env" \
+   && ! grep -qE '^DATABASE_URL=postgres://' "${APP_DIR}/.env"; then
+  echo "::error::DATABASE_URL PostgreSQL requis dans .env (secret AGENTIA_OS_DATABASE_URL)"
+  exit 1
+fi
+
 sudo chown -R ${SSH_USER}:${SSH_USER} '${APP_DIR}'
 REMOTE_DEPLOY
 
