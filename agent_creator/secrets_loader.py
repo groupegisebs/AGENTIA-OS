@@ -61,4 +61,41 @@ def load_server_secret_overrides() -> dict[str, Any]:
     if code := gisebs.get("AppCode") or gisebs.get("app_code"):
         overrides["gisebs_pay_app_code"] = str(code)
 
+    oauth = _section(data, "OAuth", "oauth")
+    if base := oauth.get("RedirectBaseUrl") or oauth.get("redirect_base_url"):
+        overrides["oauth_redirect_base_url"] = str(base).rstrip("/")
+
+    def _provider_block(*names: str) -> dict[str, Any]:
+        for name in names:
+            block = oauth.get(name)
+            if isinstance(block, dict):
+                return block
+        return {}
+
+    google = _provider_block("Google", "google")
+    if cid := google.get("ClientId") or google.get("client_id"):
+        overrides["oauth_google_client_id"] = str(cid)
+    if secret := google.get("ClientSecret") or google.get("client_secret"):
+        overrides["oauth_google_client_secret"] = str(secret)
+
+    facebook = _provider_block("Facebook", "facebook")
+    if app_id := facebook.get("AppId") or facebook.get("app_id"):
+        overrides["oauth_facebook_app_id"] = str(app_id)
+    if secret := facebook.get("AppSecret") or facebook.get("app_secret"):
+        overrides["oauth_facebook_app_secret"] = str(secret)
+
+    github = _provider_block("GitHub", "github")
+    if cid := github.get("ClientId") or github.get("client_id"):
+        overrides["oauth_github_client_id"] = str(cid)
+    if secret := github.get("ClientSecret") or github.get("client_secret"):
+        overrides["oauth_github_client_secret"] = str(secret)
+
+    microsoft = _provider_block("Microsoft", "microsoft")
+    if cid := microsoft.get("ClientId") or microsoft.get("client_id"):
+        overrides["oauth_microsoft_client_id"] = str(cid)
+    if secret := microsoft.get("ClientSecret") or microsoft.get("client_secret"):
+        overrides["oauth_microsoft_client_secret"] = str(secret)
+    if tenant := microsoft.get("TenantId") or microsoft.get("tenant_id"):
+        overrides["oauth_microsoft_tenant_id"] = str(tenant)
+
     return overrides

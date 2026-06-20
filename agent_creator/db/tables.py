@@ -17,6 +17,20 @@ class UserRow(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     memberships: Mapped[list["MembershipRow"]] = relationship(back_populates="user")
+    oauth_identities: Mapped[list["OAuthIdentityRow"]] = relationship(back_populates="user")
+
+
+class OAuthIdentityRow(Base):
+    __tablename__ = "oauth_identities"
+    __table_args__ = (UniqueConstraint("provider", "provider_user_id", name="uq_oauth_provider_user"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), index=True)
+    provider: Mapped[str] = mapped_column(String(32))
+    provider_user_id: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    user: Mapped["UserRow"] = relationship(back_populates="oauth_identities")
 
 
 class OrganizationRow(Base):

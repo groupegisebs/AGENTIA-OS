@@ -34,6 +34,12 @@ def get_auth_service() -> AuthService:
     return AuthService(get_settings())
 
 
+def get_oauth_service() -> "OAuthService":
+    from agent_creator.services.oauth import OAuthService
+
+    return OAuthService(get_settings())
+
+
 async def get_db_store(session: AsyncSession = Depends(get_db)) -> DbStore:
     return DbStore(session)
 

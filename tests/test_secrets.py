@@ -44,3 +44,27 @@ async def test_settings_loads_server_secrets_json(tmp_path, monkeypatch) -> None
     assert settings.jwt_secret == "x" * 40
     assert settings.gemini_api_key == "test-gemini-key"
     get_settings.cache_clear()
+
+
+def test_settings_loads_oauth_from_secrets_json(tmp_path, monkeypatch) -> None:
+    secrets = tmp_path / "secrets.json"
+    secrets.write_text(
+        json.dumps(
+            {
+                "OAuth": {
+                    "RedirectBaseUrl": "https://app.example.com",
+                    "Google": {"ClientId": "g-id", "ClientSecret": "g-secret"},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("AGENTIA_SECRETS_FILE", str(secrets))
+    from agent_creator.config import get_settings
+
+    get_settings.cache_clear()
+    settings = get_settings()
+    assert settings.oauth_redirect_base_url == "https://app.example.com"
+    assert settings.oauth_google_client_id == "g-id"
+    assert settings.oauth_google_client_secret == "g-secret"
+    get_settings.cache_clear()

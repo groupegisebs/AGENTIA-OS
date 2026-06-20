@@ -15,6 +15,7 @@ Les secrets sensibles **ne doivent pas** être dans GitHub. Seuls **SSH** et la 
 | **JWT** | **`/opt/apps/agentia-os/secrets.json`** | **Non** |
 | **Gemini API** | Même fichier | **Non** |
 | **GiseBsPay** | Même fichier | **Non** |
+| **OAuth** (Google, Facebook, GitHub, Microsoft) | Même fichier | **Non** — voir [OAUTH-SETUP.md](./OAUTH-SETUP.md) |
 
 ---
 

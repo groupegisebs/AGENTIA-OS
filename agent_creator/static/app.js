@@ -46,6 +46,9 @@ const API = {
   getMe() {
     return this.json("/auth/me");
   },
+  getOAuthProviders() {
+    return this.json("/auth/oauth/providers");
+  },
   createConversation(message) {
     return this.json("/conversations", { method: "POST", body: JSON.stringify({ message }) });
   },
@@ -102,6 +105,7 @@ const STATE = {
   deployments: [],
   billingSummary: null,
   plans: [],
+  oauthProviders: [],
 };
 
 const EXAMPLE_CHIPS = [
@@ -190,6 +194,7 @@ function parseRoute() {
   if (path === "/marketplace") return { name: "marketplace" };
   if (path === "/architect") return { name: "architect" };
   if (path === "/inscription") return { name: "inscription" };
+  if (path === "/connexion/oauth") return { name: "oauth-callback" };
   if (path === "/connexion") return { name: "connexion" };
   if (path === "/documentation") return { name: "docs" };
   if (path === "/mon-compte") return { name: "account" };
@@ -200,7 +205,7 @@ function parseRoute() {
 }
 
 function requireAuth(routeName) {
-  const publicRoutes = new Set(["home", "inscription", "connexion", "docs", "marketplace", "architect", "payment-success", "payment-cancel"]);
+  const publicRoutes = new Set(["home", "inscription", "connexion", "oauth-callback", "docs", "marketplace", "architect", "payment-success", "payment-cancel"]);
   if (!getToken() && !publicRoutes.has(routeName)) {
     navigate("/connexion");
     return false;
@@ -266,6 +271,7 @@ function renderInscription() {
     cardSubtitle: "Plan Gratuit inclus — sans carte bancaire",
     formHtml,
     footerLink,
+    oauthProviders: STATE.oauthProviders,
   });
 }
 
@@ -289,6 +295,7 @@ function renderConnexion() {
     cardSubtitle: "Accédez à votre espace architecte",
     formHtml,
     footerLink,
+    oauthProviders: STATE.oauthProviders,
   });
 }
 
@@ -936,6 +943,36 @@ function bindHomeEvents() {
   });
 }
 
+async function loadOAuthProviders() {
+  try {
+    const data = await API.getOAuthProviders();
+    STATE.oauthProviders = data.providers || [];
+  } catch {
+    STATE.oauthProviders = [];
+  }
+}
+
+async function handleOAuthCallback() {
+  const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : "";
+  const params = new URLSearchParams(hash);
+  const token = params.get("token");
+  const error = params.get("error");
+  if (error) {
+    showToast(decodeURIComponent(error.replace(/\+/g, " ")));
+    navigate("/connexion");
+    return;
+  }
+  if (!token) {
+    showToast("Connexion OAuth échouée");
+    navigate("/connexion");
+    return;
+  }
+  setToken(decodeURIComponent(token));
+  await loadUserContext();
+  showToast("Connexion réussie");
+  navigate("/");
+}
+
 function bindAuthEvents() {
   document.getElementById("form-register")?.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -967,6 +1004,12 @@ function bindAuthEvents() {
   document.getElementById("btn-logout")?.addEventListener("click", () => {
     setToken(null);
     navigate("/");
+  });
+  document.querySelectorAll("[data-oauth]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const provider = btn.dataset.oauth;
+      if (provider) window.location.href = apiUrl(`/auth/oauth/${provider}`);
+    });
   });
   document.querySelectorAll(".auth-password-toggle").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -1057,7 +1100,10 @@ async function render() {
   const route = parseRoute();
   if (!requireAuth(route.name)) return;
 
-  document.body.classList.toggle("page-auth", route.name === "connexion" || route.name === "inscription");
+  document.body.classList.toggle(
+    "page-auth",
+    route.name === "connexion" || route.name === "inscription" || route.name === "oauth-callback",
+  );
 
   document.querySelectorAll(".auth-nav-slot").forEach((el) => {
     el.innerHTML = renderAuthNav();
@@ -1067,10 +1113,16 @@ async function render() {
   const view = document.getElementById("view");
 
   switch (route.name) {
+    case "oauth-callback":
+      view.innerHTML = `<section class="auth-page"><p><span class="loading"></span> Connexion en cours…</p></section>`;
+      await handleOAuthCallback();
+      break;
     case "inscription":
+      await loadOAuthProviders();
       view.innerHTML = renderInscription();
       break;
     case "connexion":
+      await loadOAuthProviders();
       view.innerHTML = renderConnexion();
       break;
     case "docs":

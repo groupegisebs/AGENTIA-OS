@@ -1532,6 +1532,16 @@ body.page-auth .nav-link-login {
   min-height: 4rem;
 }
 
+.auth-oauth-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.6rem;
+}
+
+.auth-oauth-grid .auth-oauth-btn {
+  min-height: 3.75rem;
+}
+
 .auth-oauth-row .auth-oauth-label {
   display: block;
   font-size: 0.78rem;

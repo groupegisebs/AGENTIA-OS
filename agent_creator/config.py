@@ -28,6 +28,18 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24 * 7
 
+    # OAuth2 — redirect URI = {oauth_redirect_base_url}/auth/oauth/{provider}/callback
+    oauth_redirect_base_url: str = "http://localhost:8000"
+    oauth_google_client_id: str = ""
+    oauth_google_client_secret: str = ""
+    oauth_facebook_app_id: str = ""
+    oauth_facebook_app_secret: str = ""
+    oauth_github_client_id: str = ""
+    oauth_github_client_secret: str = ""
+    oauth_microsoft_client_id: str = ""
+    oauth_microsoft_client_secret: str = ""
+    oauth_microsoft_tenant_id: str = "common"
+
     # Facturation SaaS (devise : EUR)
     default_organization_id: str = "org-demo-0001"
     default_organization_name: str = "Organisation démo"

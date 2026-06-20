@@ -106,6 +106,7 @@ if STATIC_DIR.is_dir():
 @app.get("/architect")
 @app.get("/inscription")
 @app.get("/connexion")
+@app.get("/connexion/oauth")
 @app.get("/mon-compte")
 @app.get("/abonnement")
 @app.get("/documentation")

@@ -18,6 +18,7 @@ const OAUTH_ICONS = {
   google: `<svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22 12c0-.68-.06-1.33-.17-1.95H12v3.69h5.69a4.68 4.68 0 01-2.04 3.07v2.55h3.29c1.93-1.78 3.04-4.4 3.04-7.36z"/><path fill="#34A853" d="M12 22c2.76 0 5.08-.91 6.74-2.47l-3.29-2.55c-.91.61-2.07.97-3.45.97-2.65 0-4.9-1.79-5.7-4.19H3.18v2.63A10 10 0 0012 22z"/><path fill="#FBBC05" d="M6.3 13.76A5.99 5.99 0 016 12c0-.62.11-1.22.3-1.76V7.61H3.18A10 10 0 003 12a10 10 0 002.18 4.39l3.12-2.63z"/><path fill="#EA4335" d="M12 5.38c1.5 0 2.85.52 3.91 1.53l2.93-2.93C17.08 2.55 14.76 1.5 12 1.5 7.7 1.5 3.98 3.98 3.18 7.61l3.12 2.63C7.1 7.17 9.35 5.38 12 5.38z"/></svg>`,
   github: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.52 2.87 8.35 6.84 9.7.5.1.68-.22.68-.49 0-.24-.01-.87-.01-1.7-2.78.62-3.37-1.36-3.37-1.36-.45-1.17-1.11-1.48-1.11-1.48-.91-.64.07-.63.07-.63 1 .07 1.53 1.05 1.53 1.05.9 1.56 2.36 1.11 2.94.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.7 0 0 .84-.27 2.75 1.05A9.2 9.2 0 0112 6.84c.84 0 1.68.11 2.47.33 1.9-1.32 2.74-1.05 2.74-1.05.55 1.4.2 2.44.1 2.7.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.8-4.57 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.8 0 .27.18.59.69.49A10.02 10.02 0 0022 12.26C22 6.58 17.52 2 12 2z"/></svg>`,
   microsoft: `<svg viewBox="0 0 24 24"><rect fill="#F25022" x="3" y="3" width="8.5" height="8.5"/><rect fill="#7FBA00" x="12.5" y="3" width="8.5" height="8.5"/><rect fill="#00A4EF" x="3" y="12.5" width="8.5" height="8.5"/><rect fill="#FFB900" x="12.5" y="12.5" width="8.5" height="8.5"/></svg>`,
+  facebook: `<svg viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.07C24 5.41 18.63 0 12 0S0 5.41 0 12.07C0 18.08 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.68.23 2.68.23v2.96h-1.51c-1.49 0-1.95.93-1.95 1.88v2.26h3.32l-.53 3.49h-2.79V24C19.61 23.1 24 18.08 24 12.07z"/></svg>`,
 };
 
 function renderAuthHubDiagram() {
@@ -148,27 +149,32 @@ function renderAuthTrustBar() {
     </div>`).join("")}</div>`;
 }
 
-function renderAuthOAuth() {
-  const providers = [
+function renderAuthOAuth(enabledProviders = []) {
+  const all = [
     { id: "google", label: "Google", icon: OAUTH_ICONS.google },
+    { id: "facebook", label: "Facebook", icon: OAUTH_ICONS.facebook },
     { id: "github", label: "GitHub", icon: OAUTH_ICONS.github },
     { id: "microsoft", label: "Microsoft", icon: OAUTH_ICONS.microsoft },
   ];
+  const providers = all.filter((p) => enabledProviders.includes(p.id));
+  if (!providers.length) {
+    return `<p class="auth-oauth-hint">Connexion sociale — configurez OAuth dans secrets.json</p>`;
+  }
+  const gridClass = providers.length >= 4 ? " auth-oauth-grid" : "";
   return `
     <div class="auth-oauth">
       <p class="auth-oauth-divider"><span>ou continuer avec</span></p>
-      <div class="auth-oauth-buttons auth-oauth-row">
+      <div class="auth-oauth-buttons auth-oauth-row${gridClass}">
         ${providers.map((p) => `
-          <button type="button" class="auth-oauth-btn" data-oauth="${p.id}" title="${p.label}" disabled aria-disabled="true">
+          <button type="button" class="auth-oauth-btn" data-oauth="${p.id}" title="Continuer avec ${p.label}">
             <span class="auth-oauth-icon">${p.icon}</span>
             <span class="auth-oauth-label">${p.label}</span>
           </button>`).join("")}
       </div>
-      <p class="auth-oauth-hint">Connexion sociale bientôt disponible</p>
     </div>`;
 }
 
-export function renderAuthPremiumLayout({ cardTitle, cardSubtitle, formHtml, footerLink }) {
+export function renderAuthPremiumLayout({ cardTitle, cardSubtitle, formHtml, footerLink, oauthProviders = [] }) {
   return `
     <div class="auth-premium">
       <div class="auth-premium-bg" aria-hidden="true">
@@ -196,7 +202,7 @@ export function renderAuthPremiumLayout({ cardTitle, cardSubtitle, formHtml, foo
             </div>
             ${formHtml}
             ${footerLink}
-            ${renderAuthOAuth()}
+            ${renderAuthOAuth(oauthProviders)}
           </div>
         </div>
       </div>

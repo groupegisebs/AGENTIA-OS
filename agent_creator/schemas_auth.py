@@ -20,6 +20,10 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class OAuthProvidersResponse(BaseModel):
+    providers: list[str]
+
+
 class UserResponse(BaseModel):
     id: str
     email: str
