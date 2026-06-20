@@ -159,11 +159,12 @@ function renderAuthOAuth() {
       <p class="auth-oauth-divider"><span>ou continuer avec</span></p>
       <div class="auth-oauth-buttons auth-oauth-row">
         ${providers.map((p) => `
-          <button type="button" class="auth-oauth-btn" data-oauth="${p.id}" title="${p.label}">
+          <button type="button" class="auth-oauth-btn" data-oauth="${p.id}" title="${p.label}" disabled aria-disabled="true">
             <span class="auth-oauth-icon">${p.icon}</span>
             <span class="auth-oauth-label">${p.label}</span>
           </button>`).join("")}
       </div>
+      <p class="auth-oauth-hint">Connexion sociale bientôt disponible</p>
     </div>`;
 }
 

@@ -234,7 +234,7 @@ function renderAuthNav() {
       <button type="button" class="btn btn-ghost btn-sm" id="btn-logout">Déconnexion</button>`;
   }
   return `<a href="/connexion" data-nav="/connexion" class="nav-link-login">Connexion</a>
-    <a href="/inscription" data-nav="/inscription" class="btn btn-primary btn-sm btn-glow btn-nav-cta">Commencer gratuitement →</a>`;
+    <a href="/inscription" data-nav="/inscription" class="btn btn-primary btn-glow btn-nav-cta">Commencer gratuitement →</a>`;
 }
 
 function renderPasswordField({ name, placeholder, autocomplete, minlength }) {
@@ -968,11 +968,6 @@ function bindAuthEvents() {
     setToken(null);
     navigate("/");
   });
-  document.querySelectorAll("[data-oauth]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      showToast("Connexion OAuth bientôt disponible.");
-    });
-  });
   document.querySelectorAll(".auth-password-toggle").forEach((btn) => {
     btn.addEventListener("click", () => {
       const input = btn.closest(".auth-password-input")?.querySelector("input");
@@ -1074,11 +1069,9 @@ async function render() {
   switch (route.name) {
     case "inscription":
       view.innerHTML = renderInscription();
-      bindAuthEvents();
       break;
     case "connexion":
       view.innerHTML = renderConnexion();
-      bindAuthEvents();
       break;
     case "docs":
       view.innerHTML = renderDocs();
