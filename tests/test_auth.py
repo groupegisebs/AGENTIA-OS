@@ -41,6 +41,18 @@ async def test_conversation_requires_auth(client) -> None:
 
 
 @pytest.mark.asyncio
+async def test_architect_requires_auth(client) -> None:
+    res = await client.post("/architect/analyze", json={"description": "Automatiser les emails"})
+    assert res.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_plans_requires_auth(client) -> None:
+    res = await client.get("/plans")
+    assert res.status_code == 401
+
+
+@pytest.mark.asyncio
 async def test_tenant_isolation(client) -> None:
     async def register(email: str) -> str:
         r = await client.post(

@@ -204,13 +204,25 @@ function parseRoute() {
   return { name: "home" };
 }
 
-function requireAuth(routeName) {
-  const publicRoutes = new Set(["home", "inscription", "connexion", "oauth-callback", "docs", "marketplace", "architect", "payment-success", "payment-cancel"]);
-  if (!getToken() && !publicRoutes.has(routeName)) {
-    navigate("/connexion");
-    return false;
-  }
-  return true;
+function isPublicRoute(routeName) {
+  return new Set([
+    "inscription",
+    "connexion",
+    "oauth-callback",
+    "payment-success",
+    "payment-cancel",
+  ]).has(routeName);
+}
+
+function navigateAfterAuth() {
+  const redirect = sessionStorage.getItem("auth_redirect");
+  sessionStorage.removeItem("auth_redirect");
+  const safe =
+    redirect &&
+    redirect !== "/connexion" &&
+    redirect !== "/inscription" &&
+    !redirect.startsWith("/connexion/oauth");
+  navigate(safe ? redirect : "/");
 }
 
 function setActiveNav(routeName) {
@@ -268,7 +280,7 @@ function renderInscription() {
   const footerLink = `<p class="auth-link">Déjà inscrit ? <a href="/connexion" data-nav="/connexion">Se connecter</a></p>`;
   return renderAuthPremiumLayout({
     cardTitle: "Créer votre compte",
-    cardSubtitle: "Plan Gratuit inclus — sans carte bancaire",
+    cardSubtitle: "Accédez à toutes les fonctionnalités après inscription",
     formHtml,
     footerLink,
     oauthProviders: STATE.oauthProviders,
@@ -970,7 +982,7 @@ async function handleOAuthCallback() {
   setToken(decodeURIComponent(token));
   await loadUserContext();
   showToast("Connexion réussie");
-  navigate("/");
+  navigateAfterAuth();
 }
 
 function bindAuthEvents() {
@@ -982,7 +994,7 @@ function bindAuthEvents() {
       setToken(res.access_token);
       await loadUserContext();
       showToast("Compte créé — bienvenue !");
-      navigate("/");
+      navigateAfterAuth();
     } catch (err) {
       showToast(err.message);
     }
@@ -996,7 +1008,7 @@ function bindAuthEvents() {
       const res = await API.login(data);
       setToken(res.access_token);
       await loadUserContext();
-      navigate("/");
+      navigateAfterAuth();
     } catch (err) {
       showToast(err.message);
     }
@@ -1097,8 +1109,19 @@ function bindGlobalNav() {
 
 async function render() {
   clearInterval(estimatePollTimer);
-  const route = parseRoute();
-  if (!requireAuth(route.name)) return;
+  let route = parseRoute();
+  let authGateNotice = false;
+
+  if (!getToken() && !isPublicRoute(route.name)) {
+    const returnTo = `${window.location.pathname}${window.location.search}`;
+    if (!["/connexion", "/inscription", "/connexion/oauth"].includes(window.location.pathname)) {
+      sessionStorage.setItem("auth_redirect", returnTo);
+      sessionStorage.setItem("auth_gate_notice", "1");
+      history.replaceState({}, "", "/connexion");
+      route = parseRoute();
+      authGateNotice = true;
+    }
+  }
 
   document.body.classList.toggle(
     "page-auth",
@@ -1124,6 +1147,10 @@ async function render() {
     case "connexion":
       await loadOAuthProviders();
       view.innerHTML = renderConnexion();
+      if (authGateNotice || sessionStorage.getItem("auth_gate_notice")) {
+        sessionStorage.removeItem("auth_gate_notice");
+        showToast("Connectez-vous pour accéder à la plateforme");
+      }
       break;
     case "docs":
       view.innerHTML = renderDocs();
