@@ -121,6 +121,27 @@ a {
   color: var(--text);
 }
 
+/* Invité non connecté — masquer navigation produit et liens footer */
+body.is-guest .topnav {
+  display: none;
+}
+
+body.is-guest .footer-premium .footer-col {
+  display: none;
+}
+
+body.is-guest .footer-premium .footer-grid {
+  grid-template-columns: 1fr;
+}
+
+body.is-guest .topbar {
+  grid-template-columns: auto 1fr;
+}
+
+body.is-guest .topnav-actions {
+  justify-content: flex-end;
+}
+
 .view {
   flex: 1;
   padding: 2rem;

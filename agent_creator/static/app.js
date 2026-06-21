@@ -250,8 +250,19 @@ function renderAuthNav() {
     return `<a href="/mon-compte" data-nav="/mon-compte">Mon compte</a>
       <button type="button" class="btn btn-ghost btn-sm" id="btn-logout">Déconnexion</button>`;
   }
-  return `<a href="/connexion" data-nav="/connexion" class="nav-link-login">Connexion</a>
-    <a href="/inscription" data-nav="/inscription" class="btn btn-primary btn-glow btn-nav-cta">Commencer gratuitement →</a>`;
+  return `<a href="/connexion" data-nav="/connexion" class="nav-link-login">Connexion</a>`;
+}
+
+function updateAuthChrome() {
+  const authed = !!getToken();
+  document.body.classList.toggle("is-authenticated", authed);
+  document.body.classList.toggle("is-guest", !authed);
+  const brand = document.querySelector(".brand");
+  if (brand) {
+    const home = authed ? "/" : "/connexion";
+    brand.setAttribute("href", home);
+    brand.setAttribute("data-nav", home);
+  }
 }
 
 function renderPasswordField({ name, placeholder, autocomplete, minlength }) {
@@ -1127,6 +1138,8 @@ async function render() {
     "page-auth",
     route.name === "connexion" || route.name === "inscription" || route.name === "oauth-callback",
   );
+
+  updateAuthChrome();
 
   document.querySelectorAll(".auth-nav-slot").forEach((el) => {
     el.innerHTML = renderAuthNav();
