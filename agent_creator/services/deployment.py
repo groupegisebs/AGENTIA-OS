@@ -1,8 +1,10 @@
+from agent_creator.config import get_settings
 from agent_creator.db.repository import DbStore
 from agent_creator.models.billing import BillingEvent, BillingEventStatus
 from agent_creator.models.deployment import Deployment, DeploymentStatus
 from agent_creator.models.organization import Organization
 from agent_creator.models.subscription import SubscriptionPlanConfig
+from agent_creator.services.agent_publish import publish_from_deployment
 from agent_creator.services.billing import BillingService
 from agent_creator.services.plans import get_plan_config, list_plans
 
@@ -70,6 +72,9 @@ class DeploymentService:
         if payment_intent:
             await self._db.save_payment_intent(payment_intent)
 
+        if deployment.status == DeploymentStatus.DEPLOYED:
+            await publish_from_deployment(self._db, deployment, blueprint, organization, get_settings())
+
         return deployment, billing_event
 
     async def confirm_deployment_payment(
@@ -91,6 +96,13 @@ class DeploymentService:
         )
         await self._db.save_billing_event(billing_event)
         await self._db.save_deployment(deployment)
+
+        if deployment.status == DeploymentStatus.DEPLOYED:
+            blueprint = await self._db.get_blueprint(deployment.conversation_id)
+            organization = await self._db.get_organization(deployment.organization_id)
+            if blueprint and organization:
+                await publish_from_deployment(self._db, deployment, blueprint, organization, get_settings())
+
         return deployment, billing_event
 
     async def _find_pending_deployment(

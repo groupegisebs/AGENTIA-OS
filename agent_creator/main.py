@@ -11,6 +11,7 @@ from agent_creator import __version__
 from agent_creator.config import get_settings
 from agent_creator.db.session import init_db
 from agent_creator.routers import architect, auth, billing, conversations, organizations, plans
+from agent_creator.routers.agents import marketplace_router, router as agents_router
 from agent_creator.services.billing import BillingService
 from agent_creator.services.blueprint_generator import BlueprintGenerator
 from agent_creator.services.extractor import RequirementExtractor
@@ -35,6 +36,8 @@ API_PATH_PREFIXES = (
     "billing",
     "plans/",
     "architect/",
+    "agents",
+    "marketplace/",
 )
 
 
@@ -78,6 +81,8 @@ app.include_router(conversations.router)
 app.include_router(plans.router)
 app.include_router(organizations.router)
 app.include_router(architect.router)
+app.include_router(agents_router)
+app.include_router(marketplace_router)
 
 
 def _spa_index() -> FileResponse:

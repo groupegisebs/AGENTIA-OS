@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from agent_creator.db.base import Base
@@ -145,3 +145,50 @@ class PaymentIntentRow(Base):
     billing_event_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class PublishedAgentRow(Base):
+    __tablename__ = "published_agents"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    organization_id: Mapped[str] = mapped_column(String(36), ForeignKey("organizations.id"), index=True)
+    deployment_id: Mapped[str] = mapped_column(String(36), unique=True, index=True)
+    blueprint_id: Mapped[str] = mapped_column(String(36))
+    title: Mapped[str] = mapped_column(String(255))
+    description: Mapped[str] = mapped_column(Text, default="")
+    category: Mapped[str] = mapped_column(String(64), default="Général")
+    visibility: Mapped[str] = mapped_column(String(16), default="private")
+    status: Mapped[str] = mapped_column(String(16), default="active")
+    manifest_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    api_keys: Mapped[list["AgentApiKeyRow"]] = relationship(back_populates="agent", cascade="all, delete-orphan")
+    invocations: Mapped[list["AgentInvocationRow"]] = relationship(back_populates="agent", cascade="all, delete-orphan")
+
+
+class AgentApiKeyRow(Base):
+    __tablename__ = "agent_api_keys"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    agent_id: Mapped[str] = mapped_column(String(36), ForeignKey("published_agents.id"), index=True)
+    label: Mapped[str] = mapped_column(String(128), default="")
+    key_hash: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    agent: Mapped["PublishedAgentRow"] = relationship(back_populates="api_keys")
+
+
+class AgentInvocationRow(Base):
+    __tablename__ = "agent_invocations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    agent_id: Mapped[str] = mapped_column(String(36), ForeignKey("published_agents.id"), index=True)
+    organization_id: Mapped[str] = mapped_column(String(36), index=True)
+    input_chars: Mapped[int] = mapped_column(Integer, default=0)
+    latency_ms: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(String(16), default="success")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    agent: Mapped["PublishedAgentRow"] = relationship(back_populates="invocations")

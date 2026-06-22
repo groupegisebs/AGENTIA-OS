@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from agent_creator.db.tables import (
+    AgentApiKeyRow,
+    AgentInvocationRow,
     BillingEventRow,
     BlueprintRow,
     ConversationRow,
@@ -14,7 +16,9 @@ from agent_creator.db.tables import (
     MessageRow,
     OrganizationRow,
     PaymentIntentRow,
+    PublishedAgentRow,
 )
+from agent_creator.models.agent import AgentApiKey, AgentInvocation, AgentManifest, AgentStatus, AgentVisibility, PublishedAgent
 from agent_creator.models.billing import BillingEvent, BillingEventStatus, BillingEventType
 from agent_creator.models.blueprint import Blueprint
 from agent_creator.models.conversation import Conversation, ConversationStatus, Message, MessageRole
@@ -308,6 +312,112 @@ class DbStore:
         )
         return _intent_from_row(row) if row else None
 
+    # --- Published agents ---
+
+    async def save_published_agent(self, agent: PublishedAgent) -> PublishedAgent:
+        row = await self._session.get(PublishedAgentRow, agent.id)
+        if not row:
+            row = PublishedAgentRow(id=agent.id)
+            self._session.add(row)
+        row.organization_id = agent.organization_id
+        row.deployment_id = agent.deployment_id
+        row.blueprint_id = agent.blueprint_id
+        row.title = agent.title
+        row.description = agent.description
+        row.category = agent.category
+        row.visibility = agent.visibility.value
+        row.status = agent.status.value
+        row.manifest_json = agent.manifest.model_dump_json()
+        row.updated_at = datetime.utcnow()
+        await self._session.flush()
+        return agent
+
+    async def get_published_agent(self, agent_id: str) -> PublishedAgent | None:
+        row = await self._session.get(PublishedAgentRow, agent_id)
+        return _agent_from_row(row) if row else None
+
+    async def get_published_agent_by_deployment(self, deployment_id: str) -> PublishedAgent | None:
+        row = await self._session.scalar(
+            select(PublishedAgentRow).where(PublishedAgentRow.deployment_id == deployment_id)
+        )
+        return _agent_from_row(row) if row else None
+
+    async def list_published_agents(self, organization_id: str) -> list[PublishedAgent]:
+        stmt = (
+            select(PublishedAgentRow)
+            .where(PublishedAgentRow.organization_id == organization_id)
+            .order_by(PublishedAgentRow.created_at.desc())
+        )
+        rows = (await self._session.scalars(stmt)).all()
+        return [_agent_from_row(r) for r in rows]
+
+    async def list_public_agents(self) -> list[PublishedAgent]:
+        stmt = (
+            select(PublishedAgentRow)
+            .where(
+                PublishedAgentRow.visibility == AgentVisibility.PUBLIC.value,
+                PublishedAgentRow.status == AgentStatus.ACTIVE.value,
+            )
+            .order_by(PublishedAgentRow.created_at.desc())
+        )
+        rows = (await self._session.scalars(stmt)).all()
+        return [_agent_from_row(r) for r in rows]
+
+    # --- Agent API keys ---
+
+    async def save_agent_api_key(self, key: AgentApiKey) -> AgentApiKey:
+        row = await self._session.get(AgentApiKeyRow, key.id)
+        if not row:
+            row = AgentApiKeyRow(id=key.id)
+            self._session.add(row)
+        row.agent_id = key.agent_id
+        row.label = key.label
+        row.key_hash = key.key_hash
+        row.revoked_at = key.revoked_at
+        await self._session.flush()
+        return key
+
+    async def get_agent_api_key_by_hash(self, key_hash: str) -> AgentApiKey | None:
+        row = await self._session.scalar(
+            select(AgentApiKeyRow).where(AgentApiKeyRow.key_hash == key_hash)
+        )
+        return _api_key_from_row(row) if row else None
+
+    async def list_agent_api_keys(self, agent_id: str) -> list[AgentApiKey]:
+        stmt = select(AgentApiKeyRow).where(AgentApiKeyRow.agent_id == agent_id)
+        rows = (await self._session.scalars(stmt)).all()
+        return [_api_key_from_row(r) for r in rows]
+
+    # --- Agent invocations ---
+
+    async def save_agent_invocation(self, inv: AgentInvocation) -> AgentInvocation:
+        row = AgentInvocationRow(
+            id=inv.id,
+            agent_id=inv.agent_id,
+            organization_id=inv.organization_id,
+            input_chars=inv.input_chars,
+            latency_ms=inv.latency_ms,
+            status=inv.status,
+            created_at=inv.created_at,
+        )
+        self._session.add(row)
+        await self._session.flush()
+        return inv
+
+    async def count_recent_invocations(self, agent_id: str, organization_id: str, since: datetime) -> int:
+        from sqlalchemy import func
+        stmt = (
+            select(func.count())
+            .select_from(AgentInvocationRow)
+            .where(
+                AgentInvocationRow.agent_id == agent_id,
+                AgentInvocationRow.organization_id == organization_id,
+                AgentInvocationRow.created_at >= since,
+            )
+        )
+        result = await self._session.scalar(stmt)
+        return result or 0
+
 
 def _deployment_from_row(row: DeploymentRow) -> Deployment:
     return Deployment(
@@ -361,3 +471,31 @@ def _intent_from_row(row: PaymentIntentRow) -> PaymentIntent:
 
 def new_payment_intent(**kwargs) -> PaymentIntent:
     return PaymentIntent(id=str(uuid4()), **kwargs)
+
+
+def _agent_from_row(row: PublishedAgentRow) -> PublishedAgent:
+    return PublishedAgent(
+        id=row.id,
+        organization_id=row.organization_id,
+        deployment_id=row.deployment_id,
+        blueprint_id=row.blueprint_id,
+        title=row.title,
+        description=row.description or "",
+        category=row.category or "Général",
+        visibility=AgentVisibility(row.visibility),
+        status=AgentStatus(row.status),
+        manifest=AgentManifest.model_validate_json(row.manifest_json),
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+def _api_key_from_row(row: AgentApiKeyRow) -> AgentApiKey:
+    return AgentApiKey(
+        id=row.id,
+        agent_id=row.agent_id,
+        label=row.label or "",
+        key_hash=row.key_hash,
+        created_at=row.created_at,
+        revoked_at=row.revoked_at,
+    )
