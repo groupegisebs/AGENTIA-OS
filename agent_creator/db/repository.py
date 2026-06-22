@@ -163,7 +163,11 @@ class DbStore:
         return _conversation_from_row(row) if row else None
 
     async def save_conversation(self, conversation: Conversation) -> Conversation:
-        row = await self._session.get(ConversationRow, conversation.id)
+        row = await self._session.get(
+            ConversationRow,
+            conversation.id,
+            options=[selectinload(ConversationRow.messages)],
+        )
         if not row:
             return await self.create_conversation(conversation)
         row.title = conversation.title
