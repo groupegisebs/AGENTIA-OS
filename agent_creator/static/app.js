@@ -417,7 +417,7 @@ async function confirmPaymentWithPolling(paymentCode) {
 function renderHome() {
   return `
     <section class="hero-page">
-      <div class="hero-eyebrow">✦ Plateforme Agentic AI — Nouvelle génération</div>
+      <div class="hero-eyebrow">✦ Plateforme Agentic AI</div>
       <h1 class="hero-title">Que souhaitez-vous automatiser ?</h1>
       <p class="hero-sub">Décrivez votre besoin métier en une phrase. Notre architecte IA conçoit, déploie et supervise votre solution — sans une ligne de code.</p>
       <div class="hero-form">
@@ -426,12 +426,6 @@ function renderHome() {
           ${EXAMPLE_CHIPS.map((c) => `<button type="button" class="chip" data-chip="${escapeHtml(c)}">${escapeHtml(c)}</button>`).join("")}
         </div>
         <button type="button" class="btn btn-primary btn-block btn-lg" id="btn-design">Concevoir ma solution →</button>
-      </div>
-      <div class="hero-stats">
-        <div class="hero-stat"><div class="value">10 000+</div><div class="label">Agents créés</div></div>
-        <div class="hero-stat"><div class="value">500+</div><div class="label">Templates prêts</div></div>
-        <div class="hero-stat"><div class="value">98 %</div><div class="label">Satisfaction client</div></div>
-        <div class="hero-stat"><div class="value">1 clic</div><div class="label">Déploiement</div></div>
       </div>
     </section>`;
 }

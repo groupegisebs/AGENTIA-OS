@@ -62,12 +62,12 @@ function renderAuthHubDiagram() {
         <!-- Hub central -->
         <circle cx="260" cy="175" r="36" fill="rgba(124,58,237,0.3)" stroke="url(#hubCore)" stroke-width="2.5" filter="url(#hubGlow)" class="auth-node-pulse"/>
         <circle cx="260" cy="175" r="28" fill="url(#hubCore)" opacity="0.9"/>
-        <text x="260" y="182" text-anchor="middle" fill="#fff" font-size="20" font-weight="700" font-family="DM Sans,sans-serif">A</text>
+        <text x="260" y="182" text-anchor="middle" fill="#fff" font-size="20" font-weight="700" font-family="Inter,sans-serif">A</text>
         <!-- Agents -->
         ${agents.map((n) => `
           <g class="auth-node-pulse auth-node-delay-${n.delay}">
             <rect x="${n.x - 54}" y="${n.y}" width="108" height="30" rx="15" fill="rgba(10,10,18,0.92)" stroke="${n.color}" stroke-width="1.2" stroke-opacity="0.75"/>
-            <text x="${n.x}" y="${n.y + 19}" text-anchor="middle" fill="#e2e8f0" font-size="9" font-family="DM Sans,sans-serif">${n.label}</text>
+            <text x="${n.x}" y="${n.y + 19}" text-anchor="middle" fill="#e2e8f0" font-size="9" font-family="Inter,sans-serif">${n.label}</text>
           </g>`).join("")}
         <!-- Infra -->
         ${infra.map((n) => {
@@ -77,13 +77,13 @@ function renderAuthHubDiagram() {
                 <ellipse cx="${n.x}" cy="${n.y + 4}" rx="14" ry="5" fill="rgba(99,102,241,0.3)" stroke="#6366f1" stroke-width="1"/>
                 <rect x="${n.x - 14}" y="${n.y - 8}" width="28" height="14" rx="2" fill="rgba(10,10,18,0.92)" stroke="#6366f1" stroke-width="1.2"/>
                 <ellipse cx="${n.x}" cy="${n.y - 8}" rx="14" ry="5" fill="rgba(99,102,241,0.2)" stroke="#6366f1" stroke-width="1"/>
-                <text x="${n.x}" y="${n.y + 28}" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="DM Sans,sans-serif">${n.label}</text>
+                <text x="${n.x}" y="${n.y + 28}" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="Inter,sans-serif">${n.label}</text>
               </g>`;
           }
           return `
             <g class="auth-node-pulse auth-node-delay-${n.delay}">
               <rect x="${n.x - 36}" y="${n.y - 4}" width="72" height="26" rx="13" fill="rgba(10,10,18,0.92)" stroke="${n.color}" stroke-width="1.2"/>
-              <text x="${n.x}" y="${n.y + 13}" text-anchor="middle" fill="#cbd5e1" font-size="9" font-family="DM Sans,sans-serif">${n.label}</text>
+              <text x="${n.x}" y="${n.y + 13}" text-anchor="middle" fill="#cbd5e1" font-size="9" font-family="Inter,sans-serif">${n.label}</text>
             </g>`;
         }).join("")}
       </svg>
