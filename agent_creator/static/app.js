@@ -373,14 +373,16 @@ function renderSubscription() {
   const plans = STATE.plans || [];
   return `
     <section class="page-header"><h1>Choisir un plan</h1><p>Upgradez pour déployer plus de solutions.</p></section>
-    <div class="plan-grid">
-      ${plans.map((p) => `
-        <article class="plan-card ${p.plan === 'free' ? 'plan-free' : ''}">
-          <h3>${escapeHtml(p.name)}</h3>
-          <div class="plan-price">${p.monthly_price_eur > 0 ? `${p.monthly_price_eur} €/mois` : "Gratuit"}</div>
-          <p>${escapeHtml(p.description)}</p>
-          <ul>${p.limits.max_deployments_per_month ? `<li>${p.limits.max_deployments_per_month} déploiements/mois</li>` : "<li>Déploiements illimités</li>"}</ul>
-          <button class="btn btn-secondary btn-block" data-plan="${p.plan}">Choisir</button>
+    <div class="plans-grid">
+      ${plans.map((p, i) => `
+        <article class="plan-card ${i === 1 ? 'featured' : ''}">
+          <div class="plan-name">${escapeHtml(p.name)}</div>
+          <div class="plan-price">${p.monthly_price_eur > 0 ? `${p.monthly_price_eur} €<span>/mois</span>` : "Gratuit"}</div>
+          <p style="font-size:.88rem;color:var(--text-muted);margin-bottom:1rem">${escapeHtml(p.description)}</p>
+          <ul style="font-size:.875rem;padding-left:1.1rem;color:var(--text-muted);margin-bottom:1.25rem">
+            ${p.limits.max_deployments_per_month ? `<li>${p.limits.max_deployments_per_month} déploiements/mois</li>` : "<li>Déploiements illimités</li>"}
+          </ul>
+          <button class="btn ${i === 1 ? 'btn-primary' : 'btn-secondary'} btn-block" data-plan="${p.plan}">Choisir ce plan</button>
         </article>`).join("")}
     </div>`;
 }
@@ -415,14 +417,21 @@ async function confirmPaymentWithPolling(paymentCode) {
 function renderHome() {
   return `
     <section class="hero-page">
-      <h1 class="hero-title">Que souhaitez-vous accomplir aujourd'hui ?</h1>
-      <p class="hero-sub">Décrivez votre besoin métier. Notre architecte digital conçoit une solution sur mesure — sans jargon technique.</p>
+      <div class="hero-eyebrow">✦ Plateforme Agentic AI — Nouvelle génération</div>
+      <h1 class="hero-title">Que souhaitez-vous automatiser ?</h1>
+      <p class="hero-sub">Décrivez votre besoin métier en une phrase. Notre architecte IA conçoit, déploie et supervise votre solution — sans une ligne de code.</p>
       <div class="hero-form">
-        <textarea id="home-need" placeholder="Décrivez votre besoin métier..." aria-label="Besoin métier">${escapeHtml(STATE.pendingNeed)}</textarea>
+        <textarea id="home-need" placeholder="Ex. : Automatiser la relance de mes clients, traiter mes factures entrantes…" aria-label="Besoin métier">${escapeHtml(STATE.pendingNeed)}</textarea>
         <div class="chips" role="list">
           ${EXAMPLE_CHIPS.map((c) => `<button type="button" class="chip" data-chip="${escapeHtml(c)}">${escapeHtml(c)}</button>`).join("")}
         </div>
-        <button type="button" class="btn btn-primary btn-block" id="btn-design">Concevoir ma solution</button>
+        <button type="button" class="btn btn-primary btn-block btn-lg" id="btn-design">Concevoir ma solution →</button>
+      </div>
+      <div class="hero-stats">
+        <div class="hero-stat"><div class="value">10 000+</div><div class="label">Agents créés</div></div>
+        <div class="hero-stat"><div class="value">500+</div><div class="label">Templates prêts</div></div>
+        <div class="hero-stat"><div class="value">98 %</div><div class="label">Satisfaction client</div></div>
+        <div class="hero-stat"><div class="value">1 clic</div><div class="label">Déploiement</div></div>
       </div>
     </section>`;
 }

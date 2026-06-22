@@ -93,10 +93,10 @@ function renderAuthHubDiagram() {
 
 function renderAuthFeatures() {
   const items = [
-    { icon: FEATURE_ICONS.nocode, title: "Création No-Code", desc: "Interface visuelle intuitive" },
-    { icon: FEATURE_ICONS.orchestration, title: "Orchestration Multi-Agents", desc: "Faites collaborer vos agents" },
-    { icon: FEATURE_ICONS.marketplace, title: "Marketplace IA", desc: "Plus de 500 agents prêts à l'emploi" },
-    { icon: FEATURE_ICONS.cloud, title: "Déploiement Cloud", desc: "En 1 clic, partout dans le monde" },
+    { icon: FEATURE_ICONS.nocode, title: "Création No-Code", desc: "Interface visuelle, aucun développement requis" },
+    { icon: FEATURE_ICONS.orchestration, title: "Orchestration Multi-Agents", desc: "Composez des workflows IA complexes" },
+    { icon: FEATURE_ICONS.marketplace, title: "Marketplace d'agents", desc: "Publiez et partagez vos agents" },
+    { icon: FEATURE_ICONS.cloud, title: "Déploiement instantané", desc: "De l'idée à la production en quelques minutes" },
   ];
   return `<ul class="auth-features">${items.map((t) => `
     <li>
@@ -109,35 +109,19 @@ function renderAuthFeatures() {
 }
 
 function renderAuthStats() {
-  const stats = [
-    { value: "10 000+", label: "Agents créés" },
-    { value: "500+", label: "Templates" },
-    { value: "50+", label: "Intégrations" },
-    { value: "1 clic", label: "Déploiement" },
-  ];
-  return `<div class="auth-stats">${stats.map((s) => `
-    <div class="auth-stat">
-      <span class="auth-stat-value">${s.value}</span>
-      <span class="auth-stat-label">${s.label}</span>
-    </div>`).join("")}</div>`;
+  return "";
 }
 
 function renderAuthTrustLogos() {
-  const brands = ["Slack", "Notion", "Microsoft", "OpenAI", "AWS"];
-  return `
-    <div class="auth-trust-section">
-      <p class="auth-trust-caption">Rejoignez les entreprises innovantes qui nous font confiance</p>
-      <div class="auth-trust-logos">${brands.map((b) => `<span class="auth-trust-logo">${b}</span>`).join("")}
-      </div>
-    </div>`;
+  return "";
 }
 
 function renderAuthTrustBar() {
   const items = [
-    { icon: TRUST_ICONS.secure, title: "Sécurisé & Conforme", desc: "RGPD • ISO 27001 • SOC 2" },
-    { icon: TRUST_ICONS.europe, title: "Hébergé en Europe", desc: "Données souveraines" },
-    { icon: TRUST_ICONS.support, title: "Support 24/7", desc: "Par des experts IA" },
-    { icon: TRUST_ICONS.updates, title: "Mises à jour continues", desc: "Nouvelles fonctionnalités chaque semaine" },
+    { icon: TRUST_ICONS.secure, title: "Données protégées", desc: "Chiffrement TLS + stockage RGPD" },
+    { icon: TRUST_ICONS.europe, title: "Hébergé en Europe", desc: "Serveurs basés en France" },
+    { icon: TRUST_ICONS.support, title: "Support réactif", desc: "Réponse sous 24 h ouvrées" },
+    { icon: TRUST_ICONS.updates, title: "Évolutions régulières", desc: "Nouvelles fonctionnalités chaque sprint" },
   ];
   return `<div class="auth-trust-bar">${items.map((i) => `
     <div class="auth-trust-item">
@@ -158,7 +142,7 @@ function renderAuthOAuth(enabledProviders = []) {
   ];
   const providers = all.filter((p) => enabledProviders.includes(p.id));
   if (!providers.length) {
-    return `<p class="auth-oauth-hint">Connexion sociale — configurez OAuth dans secrets.json</p>`;
+    return "";
   }
   const gridClass = providers.length >= 4 ? " auth-oauth-grid" : "";
   return `
