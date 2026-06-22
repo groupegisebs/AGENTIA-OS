@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -13,6 +14,9 @@ from agent_creator.db.session import async_session_factory
 from agent_creator.models.organization import Organization
 from agent_creator.models.user import Membership, User
 from agent_creator.services.auth import AuthError, AuthService
+
+if TYPE_CHECKING:
+    from agent_creator.services.oauth import OAuthService
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -34,7 +38,7 @@ def get_auth_service() -> AuthService:
     return AuthService(get_settings())
 
 
-def get_oauth_service() -> "OAuthService":
+def get_oauth_service() -> OAuthService:
     from agent_creator.services.oauth import OAuthService
 
     return OAuthService(get_settings())
