@@ -28,8 +28,19 @@ Le coût final d'un déploiement = frais de base du plan × score de complexité
 ## Flux supporté
 
 ```
-Besoin → Dialogue → Blueprint (gratuit) → Déploiement (facturé) → Agent en production
+Besoin → Dialogue → Blueprint (gratuit) → Déploiement (facturé) → Agent publié → POST /agents/{id}/invoke
 ```
+
+| Étape | Endpoint | Notes |
+|-------|----------|-------|
+| Dialogue | `POST /conversations` | LLM ou mode mock |
+| Blueprint | `GET /conversations/{id}/blueprint` | Gratuit |
+| Déploiement | `POST /conversations/{id}/deploy` | Paiement GiseBsPay |
+| Agent publié | `GET /agents` | Automatique après paiement |
+| Invocation | `POST /agents/{id}/invoke` | JWT ou clé API `agt_...` |
+| Marketplace | `GET /marketplace/agents` | Agents `public` de toutes les orgs |
+
+Voir [deploy/AGENT-RUNTIME.md](deploy/AGENT-RUNTIME.md) pour la gestion des clés API, des limites et de la visibilité.
 
 ## Prérequis
 

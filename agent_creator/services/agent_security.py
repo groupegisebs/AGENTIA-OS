@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from fastapi import HTTPException
 
 from agent_creator.db.repository import DbStore
-from agent_creator.models.agent import AgentApiKey, AgentVisibility, PublishedAgent
+from agent_creator.models.agent import AgentApiKey, PublishedAgent
 
 _KEY_PREFIX = "agt_"
 _KEY_BYTES = 32

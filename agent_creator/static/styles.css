@@ -1886,3 +1886,58 @@ body.page-auth .nav-link-login {
   padding: 0.35rem 0.75rem;
   font-size: 0.85rem;
 }
+
+/* ─── Agent test panel ───────────────────────────────────── */
+.agent-test-panel {
+  border: 1px solid var(--accent);
+  background: var(--bg-elevated);
+}
+
+.agent-chat {
+  background: var(--bg-surface);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1rem;
+  min-height: 160px;
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.agent-chat-input {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.agent-chat-input input {
+  flex: 1;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.95rem;
+}
+
+.agent-chat-input input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* ─── Visibility select in cockpit table ─────────────────── */
+.agent-visibility-select {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.agent-visibility-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}

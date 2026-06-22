@@ -88,6 +88,27 @@ const API = {
   analyzeArchitect(description) {
     return this.json("/architect/analyze", { method: "POST", body: JSON.stringify({ description }) });
   },
+  listAgents() {
+    return this.json("/agents");
+  },
+  getAgent(id) {
+    return this.json(`/agents/${id}`);
+  },
+  updateAgent(id, data) {
+    return this.json(`/agents/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+  },
+  invokeAgent(id, message) {
+    return this.json(`/agents/${id}/invoke`, { method: "POST", body: JSON.stringify({ message }) });
+  },
+  listMarketplaceAgents() {
+    return this.json("/marketplace/agents");
+  },
+  createAgentApiKey(id, label) {
+    return this.json(`/agents/${id}/api-keys`, { method: "POST", body: JSON.stringify({ label }) });
+  },
+  revokeAgentApiKey(agentId, keyId) {
+    return this.json(`/agents/${agentId}/api-keys/${keyId}`, { method: "DELETE" });
+  },
 };
 
 const STATE = {
@@ -106,6 +127,9 @@ const STATE = {
   billingSummary: null,
   plans: [],
   oauthProviders: [],
+  publishedAgents: [],
+  agentTestPanel: null,
+  marketplaceAgents: [],
 };
 
 const EXAMPLE_CHIPS = [
@@ -578,20 +602,64 @@ function renderCockpit() {
   }
 
   const solutions = STATE.deployments || [];
+  const agents = STATE.publishedAgents || [];
+  const testPanel = STATE.agentTestPanel;
+
   return `
     <div class="page-header">
       <h1>Centre de supervision</h1>
-      <p>Suivez vos solutions déployées et leurs performances.</p>
+      <p>Suivez vos agents déployés et testez-les directement.</p>
     </div>
+    ${testPanel ? `
+    <div class="card agent-test-panel" id="agent-test-panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+        <h3>Tester : ${escapeHtml(testPanel.title)}</h3>
+        <button class="btn btn-ghost btn-sm" id="btn-close-test">✕ Fermer</button>
+      </div>
+      <div class="agent-chat" id="agent-chat-box">
+        <div class="msg msg-assistant">Bonjour, je suis l'agent <strong>${escapeHtml(testPanel.title)}</strong>. Posez-moi votre question.</div>
+      </div>
+      <div class="agent-chat-input">
+        <input type="text" id="agent-test-input" placeholder="Votre message…" autocomplete="off" />
+        <button class="btn btn-primary btn-sm" id="btn-send-agent">Envoyer</button>
+      </div>
+    </div>` : ""}
     <div class="card">
-      <h3>Mes solutions</h3>
+      <h3>Mes agents</h3>
+      ${agents.length ? `
+        <table class="data-table" style="margin-top:1rem">
+          <thead><tr><th>Agent</th><th>Catégorie</th><th>Visibilité</th><th>Statut</th><th>Actions</th></tr></thead>
+          <tbody>
+            ${agents.map((a) => `
+              <tr>
+                <td>${escapeHtml(a.title)}</td>
+                <td>${escapeHtml(a.category)}</td>
+                <td>
+                  <select class="agent-visibility-select" data-agent-id="${escapeHtml(a.id)}">
+                    <option value="private" ${a.visibility === "private" ? "selected" : ""}>Privé</option>
+                    <option value="organization" ${a.visibility === "organization" ? "selected" : ""}>Organisation</option>
+                    <option value="public" ${a.visibility === "public" ? "selected" : ""}>Public</option>
+                  </select>
+                </td>
+                <td><span class="status-pill ${a.status === "active" ? "active" : "paused"}">${a.status === "active" ? "Actif" : "Pause"}</span></td>
+                <td><button class="btn btn-secondary btn-sm" data-test-agent="${escapeHtml(a.id)}" data-test-title="${escapeHtml(a.title)}">Tester</button></td>
+              </tr>`).join("")}
+          </tbody>
+        </table>` : `
+        <div class="empty-state">
+          <p>Aucun agent publié pour le moment.</p>
+          <button class="btn btn-primary" data-nav="/">Créer un agent</button>
+        </div>`}
+    </div>
+    <div class="card" style="margin-top:1rem">
+      <h3>Mes déploiements</h3>
       ${solutions.length ? `
         <table class="data-table" style="margin-top:1rem">
           <thead><tr><th>Solution</th><th>Statut</th><th>Coût</th><th>Date</th></tr></thead>
           <tbody>
             ${solutions.map((d, i) => `
               <tr data-idx="${i}">
-                <td>Solution ${escapeHtml(d.conversation_id.slice(0, 8))}</td>
+                <td>${escapeHtml(d.title || "Solution")}</td>
                 <td><span class="status-pill ${d.status === "deployed" ? "active" : "paused"}">${d.status === "deployed" ? "Actif" : "Pause"}</span></td>
                 <td>${d.deployment_cost} ${d.currency}</td>
                 <td>${new Date(d.created_at).toLocaleDateString("fr-FR")}</td>
@@ -599,24 +667,49 @@ function renderCockpit() {
           </tbody>
         </table>` : `
         <div class="empty-state">
-          <p>Aucune solution déployée pour le moment.</p>
-          <button class="btn btn-primary" data-nav="/">Concevoir ma première solution</button>
+          <p>Aucun déploiement ce mois-ci.</p>
         </div>`}
     </div>`;
 }
 
 function renderMarketplace(category = "Tous") {
-  const items = category === "Tous" ? MARKETPLACE : MARKETPLACE.filter((t) => t.category === category);
+  const liveAgents = (STATE.marketplaceAgents || []).filter(
+    (a) => category === "Tous" || a.category === category
+  );
+  const staticItems = category === "Tous" ? MARKETPLACE : MARKETPLACE.filter((t) => t.category === category);
+  const allCategories = [
+    "Tous",
+    ...new Set([
+      ...CATEGORIES.slice(1),
+      ...(STATE.marketplaceAgents || []).map((a) => a.category),
+    ]),
+  ];
+
   return `
     <div class="marketplace-header">
-      <h1>Modèles de solutions</h1>
-      <p>Démarrez rapidement avec un modèle éprouvé, adapté à votre secteur.</p>
+      <h1>Marketplace d'agents</h1>
+      <p>Agents déployés par la communauté et modèles prêts à l'emploi.</p>
     </div>
     <div class="category-tabs">
-      ${CATEGORIES.map((c) => `<button class="chip ${c === category ? "active" : ""}" data-category="${escapeHtml(c)}" style="${c === category ? "border-color:var(--accent);color:var(--text)" : ""}">${escapeHtml(c)}</button>`).join("")}
+      ${allCategories.map((c) => `<button class="chip ${c === category ? "active" : ""}" data-category="${escapeHtml(c)}" style="${c === category ? "border-color:var(--accent);color:var(--text)" : ""}">${escapeHtml(c)}</button>`).join("")}
     </div>
+    ${liveAgents.length ? `
+    <h3 style="margin:1.5rem 0 .75rem">Agents publiés</h3>
     <div class="template-grid">
-      ${items.map((t) => `
+      ${liveAgents.map((a) => `
+        <article class="template-card">
+          <div class="template-thumb">🤖</div>
+          <div class="template-body">
+            <div class="template-tag">${escapeHtml(a.category)}</div>
+            <h3>${escapeHtml(a.title)}</h3>
+            <p>${escapeHtml(a.description)}</p>
+            <button class="btn btn-primary btn-block" data-invoke-agent="${escapeHtml(a.id)}" data-invoke-title="${escapeHtml(a.title)}">Utiliser cet agent</button>
+          </div>
+        </article>`).join("")}
+    </div>
+    <h3 style="margin:1.5rem 0 .75rem">Modèles de départ</h3>` : ""}
+    <div class="template-grid">
+      ${staticItems.map((t) => `
         <article class="template-card">
           <div class="template-thumb">${t.icon}</div>
           <div class="template-body">
@@ -810,8 +903,10 @@ function bindSolutionEvents(id) {
       } else if (res.payment_pending && res.payment_code) {
         const confirmed = await API.confirmDeploy(id, res.payment_code);
         showToast(confirmed.message || "Déploiement confirmé.");
+        try { STATE.publishedAgents = await API.listAgents(); } catch { /* ignore */ }
       } else {
-        showToast(res.message || "Déploiement lancé.");
+        showToast((res.message || "Déploiement lancé.") + " Retrouvez votre agent dans le Cockpit.");
+        try { STATE.publishedAgents = await API.listAgents(); } catch { /* ignore */ }
       }
     } catch (e) {
       showToast(e.message);
@@ -888,28 +983,85 @@ async function loadCockpitData() {
     STATE.deployments = [];
     STATE.billingSummary = null;
   }
+  try {
+    STATE.publishedAgents = await API.listAgents();
+  } catch {
+    STATE.publishedAgents = [];
+  }
 }
 
 function bindCockpitEvents() {
-  document.querySelectorAll(".data-table tbody tr").forEach((row) => {
+  document.querySelectorAll(".data-table tbody tr[data-idx]").forEach((row) => {
     row.addEventListener("click", () => {
       const idx = parseInt(row.dataset.idx, 10);
       STATE.cockpitSelected = STATE.deployments[idx];
       render();
     });
   });
+
   document.getElementById("btn-back-cockpit")?.addEventListener("click", () => {
     STATE.cockpitSelected = null;
     render();
   });
+
+  document.getElementById("btn-close-test")?.addEventListener("click", () => {
+    STATE.agentTestPanel = null;
+    render();
+  });
+
+  document.querySelectorAll("[data-test-agent]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      STATE.agentTestPanel = { id: btn.dataset.testAgent, title: btn.dataset.testTitle };
+      render();
+      document.getElementById("agent-test-panel")?.scrollIntoView({ behavior: "smooth" });
+    });
+  });
+
+  document.getElementById("btn-send-agent")?.addEventListener("click", () => _sendAgentTestMessage());
+  document.getElementById("agent-test-input")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") _sendAgentTestMessage();
+  });
+
+  document.querySelectorAll(".agent-visibility-select").forEach((sel) => {
+    sel.addEventListener("change", async () => {
+      try {
+        await API.updateAgent(sel.dataset.agentId, { visibility: sel.value });
+        showToast("Visibilité mise à jour.");
+      } catch (e) {
+        showToast(e.message);
+      }
+    });
+  });
+}
+
+async function _sendAgentTestMessage() {
+  const input = document.getElementById("agent-test-input");
+  const box = document.getElementById("agent-chat-box");
+  if (!input || !box || !STATE.agentTestPanel) return;
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = "";
+  box.innerHTML += `<div class="msg msg-user">${escapeHtml(msg)}</div>`;
+  box.innerHTML += `<div class="msg msg-assistant" id="agent-typing"><span class="loading"></span></div>`;
+  box.scrollTop = box.scrollHeight;
+  try {
+    const res = await API.invokeAgent(STATE.agentTestPanel.id, msg);
+    document.getElementById("agent-typing")?.remove();
+    box.innerHTML += `<div class="msg msg-assistant">${escapeHtml(res.reply || "")}</div>`;
+  } catch (e) {
+    document.getElementById("agent-typing")?.remove();
+    box.innerHTML += `<div class="msg msg-assistant" style="color:var(--danger)">Erreur : ${escapeHtml(e.message)}</div>`;
+  }
+  box.scrollTop = box.scrollHeight;
 }
 
 let marketplaceCategory = "Tous";
 
 function bindMarketplaceEvents() {
   document.querySelectorAll("[data-category]").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       marketplaceCategory = btn.dataset.category;
+      try { STATE.marketplaceAgents = await API.listMarketplaceAgents(); } catch { STATE.marketplaceAgents = []; }
       document.getElementById("view").innerHTML = renderMarketplace(marketplaceCategory);
       bindMarketplaceEvents();
       bindGlobalNav();
@@ -918,6 +1070,12 @@ function bindMarketplaceEvents() {
   document.querySelectorAll("[data-template]").forEach((btn) => {
     btn.addEventListener("click", () => {
       navigate("/workspace", { need: btn.dataset.template });
+    });
+  });
+  document.querySelectorAll("[data-invoke-agent]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      STATE.agentTestPanel = { id: btn.dataset.invokeAgent, title: btn.dataset.invokeTitle };
+      navigate("/cockpit");
     });
   });
 }
@@ -1214,6 +1372,7 @@ async function render() {
       bindCockpitEvents();
       break;
     case "marketplace":
+      try { STATE.marketplaceAgents = await API.listMarketplaceAgents(); } catch { STATE.marketplaceAgents = []; }
       view.innerHTML = renderMarketplace(marketplaceCategory);
       bindMarketplaceEvents();
       break;
