@@ -1,0 +1,21 @@
+[Unit]
+Description=Agentia Factory — Agent Creator
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/apps/agentia-os/app
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=-/opt/apps/agentia-os/app/.env
+ExecStart=/opt/apps/agentia-os/venv/bin/uvicorn agent_creator.main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=5
+TimeoutStartSec=120
+SyslogIdentifier=agentia-os
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
