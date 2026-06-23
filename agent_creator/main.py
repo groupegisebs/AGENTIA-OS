@@ -2,6 +2,9 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncIterator
 
+import redis.asyncio as aioredis
+from arq import create_pool
+from arq.connections import RedisSettings
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -14,6 +17,7 @@ from agent_creator.routers import architect, auth, billing, conversations, organ
 from agent_creator.routers.agents import marketplace_router, router as agents_router
 from agent_creator.services.billing import BillingService
 from agent_creator.services.blueprint_generator import BlueprintGenerator
+from agent_creator.services.cache import AgentCache
 from agent_creator.services.extractor import RequirementExtractor
 from agent_creator.services.llm import LLMService
 from agent_creator.services.payment import create_payment_provider
@@ -42,18 +46,46 @@ API_PATH_PREFIXES = (
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     Path("data").mkdir(exist_ok=True)
     await init_db()
+
+    # ── Redis + cache manifestes agents ──────────────────────────────────────
+    redis_client = aioredis.from_url(
+        settings.redis_url, encoding="utf-8", decode_responses=True
+    )
+    cache = AgentCache(redis_client)
+    redis_ok = await cache.ping()
+
+    # ── Pool ARQ pour l'enqueue des runs asynchrones ──────────────────────────
+    arq_pool = None
+    if redis_ok:
+        try:
+            arq_pool = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+        except Exception as exc:
+            print(f"::warning::ARQ pool non disponible : {exc}")
+
+    application.state.cache = cache
+    application.state.arq_pool = arq_pool
+
     llm_mode = llm.mode_label
     pay_mode = payment_provider.provider_name
     db_scheme = settings.database_url.split("://", 1)[0]
-    print(f"Agent Creator démarré — LLM : {llm_mode} — paiement : {pay_mode} — DB : {db_scheme}")
+    redis_status = "OK" if redis_ok else "indisponible (mode sync uniquement)"
+    print(
+        f"Agent Creator démarré — LLM : {llm_mode} — paiement : {pay_mode}"
+        f" — DB : {db_scheme} — Redis : {redis_status}"
+    )
     if SPA_INDEX.is_file():
         print(f"Interface web : {STATIC_DIR}")
     else:
         print(f"::warning::SPA introuvable : {SPA_INDEX}")
+
     yield
+
+    await cache.close()
+    if arq_pool:
+        await arq_pool.aclose()
 
 
 app = FastAPI(
@@ -129,12 +161,15 @@ async def spa_with_id(conversation_id: str) -> FileResponse:
 
 @app.get("/health")
 async def health() -> dict[str, str | bool]:
+    redis_ok = await app.state.cache.ping() if hasattr(app.state, "cache") else False
     return {
         "status": "ok",
         "service": "agent-creator",
         "version": __version__,
         "llm_mode": llm.mode_label,
         "payment_provider": payment_provider.provider_name,
+        "redis": "ok" if redis_ok else "unavailable",
+        "async_workers": app.state.arq_pool is not None if hasattr(app.state, "arq_pool") else False,
         "spa_index": str(SPA_INDEX),
         "spa_ready": SPA_INDEX.is_file(),
     }

@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     # Base de données — production : PostgreSQL via secret GHA AGENTIA_OS_DATABASE_URL
     database_url: str = "sqlite+aiosqlite:///./data/agentia.db"
 
+    # Redis — broker ARQ + cache manifestes agents (dormance)
+    redis_url: str = "redis://127.0.0.1:6379"
+
     # Authentification JWT — en production : secret GHA obligatoire
     jwt_secret: str = "dev-only-change-in-production"
     jwt_algorithm: str = "HS256"
