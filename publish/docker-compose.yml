@@ -1,0 +1,70 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Agentia OS — Docker Compose
+#
+# Architecture : agents dormants dans PostgreSQL/Redis, réveillés à la demande.
+#
+# Réseau : host (Linux VPS)
+#   • PostgreSQL : déjà sur localhost:5432 (service systemd existant)
+#   • Redis      : localhost:6379 (nouveau conteneur)
+#   • API        : localhost:8000 (derrière nginx-proxy-manager)
+#   • Workers    : stateless, scalables — docker compose up --scale worker=N
+#
+# Usage rapide :
+#   docker compose up -d                      # 1 worker
+#   docker compose up -d --scale worker=5     # 5 workers (500 agents simultanés)
+#   docker compose up -d --scale worker=10    # 10 workers (1000 agents simultanés)
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Redis : broker + cache de manifestes ───────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    network_mode: host
+    restart: always
+    volumes:
+      - redis_data:/data
+    command: >
+      redis-server
+        --bind 127.0.0.1
+        --port 6379
+        --appendonly yes
+        --maxmemory 512mb
+        --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -h 127.0.0.1 ping | grep PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  # ── API FastAPI ─────────────────────────────────────────────────────────────
+  api:
+    build: .
+    network_mode: host
+    restart: always
+    env_file: .env
+    environment:
+      REDIS_URL: "redis://127.0.0.1:6379"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # ── Workers ARQ (agents dormants → exécution async) ────────────────────────
+  #
+  # Chaque worker gère 100 coroutines asynchrones.
+  # Scale : docker compose up -d --scale worker=10  →  1 000 agents simultanés.
+  worker:
+    build: .
+    network_mode: host
+    restart: always
+    command: ["python", "-m", "arq", "agent_creator.workers.agent_worker.WorkerSettings"]
+    env_file: .env
+    environment:
+      REDIS_URL: "redis://127.0.0.1:6379"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  redis_data:

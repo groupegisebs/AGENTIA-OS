@@ -1,15 +1,20 @@
-"""Routes : agents publiés, invocation, clés API, marketplace."""
+"""Routes : agents publiés, invocation (sync + async), clés API, marketplace."""
 
+import asyncio
+import json
 from datetime import datetime
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
+from sse_starlette.sse import EventSourceResponse
 
 from agent_creator.db.repository import DbStore
 from agent_creator.dependencies import UserContext, get_agent_consumer, get_current_user, get_db_store
 from agent_creator.models.agent import AgentManifest, AgentStatus, AgentVisibility, InvocationRequest, PublishedAgent
 from agent_creator.services.agent_runtime import invoke_agent
 from agent_creator.services.agent_security import check_agent_access, check_rate_limit, create_agent_api_key
+from agent_creator.services.cache import AgentCache
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 marketplace_router = APIRouter(prefix="/marketplace", tags=["marketplace"])
@@ -89,6 +94,31 @@ class ApiKeyListItem(BaseModel):
     revoked_at: datetime | None
 
 
+class RunResponse(BaseModel):
+    """Réponse 202 : run asynchrone enqueued."""
+    run_id: str
+    agent_id: str
+    status: str  # "queued"
+
+
+class RunResult(BaseModel):
+    """Résultat d'un run (polling ou SSE)."""
+    status: str   # "done" | "error" | "running" | "queued"
+    run_id: str
+    reply: str | None = None
+    agent_id: str | None = None
+    latency_ms: int | None = None
+    error: str | None = None
+
+
+def _get_cache(request: Request) -> AgentCache | None:
+    return getattr(request.app.state, "cache", None)
+
+
+def _get_arq_pool(request: Request):
+    return getattr(request.app.state, "arq_pool", None)
+
+
 # ─── Agent routes ────────────────────────────────────────────────────────────
 
 @router.get("", response_model=list[AgentSummaryResponse])
@@ -153,6 +183,117 @@ async def invoke(
 
     result = await invoke_agent(agent, body.message, ctx.organization.id, db, llm)
     return result.model_dump()
+
+
+@router.post("/{agent_id}/run", response_model=RunResponse, status_code=202)
+async def run_agent(
+    agent_id: str,
+    body: InvocationRequest,
+    request: Request,
+    ctx: UserContext = Depends(get_agent_consumer),
+    db: DbStore = Depends(get_db_store),
+) -> RunResponse:
+    """Invocation **asynchrone** : retourne immédiatement un run_id.
+
+    Le résultat est livré par :
+    - Polling : GET /agents/{id}/runs/{run_id}
+    - SSE     : GET /agents/{id}/runs/{run_id}/stream
+    """
+    arq_pool = _get_arq_pool(request)
+    if arq_pool is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Workers non disponibles. Redis requis — vérifiez que le service Redis est démarré.",
+        )
+    agent = await db.get_published_agent(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent introuvable.")
+    check_agent_access(agent, ctx.organization.id)
+    await check_rate_limit(db, agent, ctx.organization.id)
+
+    cache: AgentCache = _get_cache(request)
+    run_id = str(uuid4())
+
+    # Pré-chauffer le cache (réveil immédiat de l'agent dans le worker)
+    if cache:
+        await cache.set_manifest(agent_id, agent.manifest.model_dump(mode="json"))
+        await cache.set_run_status(run_id, "queued")
+
+    await arq_pool.enqueue_job(
+        "execute_agent_run",
+        run_id,
+        agent_id,
+        ctx.organization.id,
+        body.message,
+    )
+    return RunResponse(run_id=run_id, agent_id=agent_id, status="queued")
+
+
+@router.get("/{agent_id}/runs/{run_id}", response_model=RunResult)
+async def get_run(
+    agent_id: str,
+    run_id: str,
+    request: Request,
+    ctx: UserContext = Depends(get_agent_consumer),
+) -> RunResult:
+    """Polling : récupère le résultat d'un run asynchrone."""
+    cache = _get_cache(request)
+    if cache is None:
+        raise HTTPException(status_code=503, detail="Redis non disponible.")
+
+    result = await cache.get_run_result(run_id)
+    if result:
+        return RunResult(**result)
+
+    status_data = await cache.get_run_status(run_id)
+    if status_data:
+        return RunResult(**status_data)
+
+    raise HTTPException(status_code=404, detail="Run introuvable (expiré ou inexistant).")
+
+
+@router.get("/{agent_id}/runs/{run_id}/stream")
+async def stream_run(
+    agent_id: str,
+    run_id: str,
+    request: Request,
+    ctx: UserContext = Depends(get_agent_consumer),
+) -> EventSourceResponse:
+    """SSE : pousse le résultat dès que le worker a terminé (max 2 min).
+
+    Événements émis :
+    - heartbeat : {"status": "running"|"queued"}   (toutes les 500 ms)
+    - done      : {"status": "done", "reply": "...", "latency_ms": N}
+    - error     : {"status": "error", "error": "..."}
+    """
+    cache = _get_cache(request)
+    if cache is None:
+        raise HTTPException(status_code=503, detail="Redis non disponible.")
+
+    async def event_generator():
+        for _ in range(240):  # 240 × 500 ms = 120 s max
+            if await request.is_disconnected():
+                return
+
+            result = await cache.get_run_result(run_id)
+            if result:
+                event = "done" if result.get("status") == "done" else "error"
+                yield {"event": event, "data": json.dumps(result)}
+                return
+
+            status_data = await cache.get_run_status(run_id)
+            yield {
+                "event": "heartbeat",
+                "data": json.dumps(status_data or {"status": "queued", "run_id": run_id}),
+            }
+            await asyncio.sleep(0.5)
+
+        yield {
+            "event": "error",
+            "data": json.dumps({"status": "timeout", "run_id": run_id, "error": "Délai max dépassé"}),
+        }
+
+    return EventSourceResponse(event_generator())
 
 
 @router.post("/{agent_id}/api-keys", response_model=ApiKeyCreatedResponse, status_code=201)
