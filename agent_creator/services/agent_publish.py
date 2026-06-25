@@ -15,13 +15,14 @@ async def publish_from_deployment(
     blueprint: Blueprint,
     organization: Organization,
     settings: Settings,
+    llm: object | None = None,
 ) -> PublishedAgent:
     """Crée ou retourne l'agent publié lié à ce déploiement (idempotent)."""
     existing = await db.get_published_agent_by_deployment(deployment.id)
     if existing:
         return existing
 
-    manifest = build_manifest(blueprint, organization.plan, settings)
+    manifest = await build_manifest(blueprint, organization.plan, settings, llm)
 
     agent = PublishedAgent(
         organization_id=organization.id,

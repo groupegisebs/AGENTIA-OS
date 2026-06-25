@@ -25,8 +25,9 @@ from agent_creator.services.payment import create_payment_provider
 settings = get_settings()
 payment_provider = create_payment_provider(settings)
 billing_service = BillingService(settings, payment_provider)
-llm = LLMService(settings)
-extractor = RequirementExtractor(llm)
+llm_service = LLMService(settings)
+llm = llm_service  # backward-compat alias
+extractor = RequirementExtractor(llm_service)
 blueprint_generator = BlueprintGenerator(extractor)
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"

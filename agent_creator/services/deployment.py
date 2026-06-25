@@ -12,9 +12,15 @@ from agent_creator.services.plans import get_plan_config, list_plans
 class DeploymentService:
     """Orchestre le déploiement d'un blueprint avec facturation."""
 
-    def __init__(self, db: DbStore, billing_service: BillingService) -> None:
+    def __init__(
+        self,
+        db: DbStore,
+        billing_service: BillingService,
+        llm: object | None = None,
+    ) -> None:
         self._db = db
         self._billing = billing_service
+        self._llm = llm
 
     def get_plans(self) -> list[SubscriptionPlanConfig]:
         return list_plans()
@@ -73,7 +79,9 @@ class DeploymentService:
             await self._db.save_payment_intent(payment_intent)
 
         if deployment.status == DeploymentStatus.DEPLOYED:
-            await publish_from_deployment(self._db, deployment, blueprint, organization, get_settings())
+            await publish_from_deployment(
+                self._db, deployment, blueprint, organization, get_settings(), self._llm
+            )
 
         return deployment, billing_event
 
@@ -101,7 +109,9 @@ class DeploymentService:
             blueprint = await self._db.get_blueprint(deployment.conversation_id)
             organization = await self._db.get_organization(deployment.organization_id)
             if blueprint and organization:
-                await publish_from_deployment(self._db, deployment, blueprint, organization, get_settings())
+                await publish_from_deployment(
+                    self._db, deployment, blueprint, organization, get_settings(), self._llm
+                )
 
         return deployment, billing_event
 

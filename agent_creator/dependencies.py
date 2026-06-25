@@ -86,10 +86,10 @@ async def get_optional_user(
 
 
 async def get_deployment_service(db: DbStore = Depends(get_db_store)):
-    from agent_creator.main import billing_service
+    from agent_creator.main import billing_service, llm_service
     from agent_creator.services.deployment import DeploymentService
 
-    return DeploymentService(db, billing_service)
+    return DeploymentService(db, billing_service, llm_service)
 
 
 async def get_agent_consumer(

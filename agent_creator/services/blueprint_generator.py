@@ -1,3 +1,6 @@
+import json
+import re
+
 from agent_creator.models.blueprint import Blueprint, BlueprintComponent
 from agent_creator.models.conversation import Conversation
 from agent_creator.models.requirement import Requirement, SolutionType
@@ -9,11 +12,16 @@ class BlueprintGenerator:
 
     def __init__(self, extractor: RequirementExtractor) -> None:
         self._extractor = extractor
+        self._llm = extractor._llm
 
     async def generate(self, conversation: Conversation) -> Blueprint:
         requirements = await self._extractor.extract(conversation)
         clarifying = list(requirements.missing_information)
 
+        if not self._llm.is_mock_mode:
+            return await self._llm_generate(conversation.id, requirements, conversation.transcript)
+
+        # --- Mode démo (sans LLM) ---
         if self._is_invoice_scenario(requirements):
             return self._invoice_blueprint(conversation.id, requirements, clarifying)
 
@@ -32,6 +40,102 @@ class BlueprintGenerator:
             data_flow=data_flow,
             clarifying_questions=clarifying[:5],
             next_steps=self._next_steps(requirements, solution_type),
+            confidence=requirements.completeness_score,
+        )
+
+    async def _llm_generate(
+        self,
+        conversation_id: str,
+        requirements: Requirement,
+        transcript: str,
+    ) -> Blueprint:
+        """Génère un blueprint précis via LLM basé sur la vraie conversation."""
+        schema_hint = json.dumps(
+            {
+                "title": "Titre court décrivant précisément la solution",
+                "solution_type": "agent | workflow | hybrid | api | microservice",
+                "solution_type_rationale": "Explication du choix en 1-2 phrases",
+                "secondary_types": ["workflow", "agent"],
+                "components": [
+                    {
+                        "name": "Nom du composant",
+                        "type": "ai | integration | workflow | database | reporting | security",
+                        "description": "Ce que fait ce composant précisément",
+                        "technology_hint": "Technologies ou services recommandés",
+                    }
+                ],
+                "data_flow": [
+                    "1. Étape 1 du flux de données",
+                    "2. Étape 2",
+                ],
+                "clarifying_questions": ["Question sur un point non précisé"],
+                "next_steps": ["Action concrète à mener"],
+            },
+            ensure_ascii=False,
+        )
+
+        system_prompt = (
+            "Tu es un architecte de solutions IA expert. "
+            "Analyse la conversation ci-dessous et génère un blueprint d'architecture "
+            "précis et adapté au cas métier spécifique décrit. "
+            "Les composants doivent être concrets et directement liés aux systèmes "
+            "mentionnés dans la conversation. "
+            "NE génère PAS de composants génériques ou de templates. "
+            "Chaque composant doit avoir un sens direct par rapport au besoin exprimé. "
+            "Réponds uniquement en JSON valide selon ce schéma :\n" + schema_hint
+        )
+
+        user_prompt = (
+            f"Conversation :\n{transcript}\n\n"
+            f"Exigences extraites :\n"
+            f"- Domaine : {requirements.domain}\n"
+            f"- Objectifs : {'; '.join(requirements.objectives)}\n"
+            f"- Sources de données : {'; '.join(requirements.data_sources)}\n"
+            f"- Contraintes : {'; '.join(requirements.constraints)}\n"
+            f"- Volumes : {'; '.join(requirements.volumes)}\n"
+        )
+
+        raw = await self._llm.structured_completion(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            schema_hint=schema_hint,
+        )
+
+        components = [
+            BlueprintComponent(
+                name=c.get("name", "Composant"),
+                type=c.get("type", "workflow"),
+                description=c.get("description", ""),
+                technology_hint=c.get("technology_hint"),
+            )
+            for c in raw.get("components", [])
+        ]
+
+        secondary_raw = raw.get("secondary_types", [])
+        secondary = []
+        for st in secondary_raw:
+            try:
+                secondary.append(SolutionType(st))
+            except ValueError:
+                pass
+
+        solution_type = SolutionType.HYBRID
+        try:
+            solution_type = SolutionType(raw.get("solution_type", "hybrid"))
+        except ValueError:
+            pass
+
+        return Blueprint(
+            conversation_id=conversation_id,
+            title=raw.get("title", requirements.summary or "Solution proposée"),
+            solution_type=solution_type,
+            solution_type_rationale=raw.get("solution_type_rationale", ""),
+            secondary_types=secondary,
+            requirements=requirements,
+            components=components,
+            data_flow=raw.get("data_flow", []),
+            clarifying_questions=raw.get("clarifying_questions", [])[:5],
+            next_steps=raw.get("next_steps", []),
             confidence=requirements.completeness_score,
         )
 

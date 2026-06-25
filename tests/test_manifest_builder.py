@@ -37,43 +37,49 @@ def _fake_settings():
     )
 
 
-def test_manifest_has_system_prompt():
+@pytest.mark.asyncio
+async def test_manifest_has_system_prompt():
     bp = _make_blueprint("comptabilité", ["Automatiser les factures"])
-    manifest = build_manifest(bp, SubscriptionPlan.PROFESSIONAL, _fake_settings())
+    manifest = await build_manifest(bp, SubscriptionPlan.PROFESSIONAL, _fake_settings())
     assert "Automatiser les factures" in manifest.system_prompt
     assert "comptabilité" in manifest.system_prompt.lower() or "comptab" in manifest.system_prompt.lower()
 
 
-def test_manifest_category_inferred_from_domain():
+@pytest.mark.asyncio
+async def test_manifest_category_inferred_from_domain():
     bp = _make_blueprint("comptabilité cabinet", ["traitements"])
-    manifest = build_manifest(bp, SubscriptionPlan.FREE, _fake_settings())
+    manifest = await build_manifest(bp, SubscriptionPlan.FREE, _fake_settings())
     assert manifest.category in ("Comptabilité", "Finance", "Général")
 
 
-def test_manifest_policies_by_plan():
+@pytest.mark.asyncio
+async def test_manifest_policies_by_plan():
     bp = _make_blueprint("RH", ["gestion employés"])
-    free_manifest = build_manifest(bp, SubscriptionPlan.FREE, _fake_settings())
-    pro_manifest = build_manifest(bp, SubscriptionPlan.PROFESSIONAL, _fake_settings())
+    free_manifest = await build_manifest(bp, SubscriptionPlan.FREE, _fake_settings())
+    pro_manifest = await build_manifest(bp, SubscriptionPlan.PROFESSIONAL, _fake_settings())
     assert pro_manifest.policies.max_input_chars > free_manifest.policies.max_input_chars
     assert pro_manifest.policies.max_requests_per_hour > free_manifest.policies.max_requests_per_hour
 
 
-def test_manifest_pii_filter_always_on():
+@pytest.mark.asyncio
+async def test_manifest_pii_filter_always_on():
     bp = _make_blueprint("juridique", ["analyser contrats"])
-    manifest = build_manifest(bp, SubscriptionPlan.ENTERPRISE, _fake_settings())
+    manifest = await build_manifest(bp, SubscriptionPlan.ENTERPRISE, _fake_settings())
     assert manifest.policies.pii_filter is True
 
 
-def test_manifest_components_serialised():
+@pytest.mark.asyncio
+async def test_manifest_components_serialised():
     bp = _make_blueprint("crm", ["suivre prospects"])
-    manifest = build_manifest(bp, SubscriptionPlan.FREE, _fake_settings())
+    manifest = await build_manifest(bp, SubscriptionPlan.FREE, _fake_settings())
     assert len(manifest.components) == 2
     names = [c["name"] for c in manifest.components]
     assert "Orchestrateur" in names
     assert "Agent IA" in names
 
 
-def test_manifest_category_crm():
+@pytest.mark.asyncio
+async def test_manifest_category_crm():
     bp = _make_blueprint("crm", ["suivre prospects et relances"])
-    manifest = build_manifest(bp, SubscriptionPlan.FREE, _fake_settings())
+    manifest = await build_manifest(bp, SubscriptionPlan.FREE, _fake_settings())
     assert manifest.category == "CRM"
