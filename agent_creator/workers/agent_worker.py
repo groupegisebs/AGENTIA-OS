@@ -16,7 +16,6 @@ Scalabilité
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import time
@@ -29,7 +28,7 @@ from agent_creator.config import get_settings
 from agent_creator.db.repository import DbStore
 from agent_creator.db.session import async_session_factory
 from agent_creator.models.agent import AgentInvocation, AgentManifest
-from agent_creator.services.cache import MANIFEST_TTL, AgentCache
+from agent_creator.services.cache import AgentCache
 from agent_creator.services.llm import LLMService
 
 logger = logging.getLogger(__name__)

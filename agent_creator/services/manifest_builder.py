@@ -133,7 +133,7 @@ async def _llm_system_prompt(blueprint: Blueprint, llm: object) -> str:
                 f"**Domaine** : {req.domain or 'Non spécifié'}\n"
                 f"**Objectifs** :\n"
                 + "\n".join(f"- {o}" for o in req.objectives)
-                + f"\n\n**Contraintes** :\n"
+                + "\n\n**Contraintes** :\n"
                 + "\n".join(f"- {c}" for c in req.constraints)
                 + f"\n\n**Sources de données** : {', '.join(req.data_sources)}\n"
                 f"**Type de solution** : {blueprint.solution_type.value}\n"
