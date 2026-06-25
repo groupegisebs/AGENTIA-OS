@@ -1,13 +1,14 @@
 /**
- * Agentia — Bureau d'architecture digitale
- * SPA vanilla JS avec routage côté client + authentification SaaS
+ * Agent Factory — Solution Composer
+ * Plateforme professionnelle de composition de solutions intelligentes.
+ * La conversation n'est que le moyen de recueillir le besoin —
+ * la solution se construit en temps réel dans le workspace.
  */
 
 import { renderAuthPremiumLayout } from "./auth-ui.js";
 
 const AUTH_TOKEN_KEY = "agentia_token";
 
-/** URL API absolue depuis la racine du site (évite les 404 relatifs type /inscription/auth/...). */
 function apiUrl(path) {
   if (/^https?:\/\//i.test(path)) return path;
   const base = (document.querySelector('meta[name="agentia-api-base"]')?.content || "")
@@ -37,42 +38,27 @@ const API = {
     }
     return res.json();
   },
-  register(data) {
-    return this.json("/auth/register", { method: "POST", body: JSON.stringify(data) });
-  },
-  login(data) {
-    return this.json("/auth/login", { method: "POST", body: JSON.stringify(data) });
-  },
-  getMe() {
-    return this.json("/auth/me");
-  },
-  getOAuthProviders() {
-    return this.json("/auth/oauth/providers");
-  },
+  register(data) { return this.json("/auth/register", { method: "POST", body: JSON.stringify(data) }); },
+  login(data) { return this.json("/auth/login", { method: "POST", body: JSON.stringify(data) }); },
+  getMe() { return this.json("/auth/me"); },
+  getOAuthProviders() { return this.json("/auth/oauth/providers"); },
   createConversation(message) {
     return this.json("/conversations", { method: "POST", body: JSON.stringify({ message }) });
   },
   sendMessage(id, message) {
     return this.json(`/conversations/${id}/messages`, { method: "POST", body: JSON.stringify({ message }) });
   },
-  getBlueprint(id) {
-    return this.json(`/conversations/${id}/blueprint`);
-  },
-  getEstimates(id) {
-    return this.json(`/conversations/${id}/estimates`);
-  },
-  deploy(id) {
-    return this.json(`/conversations/${id}/deploy`, { method: "POST" });
-  },
+  getConversation(id) { return this.json(`/conversations/${id}`); },
+  getBlueprint(id) { return this.json(`/conversations/${id}/blueprint`); },
+  getEstimates(id) { return this.json(`/conversations/${id}/estimates`); },
+  deploy(id) { return this.json(`/conversations/${id}/deploy`, { method: "POST" }); },
   confirmDeploy(id, paymentCode) {
     return this.json(`/conversations/${id}/deploy/confirm`, {
       method: "POST",
       body: JSON.stringify({ payment_code: paymentCode }),
     });
   },
-  getPlans() {
-    return this.json("/plans");
-  },
+  getPlans() { return this.json("/plans"); },
   subscribe(plan) {
     return this.json("/organizations/me/subscribe", { method: "POST", body: JSON.stringify({ plan }) });
   },
@@ -82,32 +68,18 @@ const API = {
   pollPaymentStatus(code) {
     return this.json(`/billing/payments/${encodeURIComponent(code)}/status`);
   },
-  getBilling(orgId) {
-    return this.json(`/organizations/${orgId}/billing`);
-  },
-  analyzeArchitect(description) {
-    return this.json("/architect/analyze", { method: "POST", body: JSON.stringify({ description }) });
-  },
-  listAgents() {
-    return this.json("/agents");
-  },
-  getAgent(id) {
-    return this.json(`/agents/${id}`);
-  },
+  getBilling(orgId) { return this.json(`/organizations/${orgId}/billing`); },
+  listAgents() { return this.json("/agents"); },
+  getAgent(id) { return this.json(`/agents/${id}`); },
   updateAgent(id, data) {
     return this.json(`/agents/${id}`, { method: "PATCH", body: JSON.stringify(data) });
   },
   invokeAgent(id, message) {
     return this.json(`/agents/${id}/invoke`, { method: "POST", body: JSON.stringify({ message }) });
   },
-  listMarketplaceAgents() {
-    return this.json("/marketplace/agents");
-  },
+  listMarketplaceAgents() { return this.json("/marketplace/agents"); },
   createAgentApiKey(id, label) {
     return this.json(`/agents/${id}/api-keys`, { method: "POST", body: JSON.stringify({ label }) });
-  },
-  revokeAgentApiKey(agentId, keyId) {
-    return this.json(`/agents/${agentId}/api-keys/${keyId}`, { method: "DELETE" });
   },
 };
 
@@ -116,12 +88,12 @@ const STATE = {
   orgName: "",
   orgId: null,
   planName: "Free",
-  pendingNeed: "",
   conversationId: null,
   blueprint: null,
   estimates: null,
-  architectResult: null,
-  architectInput: "",
+  composerMetadata: null,    // SolutionMetadata from API
+  composerMessages: [],      // {role, content} for composer chat
+  pendingNeed: "",
   cockpitSelected: null,
   deployments: [],
   billingSummary: null,
@@ -132,39 +104,55 @@ const STATE = {
   marketplaceAgents: [],
 };
 
-const EXAMPLE_CHIPS = [
-  "Je veux gérer automatiquement mes emails clients",
-  "Je veux extraire les données des factures PDF",
-  "Je veux suivre mes prospects",
-  "Je veux automatiser l'approbation des dépenses",
-  "Je veux un assistant RH",
+const PROBLEM_CHIPS = [
+  "Je veux réduire de 80% le temps de traitement des factures",
+  "Je veux automatiser les réponses à mes clients en moins de 5 min",
+  "Je veux un assistant RH pour mes managers",
+  "Je veux automatiser le suivi de mes prospects",
+  "Je veux analyser automatiquement mes contrats",
 ];
 
 const MARKETPLACE = [
-  { id: "email-crm", category: "CRM", icon: "✉️", title: "Gestion emails clients", desc: "Tri, réponse et suivi automatique des demandes entrantes.", need: "Je veux gérer automatiquement mes emails clients" },
+  { id: "email-crm", category: "CRM", icon: "✉", title: "Gestion emails clients", desc: "Tri, réponse et suivi automatique des demandes entrantes.", need: "Je veux gérer automatiquement mes emails clients" },
   { id: "factures", category: "Comptabilité", icon: "📄", title: "Extraction factures PDF", desc: "Capture et structuration des données de vos factures fournisseurs.", need: "Je veux extraire les données des factures PDF" },
   { id: "prospects", category: "CRM", icon: "🎯", title: "Suivi prospects", desc: "Relances intelligentes et scoring de vos opportunités commerciales.", need: "Je veux suivre mes prospects" },
   { id: "depenses", category: "Finance", icon: "💳", title: "Validation des dépenses", desc: "Circuit d'approbation fluide pour notes de frais et achats.", need: "Je veux automatiser l'approbation des dépenses" },
   { id: "rh", category: "RH", icon: "👥", title: "Assistant RH", desc: "Réponses aux questions employés et gestion des demandes internes.", need: "Je veux un assistant RH" },
-  { id: "contrats", category: "Juridique", icon: "⚖️", title: "Analyse de contrats", desc: "Extraction des clauses clés et alertes de renouvellement.", need: "Je veux analyser automatiquement mes contrats" },
+  { id: "contrats", category: "Juridique", icon: "⚖", title: "Analyse de contrats", desc: "Extraction des clauses clés et alertes de renouvellement.", need: "Je veux analyser automatiquement mes contrats" },
   { id: "formation", category: "Éducation", icon: "📚", title: "Assistant pédagogique", desc: "Support aux apprenants et suivi des parcours de formation.", need: "Je veux un assistant pour les questions des apprenants" },
   { id: "rapprochement", category: "Finance", icon: "🏦", title: "Rapprochement bancaire", desc: "Conciliation automatique entre relevés et écritures comptables.", need: "Je veux automatiser le rapprochement bancaire" },
 ];
 
 const CATEGORIES = ["Tous", "Finance", "RH", "CRM", "Comptabilité", "Juridique", "Éducation"];
 
-const BUSINESS_LABELS = {
-  integration: "Integrations",
-  ai: "Intelligence métier",
-  workflow: "Orchestration",
-  agent: "Assistant intelligent",
-  api: "Connecteur de données",
-  storage: "Archivage sécurisé",
-  notification: "Notifications",
+const COMPONENT_TYPE_LABELS = {
+  integration: "Intégration",
+  ai: "Intelligence IA",
+  workflow: "Workflow",
+  agent: "Agent IA",
+  api: "API",
+  database: "Base de données",
+  reporting: "Reporting",
+  security: "Sécurité",
 };
 
-function businessLabel(type) {
-  return BUSINESS_LABELS[type] || "Composant métier";
+const COMPONENT_TYPE_ICONS = {
+  integration: "⇄",
+  ai: "◈",
+  workflow: "⊕",
+  agent: "◎",
+  api: "⟡",
+  database: "▤",
+  reporting: "▦",
+  security: "⬡",
+};
+
+function componentTypeLabel(type) {
+  return COMPONENT_TYPE_LABELS[type] || "Composant";
+}
+
+function componentTypeIcon(type) {
+  return COMPONENT_TYPE_ICONS[type] || "◆";
 }
 
 function businessCapability(component) {
@@ -176,13 +164,9 @@ function businessCapability(component) {
     "Agent de validation": "Vérifie et valide les données avant envoi",
     "Tableau de bord": "Visualise l'activité et les indicateurs clés",
   };
-  return map[component.name] || component.description.replace(/API|LLM|OCR|n8n|Temporal|Azure|Kubernetes|Docker|RabbitMQ|GPT|Gemini/gi, "").trim() || `Automatise : ${component.name.toLowerCase()}`;
-}
-
-function complexityClass(label) {
-  if (label === "Faible") return "low";
-  if (label === "Moyenne") return "mid";
-  return "high";
+  return map[component.name] || component.description
+    .replace(/API|LLM|OCR|n8n|Temporal|Azure|Kubernetes|Docker|GPT|Gemini/gi, "")
+    .trim() || `Automatise : ${component.name.toLowerCase()}`;
 }
 
 function escapeHtml(str) {
@@ -193,11 +177,12 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
-function showToast(msg) {
+function showToast(msg, type = "info") {
   const el = document.getElementById("toast");
   el.textContent = msg;
+  el.className = `toast toast-${type}`;
   el.hidden = false;
-  setTimeout(() => { el.hidden = true; }, 4000);
+  setTimeout(() => { el.hidden = true; }, 4500);
 }
 
 function navigate(path, params = {}) {
@@ -209,14 +194,16 @@ function navigate(path, params = {}) {
 
 function parseRoute() {
   const path = window.location.pathname;
+  const composerMatch = path.match(/^\/composer\/([^/]+)/);
   const solutionMatch = path.match(/^\/solution\/([^/]+)/);
   const editorMatch = path.match(/^\/editor\/([^/]+)/);
+  if (composerMatch) return { name: "composer", id: composerMatch[1] };
   if (solutionMatch) return { name: "solution", id: solutionMatch[1] };
   if (editorMatch) return { name: "editor", id: editorMatch[1] };
-  if (path === "/workspace") return { name: "workspace" };
+  if (path === "/workspace") return { name: "workspace" };   // legacy redirect
   if (path === "/cockpit") return { name: "cockpit" };
   if (path === "/marketplace") return { name: "marketplace" };
-  if (path === "/architect") return { name: "architect" };
+  if (path === "/architect") return { name: "architect" };   // legacy redirect
   if (path === "/inscription") return { name: "inscription" };
   if (path === "/connexion/oauth") return { name: "oauth-callback" };
   if (path === "/connexion") return { name: "connexion" };
@@ -230,19 +217,15 @@ function parseRoute() {
 
 function isPublicRoute(routeName) {
   return new Set([
-    "inscription",
-    "connexion",
-    "oauth-callback",
-    "payment-success",
-    "payment-cancel",
+    "inscription", "connexion", "oauth-callback",
+    "payment-success", "payment-cancel",
   ]).has(routeName);
 }
 
 function navigateAfterAuth() {
   const redirect = sessionStorage.getItem("auth_redirect");
   sessionStorage.removeItem("auth_redirect");
-  const safe =
-    redirect &&
+  const safe = redirect &&
     redirect !== "/connexion" &&
     redirect !== "/inscription" &&
     !redirect.startsWith("/connexion/oauth");
@@ -303,6 +286,8 @@ function renderPasswordField({ name, placeholder, autocomplete, minlength }) {
     </label>`;
 }
 
+/* ─── Auth pages ─── */
+
 function renderInscription() {
   const formHtml = `
       <form id="form-register" class="auth-form">
@@ -339,7 +324,7 @@ function renderConnexion() {
   const footerLink = `<p class="auth-link">Pas encore de compte ? <a href="/inscription" data-nav="/inscription">Créer un compte</a></p>`;
   return renderAuthPremiumLayout({
     cardTitle: "Connexion",
-    cardSubtitle: "Accédez à votre espace architecte",
+    cardSubtitle: "Accédez à votre espace de composition",
     formHtml,
     footerLink,
     oauthProviders: STATE.oauthProviders,
@@ -375,14 +360,14 @@ function renderSubscription() {
     <section class="page-header"><h1>Choisir un plan</h1><p>Upgradez pour déployer plus de solutions.</p></section>
     <div class="plans-grid">
       ${plans.map((p, i) => `
-        <article class="plan-card ${i === 1 ? 'featured' : ''}">
+        <article class="plan-card ${i === 1 ? "featured" : ""}">
           <div class="plan-name">${escapeHtml(p.name)}</div>
           <div class="plan-price">${p.monthly_price_eur > 0 ? `${p.monthly_price_eur} €<span>/mois</span>` : "Gratuit"}</div>
           <p style="font-size:.88rem;color:var(--text-muted);margin-bottom:1rem">${escapeHtml(p.description)}</p>
           <ul style="font-size:.875rem;padding-left:1.1rem;color:var(--text-muted);margin-bottom:1.25rem">
             ${p.limits.max_deployments_per_month ? `<li>${p.limits.max_deployments_per_month} déploiements/mois</li>` : "<li>Déploiements illimités</li>"}
           </ul>
-          <button class="btn ${i === 1 ? 'btn-primary' : 'btn-secondary'} btn-block" data-plan="${p.plan}">Choisir ce plan</button>
+          <button class="btn ${i === 1 ? "btn-primary" : "btn-secondary"} btn-block" data-plan="${p.plan}">Choisir ce plan</button>
         </article>`).join("")}
     </div>`;
 }
@@ -396,101 +381,244 @@ function renderPaymentCancel() {
     <button class="btn btn-primary" data-nav="/mon-compte">Mon compte</button></section>`;
 }
 
-async function confirmPaymentWithPolling(paymentCode) {
-  for (let i = 0; i < 5; i++) {
-    try {
-      const result = await API.confirmBilling(paymentCode);
-      return result;
-    } catch {
-      await new Promise((r) => setTimeout(r, 2000));
-      try {
-        const status = await API.pollPaymentStatus(paymentCode);
-        if (status.paid) return await API.confirmBilling(paymentCode);
-      } catch { /* retry */ }
-    }
-  }
-  throw new Error("Paiement non confirmé — réessayez depuis Mon compte.");
-}
-
-/* ─── Views ─── */
+/* ─── HOME SCREEN ─── */
 
 function renderHome() {
   return `
-    <section class="hero-page">
-      <div class="hero-eyebrow">✦ Plateforme Agentic AI</div>
-      <h1 class="hero-title">Que souhaitez-vous automatiser ?</h1>
-      <p class="hero-sub">Décrivez votre besoin métier en une phrase. Notre architecte IA conçoit, déploie et supervise votre solution — sans une ligne de code.</p>
-      <div class="hero-form">
-        <textarea id="home-need" placeholder="Ex. : Automatiser la relance de mes clients, traiter mes factures entrantes…" aria-label="Besoin métier">${escapeHtml(STATE.pendingNeed)}</textarea>
-        <div class="chips" role="list">
-          ${EXAMPLE_CHIPS.map((c) => `<button type="button" class="chip" data-chip="${escapeHtml(c)}">${escapeHtml(c)}</button>`).join("")}
+    <div class="home-composer">
+      <div class="home-composer-inner">
+        <div class="home-eyebrow">Agent Factory</div>
+        <h1 class="home-headline">Quel problème souhaitez-vous résoudre ?</h1>
+        <p class="home-sub">Décrivez votre défi en une phrase. Agent Factory compose automatiquement la solution — agents IA, workflows, connecteurs, API — sans une ligne de code.</p>
+        <div class="home-input-wrap">
+          <input
+            type="text"
+            id="home-need"
+            class="home-input"
+            placeholder="Ex. : Je veux réduire de 80% le temps de traitement des factures…"
+            autocomplete="off"
+            value="${escapeHtml(STATE.pendingNeed)}"
+          />
+          <button type="button" class="home-input-btn" id="btn-compose" aria-label="Composer la solution">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </button>
         </div>
-        <button type="button" class="btn btn-primary btn-block btn-lg" id="btn-design">Concevoir ma solution →</button>
+        <div class="home-chips" role="list" aria-label="Exemples de problèmes">
+          ${PROBLEM_CHIPS.map((c) => `
+            <button type="button" class="home-chip" data-chip="${escapeHtml(c)}">${escapeHtml(c)}</button>
+          `).join("")}
+        </div>
       </div>
-    </section>`;
-}
-
-function defaultFlowNodes() {
-  return ["Réception", "Analyse", "Classification", "Action", "Suivi"];
-}
-
-function renderFlowDiagram(nodes) {
-  if (!nodes.length) {
-    return `<div class="arch-placeholder"><div class="icon">🏗️</div><p>Décrivez votre besoin pour voir l'architecture prendre forme.</p></div>`;
-  }
-  return `<div class="flow-diagram">${nodes.map((n, i) => {
-    const delay = i * 0.12;
-    const arrow = i < nodes.length - 1 ? `<span class="flow-arrow" style="animation-delay:${delay + 0.06}s">→</span>` : "";
-    return `<div class="flow-node" style="animation-delay:${delay}s">${escapeHtml(n)}</div>${arrow}`;
-  }).join("")}</div>`;
-}
-
-function renderEstimatesPanel(est) {
-  if (!est) {
-    return `<p class="empty-state">Estimation en cours de calcul…</p>`;
-  }
-  const badge = complexityClass(est.complexity);
-  return `
-    <table class="est-table">
-      <tr><td>Complexité</td><td><span class="est-badge ${badge}">${escapeHtml(est.complexity)}</span></td></tr>
-      <tr><td>Temps de construction</td><td>~${est.build_time_min} min</td></tr>
-      <tr><td>Coût estimé</td><td>~${est.monthly_cost_eur} €/mois</td></tr>
-      <tr><td>Économie estimée</td><td class="est-highlight">~${est.hours_saved_per_month} h/mois</td></tr>
-      <tr><td>ROI</td><td class="est-highlight">~${est.roi_percent}%</td></tr>
-    </table>`;
-}
-
-function renderWorkspace() {
-  const flowNodes = STATE.blueprint?.blueprint?.data_flow?.length
-    ? STATE.blueprint.blueprint.data_flow.map((s) => s.split("→").pop()?.trim() || s)
-    : STATE.conversationId
-      ? defaultFlowNodes().slice(0, 2 + Math.min(3, (STATE.estimates?.build_time_min || 12) / 8 | 0))
-      : [];
-
-  return `
-    <div class="workspace">
-      <section class="panel">
-        <div class="panel-header">Conversation</div>
-        <div class="panel-body">
-          <div id="chat-messages" class="chat-messages">
-            <div class="msg msg-assistant">Bonjour ${escapeHtml(STATE.userName)}, je suis votre architecte digital. Décrivez ce que vous souhaitez accomplir pour votre activité — je construirai une solution adaptée, étape par étape.</div>
-          </div>
+      <div class="home-proof">
+        <div class="home-proof-item">
+          <span class="home-proof-num">11</span>
+          <span class="home-proof-label">agents spécialisés internes</span>
         </div>
-        <div class="chat-input-row">
-          <input type="text" id="chat-input" placeholder="Votre message…" autocomplete="off" />
-          <button type="button" class="btn btn-primary" id="btn-send">Envoyer</button>
+        <div class="home-proof-sep"></div>
+        <div class="home-proof-item">
+          <span class="home-proof-num">∞</span>
+          <span class="home-proof-label">types de solutions composables</span>
         </div>
-      </section>
-      <section class="panel">
-        <div class="panel-header">Architecture en construction</div>
-        <div class="panel-body arch-viz" id="arch-viz">${renderFlowDiagram(flowNodes)}</div>
-      </section>
-      <section class="panel">
-        <div class="panel-header"><span class="pulse-dot"></span>Estimation temps réel</div>
-        <div class="panel-body" id="estimates-panel">${renderEstimatesPanel(STATE.estimates)}</div>
-      </section>
+        <div class="home-proof-sep"></div>
+        <div class="home-proof-item">
+          <span class="home-proof-num">0</span>
+          <span class="home-proof-label">ligne de code requise</span>
+        </div>
+      </div>
     </div>`;
 }
+
+/* ─── SOLUTION COMPOSER ─── */
+
+const DISCOVERY_PHASES = ["Contexte", "Processus", "Systèmes", "Contraintes"];
+
+function getPhase(messages) {
+  const userCount = messages.filter((m) => m.role === "user").length;
+  return Math.min(userCount, DISCOVERY_PHASES.length);
+}
+
+function renderPhaseBar(messages) {
+  const current = getPhase(messages);
+  return `
+    <div class="phase-bar">
+      ${DISCOVERY_PHASES.map((label, i) => `
+        <div class="phase-step ${i < current ? "done" : i === current ? "active" : ""}">
+          <div class="phase-dot"></div>
+          <span>${label}</span>
+        </div>
+        ${i < DISCOVERY_PHASES.length - 1 ? `<div class="phase-connector ${i < current ? "done" : ""}"></div>` : ""}
+      `).join("")}
+    </div>`;
+}
+
+function renderInsightCards(metadata) {
+  const m = metadata || {};
+  const cards = [
+    { key: "objectives", label: "Objectifs",    icon: "◎", items: m.objectives || [] },
+    { key: "systems",    label: "Systèmes",     icon: "⇄", items: m.systems || [] },
+    { key: "documents",  label: "Documents",    icon: "▤", items: m.documents || [] },
+    { key: "users",      label: "Utilisateurs", icon: "◈", items: m.users || [] },
+    { key: "constraints",label: "Contraintes",  icon: "⬡", items: m.constraints || [] },
+    { key: "risks",      label: "Risques",      icon: "⚠", items: m.risks || [] },
+  ];
+
+  return `
+    <div class="insight-cards-grid">
+      ${cards.map((card) => `
+        <div class="insight-card ${card.items.length ? "has-data" : "empty"}">
+          <div class="insight-card-header">
+            <span class="insight-card-icon">${card.icon}</span>
+            <span class="insight-card-label">${card.label}</span>
+            ${card.items.length ? `<span class="insight-card-count">${card.items.length}</span>` : ""}
+          </div>
+          <div class="insight-card-body">
+            ${card.items.length
+              ? card.items.map((item) => `<span class="insight-chip">${escapeHtml(item)}</span>`).join("")
+              : `<span class="insight-empty">En attente…</span>`
+            }
+          </div>
+        </div>
+      `).join("")}
+    </div>`;
+}
+
+function renderArchCanvas(blueprint) {
+  if (!blueprint) {
+    return `
+      <div class="arch-canvas empty-canvas">
+        <div class="arch-canvas-hint">
+          <div class="arch-canvas-hint-icon">⬡</div>
+          <p>L'architecture apparaîtra ici au fil de la conversation</p>
+        </div>
+      </div>`;
+  }
+
+  const bp = blueprint.blueprint || blueprint;
+  const components = bp.components || [];
+
+  return `
+    <div class="arch-canvas">
+      <div class="arch-canvas-title">Architecture — ${escapeHtml(bp.title || "Solution composée")}</div>
+      <div class="arch-components">
+        ${components.map((c, i) => `
+          <div class="arch-comp-block" style="animation-delay:${i * 0.06}s">
+            <div class="arch-comp-icon">${componentTypeIcon(c.type)}</div>
+            <div class="arch-comp-body">
+              <div class="arch-comp-name">${escapeHtml(c.name)}</div>
+              <div class="arch-comp-type">${componentTypeLabel(c.type)}</div>
+            </div>
+            ${i < components.length - 1 ? `<div class="arch-comp-arrow">→</div>` : ""}
+          </div>
+        `).join("")}
+      </div>
+      ${bp.data_flow && bp.data_flow.length ? `
+        <div class="arch-flow-steps">
+          ${bp.data_flow.slice(0, 5).map((step) => `<div class="arch-flow-step">${escapeHtml(step)}</div>`).join("")}
+        </div>
+      ` : ""}
+    </div>`;
+}
+
+function renderComposerFooter(metadata, estimates, conversationStatus) {
+  const completeness = metadata?.completeness || 0;
+  const pct = Math.round(completeness * 100);
+  const isReady = conversationStatus === "ready_for_blueprint" || conversationStatus === "blueprint_generated" || completeness >= 0.65;
+  const cost = estimates ? `~${estimates.monthly_cost_eur} €/mois` : "Calcul en cours…";
+  const timeSaved = estimates ? `~${estimates.hours_saved_per_month} h/mois économisées` : "";
+
+  return `
+    <div class="composer-footer">
+      <div class="composer-footer-left">
+        <div class="completeness-bar">
+          <div class="completeness-fill" style="width:${pct}%"></div>
+        </div>
+        <span class="completeness-label">Informations collectées : <strong>${pct}%</strong></span>
+      </div>
+      <div class="composer-footer-mid">
+        ${estimates ? `
+          <span class="footer-metric">${cost}</span>
+          <span class="footer-metric-sep">·</span>
+          <span class="footer-metric">${timeSaved}</span>
+        ` : `<span class="footer-metric muted">Continuez la conversation pour obtenir une estimation</span>`}
+      </div>
+      <div class="composer-footer-right">
+        <button
+          class="btn btn-primary btn-compose ${isReady ? "" : "disabled"}"
+          id="btn-build-solution"
+          ${isReady ? "" : "disabled"}
+          title="${isReady ? "Générer la solution" : "Continuez la conversation pour débloquer"}"
+        >
+          ${isReady ? "Construire la solution →" : "Poursuivez la conversation…"}
+        </button>
+      </div>
+    </div>`;
+}
+
+function renderComposer(id) {
+  const messages = STATE.composerMessages;
+  const metadata = STATE.composerMetadata;
+  const estimates = STATE.estimates;
+  const convStatus = STATE.blueprint ? "blueprint_generated" :
+    (metadata?.completeness || 0) >= 0.65 ? "ready_for_blueprint" : "active";
+
+  return `
+    <div class="composer-layout">
+
+      <!-- LEFT: Conversation -->
+      <aside class="composer-left">
+        <div class="composer-left-header">
+          <div class="composer-left-title">Agent Creator</div>
+          ${renderPhaseBar(messages)}
+        </div>
+        <div class="composer-messages" id="composer-messages">
+          ${messages.length === 0 ? `
+            <div class="composer-msg msg-assistant">
+              <div class="msg-avatar">AF</div>
+              <div class="msg-bubble">Bonjour${STATE.userName ? ` ${escapeHtml(STATE.userName)}` : ""}, je suis votre Agent Creator. Je vais analyser votre besoin et composer une solution sur mesure. Décrivez-moi votre problème.</div>
+            </div>` : ""}
+          ${messages.map((m) => `
+            <div class="composer-msg msg-${m.role}">
+              ${m.role === "assistant" ? `<div class="msg-avatar">AF</div>` : ""}
+              <div class="msg-bubble">${escapeHtml(m.content)}</div>
+              ${m.role === "user" ? `<div class="msg-avatar user-avatar">${STATE.userName ? escapeHtml(STATE.userName[0]) : "U"}</div>` : ""}
+            </div>
+          `).join("")}
+          <div id="composer-typing" class="composer-msg msg-assistant" hidden>
+            <div class="msg-avatar">AF</div>
+            <div class="msg-bubble typing-indicator"><span></span><span></span><span></span></div>
+          </div>
+        </div>
+        <div class="composer-input-row">
+          <input
+            type="text"
+            id="composer-input"
+            class="composer-input"
+            placeholder="Répondez à l'Agent Creator…"
+            autocomplete="off"
+          />
+          <button type="button" class="composer-send-btn" id="btn-composer-send" aria-label="Envoyer">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+      </aside>
+
+      <!-- RIGHT: Solution Workspace -->
+      <main class="composer-right">
+        <div class="composer-right-header">
+          <div class="composer-right-title">Solution en construction</div>
+          <div class="composer-right-sub">Les informations se complètent automatiquement au fil de la conversation</div>
+        </div>
+        <div class="composer-workspace-body">
+          ${renderInsightCards(metadata)}
+          ${renderArchCanvas(STATE.blueprint)}
+        </div>
+        ${renderComposerFooter(metadata, estimates, convStatus)}
+      </main>
+
+    </div>`;
+}
+
+/* ─── SOLUTION page ─── */
 
 function countSolutionParts(bp) {
   const components = bp.components || [];
@@ -510,12 +638,12 @@ function renderSolution(id) {
 
   return `
     <div class="page-header">
-      <h1>Solution proposée</h1>
-      <p>Résumé exécutif — ${escapeHtml(bp.title)}</p>
+      <h1>Solution composée</h1>
+      <p>${escapeHtml(bp.title)}</p>
     </div>
     <div class="card">
       <h3>Résumé exécutif</h3>
-      <p>Votre besoin sera couvert par : <strong>${parts.agents}</strong> assistant(s) intelligent(s), <strong>${parts.workflows}</strong> processus automatisé(s), <strong>${parts.connectors}</strong> connecteur(s) métier.</p>
+      <p>Votre solution comprend : <strong>${parts.agents}</strong> agent(s) IA, <strong>${parts.workflows}</strong> workflow(s) automatisé(s), <strong>${parts.connectors}</strong> connecteur(s) métier.</p>
       <p style="color:var(--text-muted);margin-top:0.75rem">${escapeHtml(bp.solution_type_rationale)}</p>
     </div>
     <div class="card" style="margin-top:1.25rem">
@@ -523,15 +651,16 @@ function renderSolution(id) {
       <div class="arch-blocks" style="margin-top:1rem">
         ${bp.components.map((c) => `
           <div class="arch-block" title="${escapeHtml(c.description)}">
+            <div class="arch-block-icon">${componentTypeIcon(c.type)}</div>
             <strong>${escapeHtml(c.name)}</strong>
-            <span>${escapeHtml(businessLabel(c.type))}</span>
+            <span>${componentTypeLabel(c.type)}</span>
           </div>`).join("")}
       </div>
     </div>
     <div class="card" style="margin-top:1.25rem">
       <div class="tabs">
         <button class="tab active" data-tab="metier">Vue métier</button>
-        <button class="tab" data-tab="technique">Vue technique avancée</button>
+        <button class="tab" data-tab="technique">Vue technique</button>
       </div>
       <div id="tab-metier">
         <ul class="checklist">
@@ -542,19 +671,15 @@ function renderSolution(id) {
       <div id="tab-technique" hidden>
         <ul class="checklist">
           ${bp.components.map((c) => `<li><strong>${escapeHtml(c.name)}</strong> (${escapeHtml(c.type)}) — ${escapeHtml(c.description)}${c.technology_hint ? ` · ${escapeHtml(c.technology_hint)}` : ""}</li>`).join("")}
-          ${bp.data_flow.map((f) => `<li>Flux : ${escapeHtml(f)}</li>`).join("")}
+          ${bp.data_flow.map((f) => `<li>${escapeHtml(f)}</li>`).join("")}
         </ul>
       </div>
     </div>
     <div class="action-bar">
-      <button class="btn btn-primary" id="btn-deploy">Déployer ma solution</button>
+      <button class="btn btn-primary" id="btn-deploy">Déployer cette solution</button>
       <button class="btn btn-secondary" id="btn-edit-layout">Modifier la disposition</button>
-      <button class="btn btn-ghost" data-nav="/workspace">Retour au workspace</button>
+      <button class="btn btn-ghost" data-nav="/composer/${id}">← Retour au composer</button>
     </div>`;
-}
-
-function layoutKey(id) {
-  return `agentia-layout-${id}`;
 }
 
 function renderEditor(id) {
@@ -564,15 +689,17 @@ function renderEditor(id) {
   }
   return `
     <div class="page-header">
-      <h1>Générateur visuel</h1>
-      <p>Organisez les composants de votre solution — glissez-déposez pour repositionner.</p>
+      <h1>Éditeur visuel</h1>
+      <p>Organisez les composants — glissez-déposez pour repositionner.</p>
     </div>
     <div class="editor-wrap" id="editor-canvas"></div>
     <div class="action-bar">
-      <button class="btn btn-secondary" id="btn-save-layout">Enregistrer la disposition</button>
-      <button class="btn btn-ghost" data-nav="/solution/${id}">Retour à la solution</button>
+      <button class="btn btn-secondary" id="btn-save-layout">Enregistrer</button>
+      <button class="btn btn-ghost" data-nav="/solution/${id}">← Retour à la solution</button>
     </div>`;
 }
+
+/* ─── COCKPIT ─── */
 
 function cockpitMetrics(deployment, billing) {
   const failed = (billing?.deployments || []).filter((d) => d.status === "failed").length;
@@ -620,7 +747,7 @@ function renderCockpit() {
         <button class="btn btn-ghost btn-sm" id="btn-close-test">✕ Fermer</button>
       </div>
       <div class="agent-chat" id="agent-chat-box">
-        <div class="msg msg-assistant">Bonjour, je suis l'agent <strong>${escapeHtml(testPanel.title)}</strong>. Posez-moi votre question.</div>
+        <div class="msg msg-assistant">Je suis l'agent <strong>${escapeHtml(testPanel.title)}</strong>. Posez-moi votre question.</div>
       </div>
       <div class="agent-chat-input">
         <input type="text" id="agent-test-input" placeholder="Votre message…" autocomplete="off" />
@@ -651,7 +778,7 @@ function renderCockpit() {
         </table>` : `
         <div class="empty-state">
           <p>Aucun agent publié pour le moment.</p>
-          <button class="btn btn-primary" data-nav="/">Créer un agent</button>
+          <button class="btn btn-primary" data-nav="/">Composer une solution</button>
         </div>`}
     </div>
     <div class="card" style="margin-top:1rem">
@@ -669,39 +796,33 @@ function renderCockpit() {
               </tr>`).join("")}
           </tbody>
         </table>` : `
-        <div class="empty-state">
-          <p>Aucun déploiement ce mois-ci.</p>
-        </div>`}
+        <div class="empty-state"><p>Aucun déploiement ce mois-ci.</p></div>`}
     </div>`;
 }
+
+/* ─── MARKETPLACE ─── */
 
 function renderMarketplace(category = "Tous") {
   const liveAgents = (STATE.marketplaceAgents || []).filter(
     (a) => category === "Tous" || a.category === category
   );
   const staticItems = category === "Tous" ? MARKETPLACE : MARKETPLACE.filter((t) => t.category === category);
-  const allCategories = [
-    "Tous",
-    ...new Set([
-      ...CATEGORIES.slice(1),
-      ...(STATE.marketplaceAgents || []).map((a) => a.category),
-    ]),
-  ];
+  const allCategories = ["Tous", ...new Set([...CATEGORIES.slice(1), ...(STATE.marketplaceAgents || []).map((a) => a.category)])];
 
   return `
     <div class="marketplace-header">
-      <h1>Marketplace d'agents</h1>
+      <h1>Marketplace de solutions</h1>
       <p>Agents déployés par la communauté et modèles prêts à l'emploi.</p>
     </div>
     <div class="category-tabs">
-      ${allCategories.map((c) => `<button class="chip ${c === category ? "active" : ""}" data-category="${escapeHtml(c)}" style="${c === category ? "border-color:var(--accent);color:var(--text)" : ""}">${escapeHtml(c)}</button>`).join("")}
+      ${allCategories.map((c) => `<button class="chip ${c === category ? "active" : ""}" data-category="${escapeHtml(c)}">${escapeHtml(c)}</button>`).join("")}
     </div>
     ${liveAgents.length ? `
     <h3 style="margin:1.5rem 0 .75rem">Agents publiés</h3>
     <div class="template-grid">
       ${liveAgents.map((a) => `
         <article class="template-card">
-          <div class="template-thumb">🤖</div>
+          <div class="template-thumb">◎</div>
           <div class="template-body">
             <div class="template-tag">${escapeHtml(a.category)}</div>
             <h3>${escapeHtml(a.title)}</h3>
@@ -725,151 +846,219 @@ function renderMarketplace(category = "Tous") {
     </div>`;
 }
 
-function renderArchitect() {
-  const r = STATE.architectResult;
-  return `
-    <div class="architect-page">
-      <div class="page-header" style="text-align:center">
-        <h1>Architecte de solutions IA</h1>
-        <p>Décrivez votre activité — nous identifions les automatisations à plus fort impact.</p>
-      </div>
-      <div class="architect-input">
-        <textarea id="architect-desc" placeholder="Ex. : Je suis un cabinet comptable de 10 employés…">${escapeHtml(STATE.architectInput || "")}</textarea>
-        <button class="btn btn-primary btn-block" id="btn-analyze" style="margin-top:1rem">Analyser mon activité</button>
-      </div>
-      ${r ? `
-        <div class="analysis-results">
-          <p style="font-size:1.1rem">${escapeHtml(r.summary)}</p>
-          <div class="analysis-metrics">
-            <div class="metric-card"><div class="num">${r.processes_count}</div><div class="lbl">Processus automatisables</div></div>
-            <div class="metric-card"><div class="num">${r.hours_saved_per_year.toLocaleString("fr-FR")} h</div><div class="lbl">Économie potentielle / an</div></div>
-            <div class="metric-card"><div class="num">${r.monthly_cost_eur} €</div><div class="lbl">Coût estimé / mois</div></div>
-            <div class="metric-card"><div class="num">${r.roi_percent}%</div><div class="lbl">ROI estimé</div></div>
-          </div>
-          <h3>Solutions proposées</h3>
-          <div class="proposal-cards" style="margin-top:1rem">
-            ${r.proposals.map((p) => `
-              <div class="proposal-card" data-need="${escapeHtml(p.need)}">
-                <h4>${escapeHtml(p.title)}</h4>
-                <p>${escapeHtml(p.description)}</p>
-              </div>`).join("")}
-          </div>
-        </div>` : ""}
-    </div>`;
+/* ─── COMPOSER LOGIC ─── */
+
+function _scrollComposerMessages() {
+  const box = document.getElementById("composer-messages");
+  if (box) box.scrollTop = box.scrollHeight;
 }
 
-/* ─── Workspace logic ─── */
-
-let estimatePollTimer = null;
-
-async function pollEstimates(id) {
-  try {
-    STATE.estimates = await API.getEstimates(id);
-    const panel = document.getElementById("estimates-panel");
-    if (panel) panel.innerHTML = renderEstimatesPanel(STATE.estimates);
-
-    if (STATE.estimates.ready && !STATE.blueprint) {
-      try {
-        STATE.blueprint = await API.getBlueprint(id);
-        updateArchViz();
-        if (STATE.estimates.ready && STATE.conversationId) {
-          clearInterval(estimatePollTimer);
-        }
-      } catch { /* blueprint not ready yet */ }
-    }
-  } catch { /* ignore */ }
-}
-
-function updateArchViz() {
-  const viz = document.getElementById("arch-viz");
-  if (!viz) return;
-  const nodes = STATE.blueprint?.blueprint?.data_flow?.length
-    ? STATE.blueprint.blueprint.data_flow.map((s) => {
-        const parts = s.split("→");
-        return parts[parts.length - 1].trim();
-      })
-    : defaultFlowNodes().slice(0, 3);
-  viz.innerHTML = renderFlowDiagram(nodes);
-}
-
-function appendChatMessage(role, content) {
-  const box = document.getElementById("chat-messages");
+function _appendComposerMsg(role, content) {
+  STATE.composerMessages.push({ role, content });
+  const box = document.getElementById("composer-messages");
   if (!box) return;
   const div = document.createElement("div");
-  div.className = `msg msg-${role}`;
-  div.textContent = content;
+  div.className = `composer-msg msg-${role}`;
+  div.innerHTML = role === "assistant"
+    ? `<div class="msg-avatar">AF</div><div class="msg-bubble">${escapeHtml(content)}</div>`
+    : `<div class="msg-bubble">${escapeHtml(content)}</div><div class="msg-avatar user-avatar">${STATE.userName ? escapeHtml(STATE.userName[0]) : "U"}</div>`;
   box.appendChild(div);
-  box.scrollTop = box.scrollHeight;
+  _scrollComposerMessages();
 }
 
-async function startWorkspaceConversation(initialMessage) {
-  appendChatMessage("user", initialMessage);
+function _showTyping() {
+  const el = document.getElementById("composer-typing");
+  if (el) el.hidden = false;
+  _scrollComposerMessages();
+}
+
+function _hideTyping() {
+  const el = document.getElementById("composer-typing");
+  if (el) el.hidden = true;
+}
+
+function _updateWorkspace(metadata, estimates) {
+  const cardsEl = document.querySelector(".insight-cards-grid");
+  if (cardsEl) cardsEl.outerHTML = renderInsightCards(metadata).trim();
+  // Re-render footer
+  const footerEl = document.querySelector(".composer-footer");
+  const convStatus = STATE.blueprint ? "blueprint_generated" :
+    (metadata?.completeness || 0) >= 0.65 ? "ready_for_blueprint" : "active";
+  if (footerEl) {
+    footerEl.outerHTML = renderComposerFooter(metadata, estimates, convStatus).trim();
+    // Rebind the deploy button
+    document.getElementById("btn-build-solution")?.addEventListener("click", _handleBuildSolution);
+  }
+  // Update phase bar
+  const phaseEl = document.querySelector(".phase-bar");
+  if (phaseEl) phaseEl.outerHTML = renderPhaseBar(STATE.composerMessages).trim();
+}
+
+async function _handleBuildSolution() {
+  const id = STATE.conversationId;
+  if (!id) return;
+  const btn = document.getElementById("btn-build-solution");
+  if (btn) { btn.disabled = true; btn.textContent = "Composition en cours…"; }
+  try {
+    STATE.blueprint = await API.getBlueprint(id);
+    // Update arch canvas
+    const canvasEl = document.querySelector(".arch-canvas, .arch-canvas.empty-canvas");
+    if (canvasEl) canvasEl.outerHTML = renderArchCanvas(STATE.blueprint).trim();
+    // Also update footer
+    const footerEl = document.querySelector(".composer-footer");
+    if (footerEl) {
+      const convStatus = "blueprint_generated";
+      footerEl.outerHTML = renderComposerFooter(STATE.composerMetadata, STATE.estimates, convStatus).trim();
+      document.getElementById("btn-build-solution")?.addEventListener("click", () => {
+        navigate(`/solution/${id}`);
+      });
+    }
+    // Navigate to solution after a short delay
+    showToast("Solution composée — redirection…", "success");
+    setTimeout(() => navigate(`/solution/${id}`), 1200);
+  } catch (e) {
+    showToast(e.message);
+    if (btn) { btn.disabled = false; btn.textContent = "Construire la solution →"; }
+  }
+}
+
+async function startComposerConversation(initialMessage, composerId) {
+  _appendComposerMsg("user", initialMessage);
+  _showTyping();
   try {
     const res = await API.createConversation(initialMessage);
     STATE.conversationId = res.conversation.id;
-    appendChatMessage("assistant", res.assistant_message.content);
-    pollEstimates(STATE.conversationId);
-    estimatePollTimer = setInterval(() => pollEstimates(STATE.conversationId), 3000);
+    _hideTyping();
+    _appendComposerMsg("assistant", res.assistant_message.content);
+
+    if (res.metadata) {
+      STATE.composerMetadata = res.metadata;
+    }
+
+    // Load estimates in background
+    API.getEstimates(STATE.conversationId).then((est) => {
+      STATE.estimates = est;
+      _updateWorkspace(STATE.composerMetadata, est);
+    }).catch(() => {});
+
+    _updateWorkspace(STATE.composerMetadata, STATE.estimates);
+
+    // Update URL to the conversation-specific composer route
+    if (!composerId) {
+      history.replaceState({}, "", `/composer/${STATE.conversationId}`);
+    }
   } catch (e) {
-    appendChatMessage("assistant", "Désolé, une erreur est survenue. Réessayez dans un instant.");
+    _hideTyping();
+    _appendComposerMsg("assistant", "Désolé, une erreur est survenue. Réessayez dans un instant.");
     showToast(e.message);
   }
 }
 
-async function sendChatMessage(text) {
+async function sendComposerMessage(text) {
   if (!STATE.conversationId) {
-    await startWorkspaceConversation(text);
+    await startComposerConversation(text, null);
     return;
   }
-  appendChatMessage("user", text);
+  _appendComposerMsg("user", text);
+  _showTyping();
   try {
     const res = await API.sendMessage(STATE.conversationId, text);
-    appendChatMessage("assistant", res.assistant_message.content);
-    pollEstimates(STATE.conversationId);
-    if (res.conversation.status === "ready_for_blueprint" || res.conversation.status === "blueprint_generated") {
-      try {
-        STATE.blueprint = await API.getBlueprint(STATE.conversationId);
-        updateArchViz();
-        showToast("Votre solution est prête à être consultée.");
-        setTimeout(() => navigate(`/solution/${STATE.conversationId}`), 1500);
-      } catch { /* wait for more info */ }
+    _hideTyping();
+    _appendComposerMsg("assistant", res.assistant_message.content);
+
+    if (res.metadata) {
+      STATE.composerMetadata = res.metadata;
     }
+
+    // Check status
+    const status = res.conversation?.status;
+    if (status === "ready_for_blueprint" || status === "blueprint_generated") {
+      // Load estimates
+      API.getEstimates(STATE.conversationId).then((est) => {
+        STATE.estimates = est;
+        _updateWorkspace(STATE.composerMetadata, est);
+      }).catch(() => {});
+    }
+
+    _updateWorkspace(STATE.composerMetadata, STATE.estimates);
+
   } catch (e) {
+    _hideTyping();
     showToast(e.message);
   }
 }
 
-function bindWorkspaceEvents() {
-  const pending = STATE.pendingNeed;
-  STATE.pendingNeed = "";
-  if (pending) startWorkspaceConversation(pending);
+function bindComposerEvents(id) {
+  const input = document.getElementById("composer-input");
+  const sendBtn = document.getElementById("btn-composer-send");
 
-  document.getElementById("btn-send")?.addEventListener("click", () => {
-    const input = document.getElementById("chat-input");
-    const text = input.value.trim();
+  const doSend = () => {
+    const text = input?.value?.trim();
     if (!text) return;
-    input.value = "";
-    sendChatMessage(text);
+    if (input) input.value = "";
+    sendComposerMessage(text);
+  };
+
+  sendBtn?.addEventListener("click", doSend);
+  input?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); doSend(); }
   });
 
-  document.getElementById("chat-input")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      document.getElementById("btn-send")?.click();
-    }
-  });
+  document.getElementById("btn-build-solution")?.addEventListener("click", _handleBuildSolution);
 
-  if (STATE.conversationId && !pending) {
-    pollEstimates(STATE.conversationId);
-    estimatePollTimer = setInterval(() => pollEstimates(STATE.conversationId), 3000);
-    API.json(`/conversations/${STATE.conversationId}`).then((conv) => {
-      const box = document.getElementById("chat-messages");
-      if (!box) return;
-      box.innerHTML = `<div class="msg msg-assistant">Bonjour ${escapeHtml(STATE.userName)}, je suis votre architecte digital. Décrivez ce que vous souhaitez accomplir pour votre activité.</div>`;
-      conv.messages.forEach((m) => appendChatMessage(m.role, m.content));
-    }).catch(() => {});
+  // If arriving at /composer/:id fresh with a pendingNeed, start conversation
+  const pending = STATE.pendingNeed;
+  if (pending) {
+    STATE.pendingNeed = "";
+    startComposerConversation(pending, id);
+    return;
+  }
+
+  // If we have an existing conversation ID but no messages loaded, reload
+  if (id && STATE.conversationId === id && STATE.composerMessages.length === 0) {
+    _loadExistingComposerConversation(id);
+  } else if (id && STATE.conversationId !== id) {
+    STATE.conversationId = id;
+    STATE.composerMessages = [];
+    STATE.composerMetadata = null;
+    STATE.blueprint = null;
+    STATE.estimates = null;
+    _loadExistingComposerConversation(id);
   }
 }
+
+async function _loadExistingComposerConversation(id) {
+  try {
+    const conv = await API.getConversation(id);
+    STATE.composerMessages = conv.messages.map((m) => ({ role: m.role, content: m.content }));
+    const box = document.getElementById("composer-messages");
+    if (box) {
+      box.innerHTML = STATE.composerMessages.map((m) => `
+        <div class="composer-msg msg-${m.role}">
+          ${m.role === "assistant" ? `<div class="msg-avatar">AF</div>` : ""}
+          <div class="msg-bubble">${escapeHtml(m.content)}</div>
+          ${m.role === "user" ? `<div class="msg-avatar user-avatar">${STATE.userName ? escapeHtml(STATE.userName[0]) : "U"}</div>` : ""}
+        </div>
+      `).join("");
+      _scrollComposerMessages();
+    }
+    // Load estimates & blueprint if conversation is advanced
+    Promise.all([
+      API.getEstimates(id).catch(() => null),
+      API.getBlueprint(id).catch(() => null),
+    ]).then(([est, bp]) => {
+      if (est) STATE.estimates = est;
+      if (bp) STATE.blueprint = bp;
+      _updateWorkspace(STATE.composerMetadata, STATE.estimates);
+      if (bp) {
+        const canvasEl = document.querySelector(".arch-canvas, .arch-canvas.empty-canvas");
+        if (canvasEl) canvasEl.outerHTML = renderArchCanvas(STATE.blueprint).trim();
+      }
+    });
+  } catch { /* ignore */ }
+}
+
+/* ─── Solution, Editor, Cockpit events ─── */
 
 async function loadSolution(id) {
   STATE.conversationId = id;
@@ -881,16 +1070,16 @@ async function loadSolution(id) {
   }
 }
 
+function layoutKey(id) { return `agentia-layout-${id}`; }
+
 function bindSolutionEvents(id) {
   document.querySelectorAll(".tab").forEach((tab) => {
     tab.addEventListener("click", () => {
       document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
       tab.classList.add("active");
-      const metier = document.getElementById("tab-metier");
-      const tech = document.getElementById("tab-technique");
       const isMetier = tab.dataset.tab === "metier";
-      metier.hidden = !isMetier;
-      tech.hidden = isMetier;
+      document.getElementById("tab-metier").hidden = !isMetier;
+      document.getElementById("tab-technique").hidden = isMetier;
     });
   });
 
@@ -898,22 +1087,19 @@ function bindSolutionEvents(id) {
     try {
       const res = await API.deploy(id);
       if (res.checkout_url && res.payment_code) {
-        showToast("Redirection vers le paiement…");
         sessionStorage.setItem("pending_payment_code", res.payment_code);
         sessionStorage.setItem("pending_payment_type", "deploy");
         sessionStorage.setItem("pending_conversation_id", id);
         window.location.href = res.checkout_url;
       } else if (res.payment_pending && res.payment_code) {
         const confirmed = await API.confirmDeploy(id, res.payment_code);
-        showToast(confirmed.message || "Déploiement confirmé.");
+        showToast(confirmed.message || "Déploiement confirmé.", "success");
         try { STATE.publishedAgents = await API.listAgents(); } catch { /* ignore */ }
       } else {
-        showToast((res.message || "Déploiement lancé.") + " Retrouvez votre agent dans le Cockpit.");
+        showToast((res.message || "Déploiement lancé.") + " Retrouvez votre agent dans le Cockpit.", "success");
         try { STATE.publishedAgents = await API.listAgents(); } catch { /* ignore */ }
       }
-    } catch (e) {
-      showToast(e.message);
-    }
+    } catch (e) { showToast(e.message); }
   });
 
   document.getElementById("btn-edit-layout")?.addEventListener("click", () => {
@@ -924,7 +1110,6 @@ function bindSolutionEvents(id) {
 function initEditorCanvas(id) {
   const canvas = document.getElementById("editor-canvas");
   if (!canvas || !STATE.blueprint?.blueprint) return;
-
   const saved = localStorage.getItem(layoutKey(id));
   const positions = saved ? JSON.parse(saved) : {};
   const components = STATE.blueprint.blueprint.components;
@@ -932,34 +1117,20 @@ function initEditorCanvas(id) {
   components.forEach((c, i) => {
     const el = document.createElement("div");
     el.className = "editor-block";
-    el.innerHTML = `<h4>${escapeHtml(c.name)}</h4><p>${escapeHtml(businessLabel(c.type))}</p>`;
+    el.innerHTML = `<h4>${escapeHtml(c.name)}</h4><p>${componentTypeLabel(c.type)}</p>`;
     const pos = positions[c.name] || { x: 40 + (i % 3) * 200, y: 40 + Math.floor(i / 3) * 120 };
     el.style.left = `${pos.x}px`;
     el.style.top = `${pos.y}px`;
 
-    let dragging = false;
-    let offsetX = 0;
-    let offsetY = 0;
-
-    el.addEventListener("mousedown", (e) => {
-      dragging = true;
-      offsetX = e.clientX - el.offsetLeft;
-      offsetY = e.clientY - el.offsetTop;
-      el.style.zIndex = 10;
-    });
-
+    let dragging = false, offsetX = 0, offsetY = 0;
+    el.addEventListener("mousedown", (e) => { dragging = true; offsetX = e.clientX - el.offsetLeft; offsetY = e.clientY - el.offsetTop; el.style.zIndex = 10; });
     document.addEventListener("mousemove", (e) => {
       if (!dragging) return;
       const rect = canvas.getBoundingClientRect();
       el.style.left = `${Math.max(0, Math.min(e.clientX - rect.left - offsetX, rect.width - 160))}px`;
       el.style.top = `${Math.max(0, Math.min(e.clientY - rect.top - offsetY, rect.height - 80))}px`;
     });
-
-    document.addEventListener("mouseup", () => {
-      dragging = false;
-      el.style.zIndex = 1;
-    });
-
+    document.addEventListener("mouseup", () => { dragging = false; el.style.zIndex = 1; });
     canvas.appendChild(el);
   });
 
@@ -970,7 +1141,7 @@ function initEditorCanvas(id) {
       if (name) layout[name] = { x: parseInt(el.style.left, 10), y: parseInt(el.style.top, 10) };
     });
     localStorage.setItem(layoutKey(id), JSON.stringify(layout));
-    showToast("Disposition enregistrée.");
+    showToast("Disposition enregistrée.", "success");
   });
 }
 
@@ -986,32 +1157,18 @@ async function loadCockpitData() {
     STATE.deployments = [];
     STATE.billingSummary = null;
   }
-  try {
-    STATE.publishedAgents = await API.listAgents();
-  } catch {
-    STATE.publishedAgents = [];
-  }
+  try { STATE.publishedAgents = await API.listAgents(); } catch { STATE.publishedAgents = []; }
 }
 
 function bindCockpitEvents() {
   document.querySelectorAll(".data-table tbody tr[data-idx]").forEach((row) => {
     row.addEventListener("click", () => {
-      const idx = parseInt(row.dataset.idx, 10);
-      STATE.cockpitSelected = STATE.deployments[idx];
+      STATE.cockpitSelected = STATE.deployments[parseInt(row.dataset.idx, 10)];
       render();
     });
   });
-
-  document.getElementById("btn-back-cockpit")?.addEventListener("click", () => {
-    STATE.cockpitSelected = null;
-    render();
-  });
-
-  document.getElementById("btn-close-test")?.addEventListener("click", () => {
-    STATE.agentTestPanel = null;
-    render();
-  });
-
+  document.getElementById("btn-back-cockpit")?.addEventListener("click", () => { STATE.cockpitSelected = null; render(); });
+  document.getElementById("btn-close-test")?.addEventListener("click", () => { STATE.agentTestPanel = null; render(); });
   document.querySelectorAll("[data-test-agent]").forEach((btn) => {
     btn.addEventListener("click", () => {
       STATE.agentTestPanel = { id: btn.dataset.testAgent, title: btn.dataset.testTitle };
@@ -1019,20 +1176,14 @@ function bindCockpitEvents() {
       document.getElementById("agent-test-panel")?.scrollIntoView({ behavior: "smooth" });
     });
   });
-
   document.getElementById("btn-send-agent")?.addEventListener("click", () => _sendAgentTestMessage());
   document.getElementById("agent-test-input")?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") _sendAgentTestMessage();
   });
-
   document.querySelectorAll(".agent-visibility-select").forEach((sel) => {
     sel.addEventListener("change", async () => {
-      try {
-        await API.updateAgent(sel.dataset.agentId, { visibility: sel.value });
-        showToast("Visibilité mise à jour.");
-      } catch (e) {
-        showToast(e.message);
-      }
+      try { await API.updateAgent(sel.dataset.agentId, { visibility: sel.value }); showToast("Visibilité mise à jour.", "success"); }
+      catch (e) { showToast(e.message); }
     });
   });
 }
@@ -1072,7 +1223,12 @@ function bindMarketplaceEvents() {
   });
   document.querySelectorAll("[data-template]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      navigate("/workspace", { need: btn.dataset.template });
+      STATE.pendingNeed = btn.dataset.template;
+      STATE.conversationId = null;
+      STATE.composerMessages = [];
+      STATE.composerMetadata = null;
+      STATE.blueprint = null;
+      navigate("/composer/new");
     });
   });
   document.querySelectorAll("[data-invoke-agent]").forEach((btn) => {
@@ -1083,57 +1239,41 @@ function bindMarketplaceEvents() {
   });
 }
 
-function bindArchitectEvents() {
-  document.getElementById("btn-analyze")?.addEventListener("click", async () => {
-    const desc = document.getElementById("architect-desc").value.trim();
-    if (desc.length < 10) {
-      showToast("Décrivez votre activité en quelques mots.");
-      return;
-    }
-    STATE.architectInput = desc;
-    const btn = document.getElementById("btn-analyze");
-    btn.disabled = true;
-    btn.innerHTML = '<span class="loading"></span> Analyse en cours…';
-    try {
-      STATE.architectResult = await API.analyzeArchitect(desc);
-      render();
-    } catch (e) {
-      showToast(e.message);
-      btn.disabled = false;
-      btn.textContent = "Analyser mon activité";
-    }
-  });
-
-  document.querySelectorAll(".proposal-card").forEach((card) => {
-    card.addEventListener("click", () => {
-      navigate("/workspace", { need: card.dataset.need });
-    });
-  });
-}
-
 function bindHomeEvents() {
+  const input = document.getElementById("home-need");
+
   document.querySelectorAll("[data-chip]").forEach((chip) => {
     chip.addEventListener("click", () => {
-      document.getElementById("home-need").value = chip.dataset.chip;
+      if (input) input.value = chip.dataset.chip;
+      input?.focus();
     });
   });
-  document.getElementById("btn-design")?.addEventListener("click", () => {
-    const need = document.getElementById("home-need").value.trim();
-    if (!need) {
-      showToast("Décrivez d'abord votre besoin métier.");
-      return;
-    }
-    navigate("/workspace", { need });
+
+  const doStart = () => {
+    const need = input?.value?.trim();
+    if (!need) { showToast("Décrivez votre problème métier."); return; }
+    STATE.pendingNeed = need;
+    STATE.conversationId = null;
+    STATE.composerMessages = [];
+    STATE.composerMetadata = null;
+    STATE.blueprint = null;
+    STATE.estimates = null;
+    navigate("/composer/new");
+  };
+
+  document.getElementById("btn-compose")?.addEventListener("click", doStart);
+  input?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); doStart(); }
   });
 }
+
+/* ─── Auth ─── */
 
 async function loadOAuthProviders() {
   try {
     const data = await API.getOAuthProviders();
     STATE.oauthProviders = data.providers || [];
-  } catch {
-    STATE.oauthProviders = [];
-  }
+  } catch { STATE.oauthProviders = []; }
 }
 
 async function handleOAuthCallback() {
@@ -1141,19 +1281,11 @@ async function handleOAuthCallback() {
   const params = new URLSearchParams(hash);
   const token = params.get("token");
   const error = params.get("error");
-  if (error) {
-    showToast(decodeURIComponent(error.replace(/\+/g, " ")));
-    navigate("/connexion");
-    return;
-  }
-  if (!token) {
-    showToast("Connexion OAuth échouée");
-    navigate("/connexion");
-    return;
-  }
+  if (error) { showToast(decodeURIComponent(error.replace(/\+/g, " "))); navigate("/connexion"); return; }
+  if (!token) { showToast("Connexion OAuth échouée"); navigate("/connexion"); return; }
   setToken(decodeURIComponent(token));
   await loadUserContext();
-  showToast("Connexion réussie");
+  showToast("Connexion réussie", "success");
   navigateAfterAuth();
 }
 
@@ -1165,11 +1297,9 @@ function bindAuthEvents() {
       const res = await API.register(Object.fromEntries(fd));
       setToken(res.access_token);
       await loadUserContext();
-      showToast("Compte créé — bienvenue !");
+      showToast("Compte créé — bienvenue !", "success");
       navigateAfterAuth();
-    } catch (err) {
-      showToast(err.message);
-    }
+    } catch (err) { showToast(err.message); }
   });
   document.getElementById("form-login")?.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -1181,14 +1311,9 @@ function bindAuthEvents() {
       setToken(res.access_token);
       await loadUserContext();
       navigateAfterAuth();
-    } catch (err) {
-      showToast(err.message);
-    }
+    } catch (err) { showToast(err.message); }
   });
-  document.getElementById("btn-logout")?.addEventListener("click", () => {
-    setToken(null);
-    navigate("/");
-  });
+  document.getElementById("btn-logout")?.addEventListener("click", () => { setToken(null); navigate("/"); });
   document.querySelectorAll("[data-oauth]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const provider = btn.dataset.oauth;
@@ -1223,9 +1348,7 @@ async function bindAccountEvents() {
   try {
     const billing = await API.getBilling(STATE.orgId);
     const el = document.getElementById("account-billing-summary");
-    if (el) {
-      el.textContent = `Total facturé : ${billing.total_billed} € — ${billing.deployments_used_this_month}/${billing.deployments_limit ?? "∞"} déploiements ce mois`;
-    }
+    if (el) el.textContent = `Total facturé : ${billing.total_billed} € — ${billing.deployments_used_this_month}/${billing.deployments_limit ?? "∞"} déploiements ce mois`;
   } catch { /* ignore */ }
 }
 
@@ -1240,34 +1363,41 @@ function bindSubscriptionEvents() {
           sessionStorage.setItem("pending_payment_type", "subscribe");
           window.location.href = res.checkout_url;
         } else {
-          showToast(res.message || "Plan activé.");
+          showToast(res.message || "Plan activé.", "success");
           await loadUserContext();
         }
-      } catch (e) {
-        showToast(e.message);
-      }
+      } catch (e) { showToast(e.message); }
     });
   });
+}
+
+async function confirmPaymentWithPolling(paymentCode) {
+  for (let i = 0; i < 5; i++) {
+    try { return await API.confirmBilling(paymentCode); }
+    catch {
+      await new Promise((r) => setTimeout(r, 2000));
+      try {
+        const status = await API.pollPaymentStatus(paymentCode);
+        if (status.paid) return await API.confirmBilling(paymentCode);
+      } catch { /* retry */ }
+    }
+  }
+  throw new Error("Paiement non confirmé — réessayez depuis Mon compte.");
 }
 
 async function bindPaymentSuccessEvents() {
   const params = new URLSearchParams(window.location.search);
   const paymentCode = params.get("payment_code") || sessionStorage.getItem("pending_payment_code");
   const el = document.getElementById("payment-status");
-  if (!paymentCode) {
-    if (el) el.textContent = "Code de paiement manquant.";
-    return;
-  }
+  if (!paymentCode) { if (el) el.textContent = "Code de paiement manquant."; return; }
   try {
     const result = await confirmPaymentWithPolling(paymentCode);
     sessionStorage.removeItem("pending_payment_code");
     sessionStorage.removeItem("pending_payment_type");
     if (el) el.textContent = result.message || "Paiement confirmé.";
-    showToast("Paiement confirmé.");
+    showToast("Paiement confirmé.", "success");
     setTimeout(() => navigate("/cockpit"), 2000);
-  } catch (e) {
-    if (el) el.textContent = e.message;
-  }
+  } catch (e) { if (el) el.textContent = e.message; }
 }
 
 function bindGlobalNav() {
@@ -1279,8 +1409,9 @@ function bindGlobalNav() {
   });
 }
 
+/* ─── RENDER ─── */
+
 async function render() {
-  clearInterval(estimatePollTimer);
   let route = parseRoute();
   let authGateNotice = false;
 
@@ -1295,18 +1426,18 @@ async function render() {
     }
   }
 
-  document.body.classList.toggle(
-    "page-auth",
-    route.name === "connexion" || route.name === "inscription" || route.name === "oauth-callback",
-  );
+  document.body.classList.toggle("page-auth",
+    route.name === "connexion" || route.name === "inscription" || route.name === "oauth-callback");
+  document.body.classList.toggle("page-composer", route.name === "composer");
 
   updateAuthChrome();
+  document.querySelectorAll(".auth-nav-slot").forEach((el) => { el.innerHTML = renderAuthNav(); });
+  setActiveNav(
+    route.name === "solution" || route.name === "editor" || route.name === "composer"
+      ? "home"
+      : route.name
+  );
 
-  document.querySelectorAll(".auth-nav-slot").forEach((el) => {
-    el.innerHTML = renderAuthNav();
-  });
-
-  setActiveNav(route.name === "solution" || route.name === "editor" ? "home" : route.name);
   const view = document.getElementById("view");
 
   switch (route.name) {
@@ -1334,11 +1465,7 @@ async function render() {
       await bindAccountEvents();
       break;
     case "subscription":
-      try {
-        STATE.plans = await API.getPlans();
-      } catch {
-        STATE.plans = [];
-      }
+      try { STATE.plans = await API.getPlans(); } catch { STATE.plans = []; }
       view.innerHTML = renderSubscription();
       bindSubscriptionEvents();
       break;
@@ -1354,9 +1481,35 @@ async function render() {
       bindHomeEvents();
       break;
     case "workspace":
-      view.innerHTML = renderWorkspace();
-      bindWorkspaceEvents();
+    case "architect":
+      // Legacy redirect to new composer
+      STATE.pendingNeed = STATE.pendingNeed || "";
+      history.replaceState({}, "", "/");
+      view.innerHTML = renderHome();
+      bindHomeEvents();
       break;
+    case "composer": {
+      const cid = route.id;
+      // Reset state if arriving at a new conversation
+      if (cid === "new") {
+        if (!STATE.composerMessages.length && !STATE.pendingNeed) {
+          STATE.pendingNeed = "";
+        }
+        view.innerHTML = renderComposer(null);
+        bindComposerEvents(null);
+      } else {
+        if (STATE.conversationId !== cid) {
+          STATE.conversationId = cid;
+          STATE.composerMessages = [];
+          STATE.composerMetadata = null;
+          STATE.blueprint = null;
+          STATE.estimates = null;
+        }
+        view.innerHTML = renderComposer(cid);
+        bindComposerEvents(cid);
+      }
+      break;
+    }
     case "solution":
       view.innerHTML = `<div class="empty-state"><span class="loading"></span></div>`;
       await loadSolution(route.id);
@@ -1378,10 +1531,6 @@ async function render() {
       try { STATE.marketplaceAgents = await API.listMarketplaceAgents(); } catch { STATE.marketplaceAgents = []; }
       view.innerHTML = renderMarketplace(marketplaceCategory);
       bindMarketplaceEvents();
-      break;
-    case "architect":
-      view.innerHTML = renderArchitect();
-      bindArchitectEvents();
       break;
     default:
       view.innerHTML = renderHome();

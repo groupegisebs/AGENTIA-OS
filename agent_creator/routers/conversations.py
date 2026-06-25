@@ -10,6 +10,7 @@ from agent_creator.schemas import (
     CreateConversationRequest,
     MessageResponse,
     SendMessageRequest,
+    SolutionMetadata,
 )
 from agent_creator.schemas_ui import EstimatesResponse
 from agent_creator.schemas_billing import BillingEventResponse, ConfirmPaymentRequest, DeployResponse, DeploymentResponse
@@ -51,6 +52,74 @@ async def _assistant_reply(conversation: Conversation, llm: LLMService) -> str:
     return await llm.chat(messages)
 
 
+# Named systems/tools to detect in data sources
+_KNOWN_SYSTEMS = [
+    "gmail", "outlook", "exchange", "microsoft 365", "office 365",
+    "sage", "quickbooks", "cegid", "ebp", "pennylane",
+    "salesforce", "hubspot", "pipedrive", "zoho", "dynamics",
+    "sap", "oracle", "odoo", "netsuite",
+    "slack", "teams", "notion", "jira", "trello", "asana",
+    "shopify", "woocommerce", "prestashop",
+    "stripe", "paypal",
+    "sharepoint", "onedrive", "google drive", "dropbox",
+    "mysql", "postgresql", "mongodb", "supabase", "airtable",
+    "zapier", "n8n", "power automate", "make",
+]
+
+_DOC_KEYWORDS = ["pdf", "facture", "contrat", "devis", "bon de commande",
+                 "rapport", "fiche", "document", "fichier", "pièce jointe",
+                 "excel", "csv", "word"]
+
+_USER_KEYWORDS = ["comptable", "directeur", "manager", "rh", "commercial",
+                  "client", "employé", "collaborateur", "utilisateur", "équipe",
+                  "responsable", "chef", "secrétaire", "assistant"]
+
+
+async def _extract_metadata(conversation: Conversation, llm: LLMService) -> SolutionMetadata:
+    """Extrait les métadonnées de la solution depuis la conversation."""
+    from agent_creator.services.extractor import RequirementExtractor
+
+    extractor = RequirementExtractor(llm)
+    req = await extractor.extract(conversation)
+
+    full_text = conversation.transcript.lower()
+
+    # Systems: named tools detected in data_sources + text scan
+    systems: list[str] = []
+    src_text = " ".join(req.data_sources).lower() + " " + full_text
+    for sys in _KNOWN_SYSTEMS:
+        if sys in src_text and sys.title() not in systems:
+            systems.append(sys.title())
+
+    # Documents: file/document mentions in data sources and transcript
+    documents: list[str] = []
+    for ds in req.data_sources:
+        ds_lower = ds.lower()
+        if any(kw in ds_lower for kw in _DOC_KEYWORDS):
+            if ds not in documents:
+                documents.append(ds)
+    # Scan transcript for document mentions not in data_sources
+    for kw in _DOC_KEYWORDS:
+        if kw in full_text and not any(kw in d.lower() for d in documents):
+            documents.append(kw.capitalize())
+
+    # Users: role mentions in transcript
+    users: list[str] = []
+    for kw in _USER_KEYWORDS:
+        if kw in full_text and kw.capitalize() not in users:
+            users.append(kw.capitalize())
+
+    return SolutionMetadata(
+        objectives=req.objectives[:6],
+        systems=systems[:8],
+        documents=list(dict.fromkeys(documents))[:6],
+        users=users[:6],
+        constraints=req.constraints[:5],
+        risks=req.risks[:4],
+        completeness=req.completeness_score,
+    )
+
+
 @router.post("", response_model=AssistantReplyResponse, status_code=201)
 async def create_conversation(
     body: CreateConversationRequest,
@@ -64,12 +133,8 @@ async def create_conversation(
     reply = await _assistant_reply(conversation, llm)
     assistant_msg = conversation.add_message(MessageRole.ASSISTANT, reply)
 
-    if llm.is_mock_mode and conversation.user_messages:
-        from agent_creator.services.extractor import RequirementExtractor
-
-        extractor = RequirementExtractor(llm)
-        req = await extractor.extract(conversation)
-        conversation.clarifying_questions = req.missing_information[:5]
+    metadata = await _extract_metadata(conversation, llm)
+    conversation.clarifying_questions = metadata.constraints[:5] or []
 
     await db.create_conversation(conversation)
     mode = _llm_mode_label(llm)
@@ -81,6 +146,7 @@ async def create_conversation(
             content=assistant_msg.content,
             created_at=assistant_msg.created_at,
         ),
+        metadata=metadata,
     )
 
 
@@ -124,7 +190,10 @@ async def send_message(
     reply = await _assistant_reply(conversation, llm)
     assistant_msg = conversation.add_message(MessageRole.ASSISTANT, reply)
 
-    if len(conversation.user_messages) >= 2:
+    metadata = await _extract_metadata(conversation, llm)
+
+    # Mark ready when enough information gathered
+    if metadata.completeness >= 0.65 or len(conversation.user_messages) >= 4:
         conversation.status = ConversationStatus.READY_FOR_BLUEPRINT
 
     await db.save_conversation(conversation)
@@ -137,6 +206,7 @@ async def send_message(
             content=assistant_msg.content,
             created_at=assistant_msg.created_at,
         ),
+        metadata=metadata,
     )
 
 

@@ -6,6 +6,18 @@ from agent_creator.models.blueprint import Blueprint
 from agent_creator.models.conversation import Conversation, ConversationStatus, MessageRole
 
 
+class SolutionMetadata(BaseModel):
+    """Métadonnées extraites progressivement de la conversation."""
+
+    objectives: list[str] = Field(default_factory=list)
+    systems: list[str] = Field(default_factory=list)    # Gmail, Sage, Salesforce…
+    documents: list[str] = Field(default_factory=list)  # factures PDF, contrats…
+    users: list[str] = Field(default_factory=list)      # comptable, directeur…
+    constraints: list[str] = Field(default_factory=list)
+    risks: list[str] = Field(default_factory=list)
+    completeness: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
 class CreateConversationRequest(BaseModel):
     message: str = Field(..., min_length=1, description="Premier message décrivant le besoin métier")
 
@@ -56,6 +68,7 @@ class ConversationResponse(BaseModel):
 class AssistantReplyResponse(BaseModel):
     conversation: ConversationResponse
     assistant_message: MessageResponse
+    metadata: SolutionMetadata = Field(default_factory=SolutionMetadata)
 
 
 class BlueprintResponse(BaseModel):

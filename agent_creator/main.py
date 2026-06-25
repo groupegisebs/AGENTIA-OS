@@ -43,6 +43,7 @@ API_PATH_PREFIXES = (
     "architect/",
     "agents",
     "marketplace/",
+    "health",
 )
 
 
@@ -156,6 +157,7 @@ async def spa_sections() -> FileResponse:
 
 @app.get("/solution/{conversation_id}")
 @app.get("/editor/{conversation_id}")
+@app.get("/composer/{conversation_id}")
 async def spa_with_id(conversation_id: str) -> FileResponse:
     return _spa_index()
 
