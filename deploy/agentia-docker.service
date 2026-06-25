@@ -8,8 +8,11 @@ Wants=network-online.target
 Type=oneshot
 RemainAfterExit=yes
 WorkingDirectory=/opt/apps/agentia-docker
-ExecStart=/usr/local/bin/docker-compose up -d --remove-orphans
-ExecStop=/usr/local/bin/docker-compose down
+# Prefer the Docker Compose V2 plugin (docker compose); fall back to the
+# standalone binary at /usr/local/bin/docker-compose for servers where
+# the plugin is not installed.
+ExecStart=/bin/bash -c 'docker compose up -d --remove-orphans 2>/dev/null || /usr/local/bin/docker-compose up -d --remove-orphans'
+ExecStop=/bin/bash -c 'docker compose down 2>/dev/null || /usr/local/bin/docker-compose down'
 TimeoutStartSec=300
 User=ubuntu
 
