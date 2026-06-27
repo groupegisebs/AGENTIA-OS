@@ -92,6 +92,15 @@ async def get_deployment_service(db: DbStore = Depends(get_db_store)):
     return DeploymentService(db, billing_service, llm_service)
 
 
+def get_agent_os_service(request: Request):
+    service = getattr(request.app.state, "agent_os_service", None)
+    if service is not None:
+        return service
+    from agent_creator.main import agent_os_service
+
+    return agent_os_service
+
+
 async def get_agent_consumer(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),

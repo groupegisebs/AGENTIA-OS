@@ -192,3 +192,61 @@ class AgentInvocationRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     agent: Mapped["PublishedAgentRow"] = relationship(back_populates="invocations")
+
+
+class AgentRuntimeRow(Base):
+    __tablename__ = "agent_runtimes"
+
+    agent_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("published_agents.id"), primary_key=True
+    )
+    organization_id: Mapped[str] = mapped_column(String(36), index=True)
+    lifecycle_state: Mapped[str] = mapped_column(String(16), default="stopped")
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    suspended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    stopped_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+
+class AgentCapabilityRegistryRow(Base):
+    __tablename__ = "agent_capability_registries"
+
+    agent_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("published_agents.id"), primary_key=True
+    )
+    organization_id: Mapped[str] = mapped_column(String(36), index=True)
+    tools_json: Mapped[str] = mapped_column(Text, default="[]")
+    actions_json: Mapped[str] = mapped_column(Text, default="[]")
+    events_json: Mapped[str] = mapped_column(Text, default="[]")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+
+class AgentEventRow(Base):
+    __tablename__ = "agent_events"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    agent_id: Mapped[str] = mapped_column(String(36), ForeignKey("published_agents.id"), index=True)
+    organization_id: Mapped[str] = mapped_column(String(36), index=True)
+    event_type: Mapped[str] = mapped_column(String(64))
+    payload_json: Mapped[str] = mapped_column(Text, default="{}")
+    metadata_json: Mapped[str] = mapped_column(Text, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+
+class AgentMemoryEntryRow(Base):
+    __tablename__ = "agent_memory_entries"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    agent_id: Mapped[str] = mapped_column(String(36), ForeignKey("published_agents.id"), index=True)
+    organization_id: Mapped[str] = mapped_column(String(36), index=True)
+    namespace: Mapped[str] = mapped_column(String(64), default="default", index=True)
+    text: Mapped[str] = mapped_column(Text)
+    metadata_json: Mapped[str] = mapped_column(Text, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)

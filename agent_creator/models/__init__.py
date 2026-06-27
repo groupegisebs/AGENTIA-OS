@@ -3,12 +3,24 @@ from agent_creator.models.conversation import Conversation, Message
 from agent_creator.models.deployment import Deployment
 from agent_creator.models.organization import Organization
 from agent_creator.models.requirement import Requirement, SolutionType
+from agent_creator.models.os_runtime import (
+    AgentCapabilityRegistry,
+    AgentEvent,
+    AgentLifecycleState,
+    AgentMemoryEntry,
+    AgentRuntime,
+)
 from agent_creator.models.subscription import SubscriptionPlan
 
 __all__ = [
     "Blueprint",
     "Conversation",
     "Deployment",
+    "AgentCapabilityRegistry",
+    "AgentEvent",
+    "AgentLifecycleState",
+    "AgentMemoryEntry",
+    "AgentRuntime",
     "Message",
     "Organization",
     "Requirement",

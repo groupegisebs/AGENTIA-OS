@@ -8,7 +8,11 @@ from sqlalchemy.orm import selectinload
 
 from agent_creator.db.tables import (
     AgentApiKeyRow,
+    AgentCapabilityRegistryRow,
+    AgentEventRow,
     AgentInvocationRow,
+    AgentMemoryEntryRow,
+    AgentRuntimeRow,
     BillingEventRow,
     BlueprintRow,
     ConversationRow,
@@ -24,6 +28,13 @@ from agent_creator.models.blueprint import Blueprint
 from agent_creator.models.conversation import Conversation, ConversationStatus, Message, MessageRole
 from agent_creator.models.deployment import Deployment, DeploymentStatus
 from agent_creator.models.organization import Organization
+from agent_creator.models.os_runtime import (
+    AgentCapabilityRegistry,
+    AgentEvent,
+    AgentLifecycleState,
+    AgentMemoryEntry,
+    AgentRuntime,
+)
 from agent_creator.models.subscription import SubscriptionPlan
 
 
@@ -422,6 +433,96 @@ class DbStore:
         result = await self._session.scalar(stmt)
         return result or 0
 
+    # --- Agent OS runtime ---
+
+    async def get_agent_runtime(self, agent_id: str) -> AgentRuntime | None:
+        row = await self._session.get(AgentRuntimeRow, agent_id)
+        return _runtime_from_row(row) if row else None
+
+    async def save_agent_runtime(self, runtime: AgentRuntime) -> AgentRuntime:
+        row = await self._session.get(AgentRuntimeRow, runtime.agent_id)
+        if not row:
+            row = AgentRuntimeRow(agent_id=runtime.agent_id)
+            self._session.add(row)
+            row.created_at = runtime.created_at
+        row.organization_id = runtime.organization_id
+        row.lifecycle_state = runtime.lifecycle_state.value
+        row.last_error = runtime.last_error
+        row.started_at = runtime.started_at
+        row.suspended_at = runtime.suspended_at
+        row.stopped_at = runtime.stopped_at
+        row.updated_at = runtime.updated_at
+        await self._session.flush()
+        return runtime
+
+    async def get_agent_capability_registry(self, agent_id: str) -> AgentCapabilityRegistry | None:
+        row = await self._session.get(AgentCapabilityRegistryRow, agent_id)
+        return _capability_registry_from_row(row) if row else None
+
+    async def save_agent_capability_registry(
+        self, registry: AgentCapabilityRegistry
+    ) -> AgentCapabilityRegistry:
+        row = await self._session.get(AgentCapabilityRegistryRow, registry.agent_id)
+        if not row:
+            row = AgentCapabilityRegistryRow(agent_id=registry.agent_id)
+            self._session.add(row)
+            row.created_at = registry.created_at
+        row.organization_id = registry.organization_id
+        row.tools_json = json.dumps(registry.tools, ensure_ascii=False)
+        row.actions_json = json.dumps(registry.actions, ensure_ascii=False)
+        row.events_json = json.dumps(registry.events, ensure_ascii=False)
+        row.updated_at = registry.updated_at
+        await self._session.flush()
+        return registry
+
+    async def save_agent_event(self, event: AgentEvent) -> AgentEvent:
+        row = AgentEventRow(
+            id=event.id,
+            agent_id=event.agent_id,
+            organization_id=event.organization_id,
+            event_type=event.event_type,
+            payload_json=json.dumps(event.payload, ensure_ascii=False),
+            metadata_json=json.dumps(event.metadata, ensure_ascii=False),
+            created_at=event.created_at,
+        )
+        self._session.add(row)
+        await self._session.flush()
+        return event
+
+    async def list_agent_events(self, agent_id: str, limit: int = 50) -> list[AgentEvent]:
+        stmt = (
+            select(AgentEventRow)
+            .where(AgentEventRow.agent_id == agent_id)
+            .order_by(AgentEventRow.created_at.desc())
+            .limit(limit)
+        )
+        rows = (await self._session.scalars(stmt)).all()
+        return [_event_from_row(r) for r in rows]
+
+    async def save_agent_memory_entry(self, entry: AgentMemoryEntry) -> AgentMemoryEntry:
+        row = AgentMemoryEntryRow(
+            id=entry.id,
+            agent_id=entry.agent_id,
+            organization_id=entry.organization_id,
+            namespace=entry.namespace,
+            text=entry.text,
+            metadata_json=json.dumps(entry.metadata, ensure_ascii=False),
+            created_at=entry.created_at,
+        )
+        self._session.add(row)
+        await self._session.flush()
+        return entry
+
+    async def list_agent_memory_entries(
+        self, agent_id: str, namespace: str | None = None, limit: int = 50
+    ) -> list[AgentMemoryEntry]:
+        stmt = select(AgentMemoryEntryRow).where(AgentMemoryEntryRow.agent_id == agent_id)
+        if namespace:
+            stmt = stmt.where(AgentMemoryEntryRow.namespace == namespace)
+        stmt = stmt.order_by(AgentMemoryEntryRow.created_at.desc()).limit(limit)
+        rows = (await self._session.scalars(stmt)).all()
+        return [_memory_from_row(r) for r in rows]
+
 
 def _deployment_from_row(row: DeploymentRow) -> Deployment:
     return Deployment(
@@ -502,4 +603,54 @@ def _api_key_from_row(row: AgentApiKeyRow) -> AgentApiKey:
         key_hash=row.key_hash,
         created_at=row.created_at,
         revoked_at=row.revoked_at,
+    )
+
+
+def _runtime_from_row(row: AgentRuntimeRow) -> AgentRuntime:
+    return AgentRuntime(
+        agent_id=row.agent_id,
+        organization_id=row.organization_id,
+        lifecycle_state=AgentLifecycleState(row.lifecycle_state),
+        last_error=row.last_error,
+        started_at=row.started_at,
+        suspended_at=row.suspended_at,
+        stopped_at=row.stopped_at,
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+def _capability_registry_from_row(row: AgentCapabilityRegistryRow) -> AgentCapabilityRegistry:
+    return AgentCapabilityRegistry(
+        agent_id=row.agent_id,
+        organization_id=row.organization_id,
+        tools=json.loads(row.tools_json or "[]"),
+        actions=json.loads(row.actions_json or "[]"),
+        events=json.loads(row.events_json or "[]"),
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+def _event_from_row(row: AgentEventRow) -> AgentEvent:
+    return AgentEvent(
+        id=row.id,
+        agent_id=row.agent_id,
+        organization_id=row.organization_id,
+        event_type=row.event_type,
+        payload=json.loads(row.payload_json or "{}"),
+        metadata=json.loads(row.metadata_json or "{}"),
+        created_at=row.created_at,
+    )
+
+
+def _memory_from_row(row: AgentMemoryEntryRow) -> AgentMemoryEntry:
+    return AgentMemoryEntry(
+        id=row.id,
+        agent_id=row.agent_id,
+        organization_id=row.organization_id,
+        namespace=row.namespace,
+        text=row.text,
+        metadata=json.loads(row.metadata_json or "{}"),
+        created_at=row.created_at,
     )

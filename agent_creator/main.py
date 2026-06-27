@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from agent_creator import __version__
 from agent_creator.config import get_settings
 from agent_creator.db.session import init_db
-from agent_creator.routers import architect, auth, billing, conversations, organizations, plans
+from agent_creator.routers import architect, auth, billing, conversations, organizations, os_runtime, plans
 from agent_creator.routers.agents import marketplace_router, router as agents_router
 from agent_creator.services.billing import BillingService
 from agent_creator.services.blueprint_generator import BlueprintGenerator
@@ -21,6 +21,7 @@ from agent_creator.services.cache import AgentCache
 from agent_creator.services.extractor import RequirementExtractor
 from agent_creator.services.llm import LLMService
 from agent_creator.services.payment import create_payment_provider
+from agent_creator.services.os_foundation import AgentEventBus, AgentOSService
 
 settings = get_settings()
 payment_provider = create_payment_provider(settings)
@@ -29,6 +30,8 @@ llm_service = LLMService(settings)
 llm = llm_service  # backward-compat alias
 extractor = RequirementExtractor(llm_service)
 blueprint_generator = BlueprintGenerator(extractor)
+event_bus = AgentEventBus()
+agent_os_service = AgentOSService(event_bus)
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 SPA_INDEX = STATIC_DIR / "index.html"
@@ -42,6 +45,7 @@ API_PATH_PREFIXES = (
     "plans/",
     "architect/",
     "agents",
+    "os/",
     "marketplace/",
     "health",
 )
@@ -69,6 +73,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
 
     application.state.cache = cache
     application.state.arq_pool = arq_pool
+    application.state.agent_os_service = agent_os_service
 
     llm_mode = llm.mode_label
     pay_mode = payment_provider.provider_name
@@ -117,6 +122,7 @@ app.include_router(organizations.router)
 app.include_router(architect.router)
 app.include_router(agents_router)
 app.include_router(marketplace_router)
+app.include_router(os_runtime.router)
 
 
 def _spa_index() -> FileResponse:

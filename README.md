@@ -152,6 +152,44 @@ Documentation API (développeurs) : http://localhost:8000/docs
 | `POST` | `/conversations/{id}/deploy/confirm` | Confirme un paiement en attente |
 | `GET` | `/health` | Santé du service |
 
+### Fondations OS Runtime (V1)
+
+Ces endpoints ajoutent les fondations techniques de l'OS sans impacter les routes MVP existantes (`/conversations`, `/agents`, etc.).  
+Toutes les routes ci-dessous sont protégées par `Authorization: Bearer <token>` et limitées au tenant propriétaire de l'agent.
+
+| Méthode | Endpoint | Description |
+|---------|----------|-------------|
+| `GET` | `/os/v1/agents/{id}/runtime` | Lit l'état runtime (`stopped/running/suspended/failed`) |
+| `PUT` | `/os/v1/agents/{id}/runtime` | Met à jour l'état runtime |
+| `GET` | `/os/v1/agents/{id}/capabilities` | Lit le registre de capacités (`tools/actions/events`) |
+| `PUT` | `/os/v1/agents/{id}/capabilities` | Met à jour le registre de capacités |
+| `POST` | `/os/v1/agents/{id}/events` | Publie un événement applicatif persistant |
+| `GET` | `/os/v1/agents/{id}/events` | Liste les événements persistés |
+| `POST` | `/os/v1/agents/{id}/memory` | Ajoute une entrée mémoire textuelle namespacée |
+| `GET` | `/os/v1/agents/{id}/memory` | Liste la mémoire (filtrable par namespace) |
+
+Exemples rapides :
+
+```bash
+# Passer l'agent en running
+curl -X PUT http://localhost:8000/os/v1/agents/{agent_id}/runtime \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"state":"running","reason":"manual start"}'
+
+# Déclarer des capacités
+curl -X PUT http://localhost:8000/os/v1/agents/{agent_id}/capabilities \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"tools":["crm.lookup"],"actions":["triage"],"events":["ticket.created"]}'
+
+# Ajouter une mémoire
+curl -X POST http://localhost:8000/os/v1/agents/{agent_id}/memory \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"namespace":"support","text":"Client ACME préfère le français."}'
+```
+
 ### Exemple complet — conversation → blueprint → déploiement
 
 **1. Démarrer la conversation**
