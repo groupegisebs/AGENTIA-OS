@@ -17,10 +17,12 @@ from agent_creator.db.tables import (
     BlueprintRow,
     ConversationRow,
     DeploymentRow,
+    MarketplacePublicationRow,
     MessageRow,
     OrganizationRow,
     PaymentIntentRow,
     PublishedAgentRow,
+    PublishingJobRow,
 )
 from agent_creator.models.agent import AgentApiKey, AgentInvocation, AgentManifest, AgentStatus, AgentVisibility, PublishedAgent
 from agent_creator.models.billing import BillingEvent, BillingEventStatus, BillingEventType
@@ -523,6 +525,82 @@ class DbStore:
         rows = (await self._session.scalars(stmt)).all()
         return [_memory_from_row(r) for r in rows]
 
+    # ─── Publishing Center ────────────────────────────────────────────────────
+
+    async def save_publishing_job(self, job) -> None:
+        row = await self._session.get(PublishingJobRow, job.id)
+        if not row:
+            row = PublishingJobRow(id=job.id, created_at=job.created_at)
+            self._session.add(row)
+        row.agent_id = job.agent_id
+        row.organization_id = job.organization_id
+        row.current_step = job.current_step.value
+        row.status = job.status.value
+        row.analysis_json = job.analysis.model_dump_json() if job.analysis else None
+        row.content_json = job.content.model_dump_json() if job.content else None
+        row.media_json = job.media.model_dump_json() if job.media else None
+        row.scores_json = job.scores.model_dump_json() if job.scores else None
+        row.settings_json = job.settings.model_dump_json()
+        row.target_marketplaces_json = json.dumps(job.target_marketplaces)
+        row.updated_at = job.updated_at
+        await self._session.flush()
+
+    async def get_publishing_job(self, job_id: str):
+        row = await self._session.get(PublishingJobRow, job_id)
+        return _publishing_job_from_row(row) if row else None
+
+    async def get_publishing_job_by_agent(self, agent_id: str):
+        stmt = (
+            select(PublishingJobRow)
+            .where(PublishingJobRow.agent_id == agent_id)
+            .order_by(PublishingJobRow.created_at.desc())
+            .limit(1)
+        )
+        row = (await self._session.scalars(stmt)).first()
+        return _publishing_job_from_row(row) if row else None
+
+    async def list_publishing_jobs(self, agent_id: str):
+        stmt = (
+            select(PublishingJobRow)
+            .where(PublishingJobRow.agent_id == agent_id)
+            .order_by(PublishingJobRow.created_at.desc())
+        )
+        rows = (await self._session.scalars(stmt)).all()
+        return [_publishing_job_from_row(r) for r in rows]
+
+    async def save_marketplace_publication(self, pub) -> None:
+        row = await self._session.get(MarketplacePublicationRow, pub.id)
+        if not row:
+            row = MarketplacePublicationRow(id=pub.id, published_at=pub.published_at)
+            self._session.add(row)
+        row.job_id = pub.job_id
+        row.agent_id = pub.agent_id
+        row.organization_id = pub.organization_id
+        row.marketplace_id = pub.marketplace_id
+        row.external_product_id = pub.external_product_id
+        row.external_url = pub.external_url
+        row.version = pub.version
+        row.status = pub.status.value
+        row.error = pub.error
+        row.last_synced_at = pub.last_synced_at
+        await self._session.flush()
+
+    async def get_marketplace_publication(self, pub_id: str):
+        row = await self._session.get(MarketplacePublicationRow, pub_id)
+        return _publication_from_row(row) if row else None
+
+    async def list_marketplace_publications(self, agent_id: str, org_id: str):
+        stmt = (
+            select(MarketplacePublicationRow)
+            .where(
+                MarketplacePublicationRow.agent_id == agent_id,
+                MarketplacePublicationRow.organization_id == org_id,
+            )
+            .order_by(MarketplacePublicationRow.published_at.desc())
+        )
+        rows = (await self._session.scalars(stmt)).all()
+        return [_publication_from_row(r) for r in rows]
+
 
 def _deployment_from_row(row: DeploymentRow) -> Deployment:
     return Deployment(
@@ -653,4 +731,46 @@ def _memory_from_row(row: AgentMemoryEntryRow) -> AgentMemoryEntry:
         text=row.text,
         metadata=json.loads(row.metadata_json or "{}"),
         created_at=row.created_at,
+    )
+
+
+# ─── Publishing Center ────────────────────────────────────────────────────────
+
+def _publishing_job_from_row(row: "PublishingJobRow"):
+    from agent_creator.models.publishing import (
+        AgentAnalysis, GeneratedContent, GeneratedMedia, MarketplacePublication,
+        PublishingJob, PublishingJobStatus, PublishingStep, QualityScores, SaleSettings,
+    )
+    return PublishingJob(
+        id=row.id,
+        agent_id=row.agent_id,
+        organization_id=row.organization_id,
+        current_step=PublishingStep(row.current_step),
+        status=PublishingJobStatus(row.status),
+        analysis=AgentAnalysis.model_validate(json.loads(row.analysis_json)) if row.analysis_json else None,
+        content=GeneratedContent.model_validate(json.loads(row.content_json)) if row.content_json else None,
+        media=GeneratedMedia.model_validate(json.loads(row.media_json)) if row.media_json else None,
+        scores=QualityScores.model_validate(json.loads(row.scores_json)) if row.scores_json else None,
+        settings=SaleSettings.model_validate(json.loads(row.settings_json or "{}")),
+        target_marketplaces=json.loads(row.target_marketplaces_json or '["giseboutique"]'),
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+def _publication_from_row(row: "MarketplacePublicationRow"):
+    from agent_creator.models.publishing import MarketplacePublication, PublicationStatus
+    return MarketplacePublication(
+        id=row.id,
+        job_id=row.job_id,
+        agent_id=row.agent_id,
+        organization_id=row.organization_id,
+        marketplace_id=row.marketplace_id,
+        external_product_id=row.external_product_id,
+        external_url=row.external_url,
+        version=row.version or "1.0.0",
+        status=PublicationStatus(row.status),
+        error=row.error,
+        published_at=row.published_at,
+        last_synced_at=row.last_synced_at,
     )

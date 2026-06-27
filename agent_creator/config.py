@@ -114,6 +114,14 @@ class Settings(BaseSettings):
         """True si JWT fort et DATABASE_URL PostgreSQL (secret GHA)."""
         return self.jwt_secret != "dev-only-change-in-production" and self.is_postgresql
 
+    # GISEBoutique Partner API (Publishing Center)
+    giseboutique_partner_url: str = ""
+    giseboutique_partner_api_key: str = ""
+
+    @property
+    def giseboutique_partner_configured(self) -> bool:
+        return bool(self.giseboutique_partner_url.strip() and self.giseboutique_partner_api_key.strip())
+
     @property
     def gisebs_pay_configured(self) -> bool:
         return bool(
