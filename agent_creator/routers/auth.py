@@ -2,6 +2,7 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
+from pydantic import BaseModel, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agent_creator.config import Settings, get_settings
@@ -24,6 +25,7 @@ from agent_creator.schemas_auth import (
 from agent_creator.schemas_billing import OrganizationResponse
 from agent_creator.services.auth import AuthError, AuthService
 from agent_creator.services.deployment import DeploymentService
+from agent_creator.services.email_service import EmailService
 from agent_creator.services.oauth import OAuthError, OAuthService, list_enabled_providers
 
 router = APIRouter(prefix="/auth", tags=["authentification"])
@@ -110,6 +112,75 @@ async def login(
     except AuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     return TokenResponse(access_token=token)
+
+
+# ─── Password Reset ───────────────────────────────────────────────────────────
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ForgotPasswordResponse(BaseModel):
+    message: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+@router.post("/forgot-password", response_model=ForgotPasswordResponse)
+async def forgot_password(
+    body: ForgotPasswordRequest,
+    session: AsyncSession = Depends(get_db),
+    auth: AuthService = Depends(get_auth_service),
+    settings: Settings = Depends(get_settings),
+) -> ForgotPasswordResponse:
+    """Demande de réinitialisation du mot de passe.
+    Envoie un email avec le lien si l'adresse existe.
+    Répond toujours avec le même message (anti-énumération).
+    """
+    generic_response = ForgotPasswordResponse(
+        message="Si un compte existe pour cette adresse, un email de réinitialisation a été envoyé."
+    )
+
+    result = await auth.create_password_reset_token(session, email=body.email)
+    if not result:
+        return generic_response
+
+    raw_token, full_name = result
+    reset_url = f"{settings.app_base_url.rstrip('/')}/connexion?reset_token={raw_token}"
+
+    email_svc = EmailService(settings)
+    if email_svc.is_configured:
+        await email_svc.send_password_reset(
+            to_email=str(body.email),
+            full_name=full_name,
+            reset_link=reset_url,
+        )
+    else:
+        import logging
+        logging.getLogger("auth").warning(
+            "[EMAIL SKIPPED] Reset password pour %s — GiseMailSender non configuré. Lien : %s",
+            body.email,
+            reset_url,
+        )
+
+    return generic_response
+
+
+@router.post("/reset-password", response_model=ForgotPasswordResponse)
+async def reset_password(
+    body: ResetPasswordRequest,
+    session: AsyncSession = Depends(get_db),
+    auth: AuthService = Depends(get_auth_service),
+) -> ForgotPasswordResponse:
+    """Réinitialise le mot de passe avec le token reçu par email."""
+    try:
+        await auth.reset_password(session, token=body.token, new_password=body.new_password)
+    except AuthError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return ForgotPasswordResponse(message="Votre mot de passe a été réinitialisé. Vous pouvez vous connecter.")
 
 
 @router.get("/me", response_model=AuthMeResponse)

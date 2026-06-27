@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import hashlib
 import secrets
 from uuid import uuid4
 
@@ -8,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agent_creator.config import Settings
-from agent_creator.db.tables import MembershipRow, OAuthIdentityRow, OrganizationRow, UserRow
+from agent_creator.db.tables import MembershipRow, OAuthIdentityRow, OrganizationRow, PasswordResetTokenRow, UserRow
 from agent_creator.models.organization import Organization
 from agent_creator.models.subscription import SubscriptionPlan
 from agent_creator.models.user import Membership, MembershipRole, User
@@ -151,6 +152,64 @@ class AuthService:
             created_at=membership.created_at,
         )
         return user, org, mem
+
+    # ─── Password Reset ───────────────────────────────────────────────────────
+
+    async def create_password_reset_token(
+        self, session: AsyncSession, *, email: str
+    ) -> tuple[str, str] | None:
+        """Génère un token de reset. Retourne (raw_token, user_full_name) ou None si email inconnu."""
+        user_row = await session.scalar(select(UserRow).where(UserRow.email == email.lower()))
+        if not user_row:
+            return None
+
+        await session.execute(
+            PasswordResetTokenRow.__table__.delete().where(
+                PasswordResetTokenRow.user_id == user_row.id
+            )
+        )
+
+        raw_token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+        expires_at = datetime.utcnow() + timedelta(hours=1)
+
+        reset_row = PasswordResetTokenRow(
+            id=str(uuid4()),
+            user_id=user_row.id,
+            token_hash=token_hash,
+            expires_at=expires_at,
+            created_at=datetime.utcnow(),
+        )
+        session.add(reset_row)
+        await session.flush()
+        return raw_token, user_row.full_name
+
+    async def reset_password(
+        self, session: AsyncSession, *, token: str, new_password: str
+    ) -> bool:
+        """Réinitialise le mot de passe si le token est valide. Retourne True si succès."""
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        reset_row = await session.scalar(
+            select(PasswordResetTokenRow).where(PasswordResetTokenRow.token_hash == token_hash)
+        )
+        if not reset_row:
+            raise AuthError("Lien de réinitialisation invalide.")
+        if reset_row.used_at is not None:
+            raise AuthError("Ce lien a déjà été utilisé.")
+        if reset_row.expires_at < datetime.utcnow():
+            raise AuthError("Ce lien a expiré. Veuillez faire une nouvelle demande.")
+
+        if len(new_password) < 8:
+            raise AuthError("Le mot de passe doit contenir au moins 8 caractères.")
+
+        user_row = await session.get(UserRow, reset_row.user_id)
+        if not user_row:
+            raise AuthError("Compte introuvable.")
+
+        user_row.password_hash = self.hash_password(new_password)
+        reset_row.used_at = datetime.utcnow()
+        await session.flush()
+        return True
 
     async def oauth_login_or_register(
         self,

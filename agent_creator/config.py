@@ -114,9 +114,24 @@ class Settings(BaseSettings):
         """True si JWT fort et DATABASE_URL PostgreSQL (secret GHA)."""
         return self.jwt_secret != "dev-only-change-in-production" and self.is_postgresql
 
+    # GISEMailSender — envoi d'emails transactionnels (reset password, notifications)
+    gisemailsender_url: str = ""
+    gisemailsender_api_key: str = ""
+    gisemailsender_client_code: str = "AGENTIAOS"
+    gisemailsender_from_name: str = "Agentia OS"
+    app_base_url: str = "http://localhost:8000"
+
     # GISEBoutique Partner API (Publishing Center)
     giseboutique_partner_url: str = ""
     giseboutique_partner_api_key: str = ""
+
+    @property
+    def email_configured(self) -> bool:
+        return bool(
+            self.gisemailsender_url.strip()
+            and self.gisemailsender_api_key.strip()
+            and self.gisemailsender_client_code.strip()
+        )
 
     @property
     def giseboutique_partner_configured(self) -> bool:
