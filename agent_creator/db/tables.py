@@ -250,3 +250,46 @@ class AgentMemoryEntryRow(Base):
     text: Mapped[str] = mapped_column(Text)
     metadata_json: Mapped[str] = mapped_column(Text, default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+
+# ─── Publishing Center ────────────────────────────────────────────────────────
+
+class PublishingJobRow(Base):
+    __tablename__ = "publishing_jobs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    agent_id: Mapped[str] = mapped_column(String(36), ForeignKey("published_agents.id"), index=True)
+    organization_id: Mapped[str] = mapped_column(String(36), ForeignKey("organizations.id"), index=True)
+    current_step: Mapped[str] = mapped_column(String(32), default="analyze")
+    status: Mapped[str] = mapped_column(String(32), default="draft")
+    analysis_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    content_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    media_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    scores_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    settings_json: Mapped[str] = mapped_column(Text, default="{}")
+    target_marketplaces_json: Mapped[str] = mapped_column(Text, default='["giseboutique"]')
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    publications: Mapped[list["MarketplacePublicationRow"]] = relationship(
+        back_populates="job", cascade="all, delete-orphan"
+    )
+
+
+class MarketplacePublicationRow(Base):
+    __tablename__ = "marketplace_publications"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    job_id: Mapped[str] = mapped_column(String(36), ForeignKey("publishing_jobs.id"), index=True)
+    agent_id: Mapped[str] = mapped_column(String(36), ForeignKey("published_agents.id"), index=True)
+    organization_id: Mapped[str] = mapped_column(String(36), ForeignKey("organizations.id"), index=True)
+    marketplace_id: Mapped[str] = mapped_column(String(64), index=True)
+    external_product_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    external_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    version: Mapped[str] = mapped_column(String(32), default="1.0.0")
+    status: Mapped[str] = mapped_column(String(32), default="pending_review")
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    published_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    job: Mapped["PublishingJobRow"] = relationship(back_populates="publications")
