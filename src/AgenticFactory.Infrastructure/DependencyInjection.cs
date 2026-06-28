@@ -41,6 +41,7 @@ public static class DependencyInjection
         });
 
         services.AddHttpContextAccessor();
+        services.AddHttpClient();
         services.AddIdentity<AppIdentityUser, IdentityRole<Guid>>(options =>
             {
                 options.Password.RequireDigit = true;

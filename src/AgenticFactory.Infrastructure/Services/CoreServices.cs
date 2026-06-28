@@ -494,55 +494,214 @@ public sealed class JwtTokenService(IConfiguration configuration) : IJwtTokenSer
 }
 
 public sealed class RuntimeEngine(
-    AgenticFactoryDbContext dbContext) : IAgentRuntime
+    AgenticFactoryDbContext dbContext,
+    IAgentExecutor executor,
+    ILogger<RuntimeEngine> logger) : IAgentRuntime
 {
+    private static readonly ConcurrentDictionary<Guid, byte> RunningAgents = new();
+
     public async Task TickAsync(CancellationToken cancellationToken)
     {
+        var utcNow = DateTime.UtcNow;
         var triggers = await dbContext.AgentTriggers
             .Include(x => x.Agent)
-            .Where(x => x.IsEnabled && x.Type == TriggerType.Interval)
+            .Where(x => x.IsEnabled
+                && x.Agent != null
+                && x.Agent.Status == AgentStatus.Active
+                && (x.Type == TriggerType.Interval || x.Type == TriggerType.Scheduled))
             .ToListAsync(cancellationToken);
+
+        var executedCount = 0;
+        var failedCount = 0;
 
         foreach (var trigger in triggers)
         {
-            var shouldRun = !trigger.LastTriggeredAtUtc.HasValue || DateTime.UtcNow - trigger.LastTriggeredAtUtc.Value > TimeSpan.FromMinutes(1);
-            if (!shouldRun || trigger.Agent is null)
+            if (trigger.Agent is null || !ShouldRunTrigger(trigger, utcNow))
             {
                 continue;
             }
 
-            var deployment = await dbContext.AgentDeployments
-                .Where(x => x.AgentId == trigger.AgentId && x.Status == DeploymentStatus.Active)
-                .OrderByDescending(x => x.ActivatedAtUtc)
-                .FirstOrDefaultAsync(cancellationToken);
-            if (deployment is null)
+            if (!RunningAgents.TryAdd(trigger.AgentId, 1))
             {
+                logger.LogInformation(
+                    "Skipping trigger {TriggerId} for agent {AgentId}; run already in progress.",
+                    trigger.Id,
+                    trigger.AgentId);
                 continue;
             }
 
-            trigger.LastTriggeredAtUtc = DateTime.UtcNow;
-            await dbContext.SaveChangesAsync(cancellationToken);
+            try
+            {
+                var deployment = await dbContext.AgentDeployments
+                    .Include(x => x.AgentVersion)
+                    .Where(x => x.AgentId == trigger.AgentId
+                        && x.OrganizationId == trigger.OrganizationId
+                        && x.Status == DeploymentStatus.Active)
+                    .OrderByDescending(x => x.ActivatedAtUtc)
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                if (deployment?.AgentVersion is null)
+                {
+                    logger.LogWarning(
+                        "Skipping trigger {TriggerId}; no active deployment for agent {AgentId}.",
+                        trigger.Id,
+                        trigger.AgentId);
+                    continue;
+                }
+
+                var runtimeInput = new Dictionary<string, object?>
+                {
+                    ["source"] = "runtime-scheduler",
+                    ["triggerId"] = trigger.Id,
+                    ["triggerType"] = trigger.Type.ToString(),
+                    ["scheduledAtUtc"] = utcNow
+                };
+
+                logger.LogInformation(
+                    "Executing trigger {TriggerId} for agent {AgentId} in org {OrganizationId}.",
+                    trigger.Id,
+                    trigger.AgentId,
+                    trigger.OrganizationId);
+
+                await executor.ExecuteAsync(trigger.OrganizationId, trigger.Agent, deployment.AgentVersion, runtimeInput, cancellationToken);
+                trigger.LastTriggeredAtUtc = utcNow;
+                executedCount++;
+            }
+            catch (Exception ex)
+            {
+                failedCount++;
+                logger.LogError(
+                    ex,
+                    "Runtime trigger execution failed for trigger {TriggerId}, agent {AgentId}, org {OrganizationId}.",
+                    trigger.Id,
+                    trigger.AgentId,
+                    trigger.OrganizationId);
+            }
+            finally
+            {
+                RunningAgents.TryRemove(trigger.AgentId, out _);
+            }
         }
 
+        await UpdateHeartbeatAsync(triggers.Count, failedCount, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation(
+            "Runtime tick complete. ActiveTriggers={ActiveTriggers} Executed={Executed} Failed={Failed}.",
+            triggers.Count,
+            executedCount,
+            failedCount);
+    }
+
+    private async Task UpdateHeartbeatAsync(int activeTriggerCount, int failedCount, CancellationToken cancellationToken)
+    {
         var heartbeat = await dbContext.RuntimeHeartbeats.FirstOrDefaultAsync(x => x.NodeName == Environment.MachineName, cancellationToken);
         if (heartbeat is null)
         {
             heartbeat = new RuntimeHeartbeat
             {
                 NodeName = Environment.MachineName,
-                Status = "Healthy",
-                ActiveTriggerCount = triggers.Count
+                Status = failedCount > 0 ? "Degraded" : "Healthy",
+                ActiveTriggerCount = activeTriggerCount,
+                LastSeenUtc = DateTime.UtcNow
             };
             dbContext.RuntimeHeartbeats.Add(heartbeat);
-        }
-        else
-        {
-            heartbeat.Status = "Healthy";
-            heartbeat.LastSeenUtc = DateTime.UtcNow;
-            heartbeat.ActiveTriggerCount = triggers.Count;
+            return;
         }
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+        heartbeat.Status = failedCount > 0 ? "Degraded" : "Healthy";
+        heartbeat.LastSeenUtc = DateTime.UtcNow;
+        heartbeat.ActiveTriggerCount = activeTriggerCount;
+    }
+
+    private static bool ShouldRunTrigger(AgentTrigger trigger, DateTime utcNow)
+    {
+        return trigger.Type switch
+        {
+            TriggerType.Interval => ShouldRunInterval(trigger.CronOrInterval, trigger.LastTriggeredAtUtc, utcNow),
+            TriggerType.Scheduled => ShouldRunCron(trigger.CronOrInterval, trigger.LastTriggeredAtUtc, utcNow),
+            _ => false
+        };
+    }
+
+    private static bool ShouldRunInterval(string expression, DateTime? lastTriggeredAtUtc, DateTime utcNow)
+    {
+        if (!TryParseInterval(expression, out var interval))
+        {
+            interval = TimeSpan.FromMinutes(1);
+        }
+
+        return !lastTriggeredAtUtc.HasValue || (utcNow - lastTriggeredAtUtc.Value) >= interval;
+    }
+
+    private static bool TryParseInterval(string expression, out TimeSpan interval)
+    {
+        if (TimeSpan.TryParse(expression, out interval))
+        {
+            return interval > TimeSpan.Zero;
+        }
+
+        var input = expression.Trim().ToLowerInvariant();
+        if (input.Length < 2 || !int.TryParse(input[..^1], out var value) || value <= 0)
+        {
+            interval = TimeSpan.Zero;
+            return false;
+        }
+
+        interval = input[^1] switch
+        {
+            's' => TimeSpan.FromSeconds(value),
+            'm' => TimeSpan.FromMinutes(value),
+            'h' => TimeSpan.FromHours(value),
+            'd' => TimeSpan.FromDays(value),
+            _ => TimeSpan.Zero
+        };
+
+        return interval > TimeSpan.Zero;
+    }
+
+    private static bool ShouldRunCron(string cronExpression, DateTime? lastTriggeredAtUtc, DateTime utcNow)
+    {
+        if (!TryMatchBasicCron(cronExpression, utcNow))
+        {
+            return false;
+        }
+
+        return !lastTriggeredAtUtc.HasValue
+            || lastTriggeredAtUtc.Value.Year != utcNow.Year
+            || lastTriggeredAtUtc.Value.DayOfYear != utcNow.DayOfYear
+            || lastTriggeredAtUtc.Value.Hour != utcNow.Hour
+            || lastTriggeredAtUtc.Value.Minute != utcNow.Minute;
+    }
+
+    private static bool TryMatchBasicCron(string cronExpression, DateTime utcNow)
+    {
+        var parts = cronExpression.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length != 5)
+        {
+            return false;
+        }
+
+        return MatchCronPart(parts[0], utcNow.Minute, 0, 59)
+            && MatchCronPart(parts[1], utcNow.Hour, 0, 23)
+            && MatchCronPart(parts[2], utcNow.Day, 1, 31)
+            && MatchCronPart(parts[3], utcNow.Month, 1, 12)
+            && MatchCronPart(parts[4], (int)utcNow.DayOfWeek, 0, 6);
+    }
+
+    private static bool MatchCronPart(string part, int value, int min, int max)
+    {
+        if (part == "*")
+        {
+            return true;
+        }
+
+        if (part.StartsWith("*/", StringComparison.Ordinal) && int.TryParse(part[2..], out var step) && step > 0)
+        {
+            return value % step == 0;
+        }
+
+        return int.TryParse(part, out var fixedValue) && fixedValue >= min && fixedValue <= max && value == fixedValue;
     }
 }
 

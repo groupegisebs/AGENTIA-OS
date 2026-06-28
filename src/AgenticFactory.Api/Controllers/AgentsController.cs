@@ -42,7 +42,18 @@ public class AgentsController(
             return Unauthorized("Missing X-Agent-Key header.");
         }
 
-        var result = await invocationService.InvokeAsync(organizationId, endpointSlug, apiKey, request, cancellationToken);
-        return Ok(result);
+        try
+        {
+            var result = await invocationService.InvokeAsync(organizationId, endpointSlug, apiKey, request, cancellationToken);
+            return Ok(result);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(ex.Message);
+        }
     }
 }

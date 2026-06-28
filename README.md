@@ -34,7 +34,18 @@ Socle **Clean/Modular Monolith** pour une Agentic Factory multi-tenant: API + UI
 - `DATABASE_CONNECTION_STRING` = chaîne provider correspondante
 - `ASPNETCORE_ENVIRONMENT` = `Development` (dev defaults incluent `inmemory`)
 - `Auth__JwtKey`, `Auth__Issuer`, `Auth__Audience`
-- `AI__Mode` = `mock` (ou `openai` pour future phase)
+- `AI__Mode` = `mock` | `provider`
+- `AI__Provider` = `mock` | `openai` | `azureopenai`
+- `AI__OpenAI__ApiKey`, `AI__OpenAI__Model`, `AI__OpenAI__Endpoint`
+- `AI__AzureOpenAI__ApiKey`, `AI__AzureOpenAI__Endpoint`, `AI__AzureOpenAI__Deployment`, `AI__AzureOpenAI__ApiVersion`
+- `OPENAI_API_KEY` / `AZURE_OPENAI_API_KEY` (fallback env vars si clés absentes en config)
+- `AI__Pricing__PromptPer1kUsd`, `AI__Pricing__CompletionPer1kUsd` (estimation coût)
+
+### Comportement provider IA
+
+- `AI:Mode=mock` force le provider mock.
+- `AI:Mode=provider` active le provider réel (`AI:Provider`).
+- En cas de configuration incomplète, clé absente, timeout ou erreur API provider, le runtime bascule automatiquement sur le fallback mock (`usedFallback=true` dans la sortie de run).
 
 ## Lancement
 
@@ -91,7 +102,7 @@ dotnet ef migrations add InitialCreate \
 
 ## Limites phase actuelle
 
-- Provider OpenAI/Azure OpenAI non branché (mode mock opérationnel)
-- Scheduling trigger minimal (interval simple)
-- Dashboard MVP (pas de filtres avancés, pas de RBAC UI fin)
+- Cron scheduler volontairement basique (`*`, `*/n`, valeur fixe sur 5 champs)
+- Pas de retry/backoff avancé côté provider IA
+- Dashboard orienté monitoring opérationnel (pas de drill-down historique avancé)
 - Runtime health locale via heartbeat DB uniquement
