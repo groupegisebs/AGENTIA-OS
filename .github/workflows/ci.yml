@@ -210,7 +210,10 @@ jobs:
       APP_ROOT: ${{ needs.stage1-validate.outputs.app_root }}
 
     steps:
-      - name: "4.1 Configurer SSH"
+      - name: "4.1 Checkout (fichiers .service)"
+        uses: actions/checkout@v4
+
+      - name: "4.2 Configurer SSH"
         run: |
           mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
           KEY=$([ -n "${{ secrets.AGENTIA_OS_SSH_PRIVATE_KEY }}" ] \
@@ -220,14 +223,11 @@ jobs:
           chmod 600 "$HOME/.ssh/deploy_key"
           ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> "$HOME/.ssh/known_hosts"
 
-      - name: "4.2 Télécharger artifact API"
+      - name: "4.3 Télécharger artifact API"
         uses: actions/download-artifact@v4
         with:
           name: artifact-api
           path: publish/api/
-
-      - name: "4.3 Checkout (pour récupérer les fichiers .service)"
-        uses: actions/checkout@v4
 
       - name: "4.4 Préparer serveur + installer services systemd"
         run: |
@@ -363,7 +363,10 @@ jobs:
           name: artifact-web
           path: publish/web/
 
-      - name: "6.3 Écrire configuration Web (.env)"
+      - name: "6.3 Vérifier artifact téléchargé"
+        run: ls -la publish/web/ | head -5
+
+      - name: "6.4 Écrire configuration Web (.env)"
         run: |
           ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
             "${SSH_USER}@${SSH_HOST}" "tee ${APP_ROOT}/.env.web > /dev/null" <<ENV
@@ -375,20 +378,20 @@ jobs:
           Auth__Audience=AgenticFactoryClients
           ENV
 
-      - name: "6.4 Transférer bundle Web (rsync)"
+      - name: "6.5 Transférer bundle Web (rsync)"
         run: |
           rsync -az --delete \
             -e "ssh -i $HOME/.ssh/deploy_key -p $SSH_PORT -o BatchMode=yes" \
             publish/web/ \
             "${SSH_USER}@${SSH_HOST}:${APP_ROOT}/web/"
 
-      - name: "6.5 Redémarrer service Web"
+      - name: "6.6 Redémarrer service Web"
         run: |
           ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
             "${SSH_USER}@${SSH_HOST}" \
             "sudo systemctl restart $SERVICE_WEB && sleep 8 && systemctl is-active $SERVICE_WEB"
 
-      - name: "6.6 Health check Web"
+      - name: "6.7 Health check Web"
         run: |
           ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
             "${SSH_USER}@${SSH_HOST}" \
@@ -426,7 +429,10 @@ jobs:
           name: artifact-runtime
           path: publish/runtime/
 
-      - name: "7.3 Écrire configuration Runtime (.env)"
+      - name: "7.3 Vérifier artifact téléchargé"
+        run: ls -la publish/runtime/ | head -5
+
+      - name: "7.4 Écrire configuration Runtime (.env)"
         run: |
           AI_MODE=$([ -n "${{ secrets.AGENTIA_OS_OPENAI_API_KEY }}" ] && echo "openai" \
             || ([ -n "${{ secrets.AGENTIA_OS_AZURE_OPENAI_API_KEY }}" ] && echo "azure" || echo "mock"))
@@ -441,14 +447,14 @@ jobs:
           AI__AzureOpenAI__Deployment=${{ secrets.AGENTIA_OS_AZURE_OPENAI_DEPLOYMENT }}
           ENV
 
-      - name: "7.4 Transférer bundle Runtime (rsync)"
+      - name: "7.5 Transférer bundle Runtime (rsync)"
         run: |
           rsync -az --delete \
             -e "ssh -i $HOME/.ssh/deploy_key -p $SSH_PORT -o BatchMode=yes" \
             publish/runtime/ \
             "${SSH_USER}@${SSH_HOST}:${APP_ROOT}/runtime/"
 
-      - name: "7.5 Redémarrer service Runtime"
+      - name: "7.6 Redémarrer service Runtime"
         run: |
           ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
             "${SSH_USER}@${SSH_HOST}" \
