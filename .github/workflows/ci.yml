@@ -269,7 +269,34 @@ jobs:
             echo "Services systemd installés et activés"
           SETUP
 
-      - name: "4.5 Écrire configuration API (.env)"
+      - name: "4.5 Créer base de données PostgreSQL si absente"
+        run: |
+          # Extraire user/pass/db depuis la connection string du secret
+          CONN="${{ secrets.AGENTIA_OS_CONNECTION_STRING }}"
+          DB_NAME=$(echo "$CONN"  | grep -oP '(?<=Database=)[^;]+')
+          DB_USER=$(echo "$CONN"  | grep -oP '(?<=Username=)[^;]+')
+          DB_PASS=$(echo "$CONN"  | grep -oP '(?<=Password=)[^;]+')
+
+          ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
+            "${SSH_USER}@${SSH_HOST}" bash <<PGSETUP
+            set -e
+            echo "=== PostgreSQL : création user/db si absent ==="
+            # Créer le rôle si absent
+            sudo -u postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname='${DB_USER}'" \
+              | grep -q 1 \
+              || sudo -u postgres psql -c "CREATE USER ${DB_USER} WITH PASSWORD '${DB_PASS}';"
+            # Mettre à jour le mot de passe (idempotent)
+            sudo -u postgres psql -c "ALTER USER ${DB_USER} WITH PASSWORD '${DB_PASS}';"
+            # Créer la base si absente
+            sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" \
+              | grep -q 1 \
+              || sudo -u postgres psql -c "CREATE DATABASE ${DB_NAME} OWNER ${DB_USER};"
+            # Donner les droits
+            sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};"
+            echo "✓ Base '${DB_NAME}' et user '${DB_USER}' prêts"
+          PGSETUP
+
+      - name: "4.6 Écrire configuration API (.env)"
         run: |
           AI_MODE=$([ -n "${{ secrets.AGENTIA_OS_OPENAI_API_KEY }}" ] && echo "openai" \
             || ([ -n "${{ secrets.AGENTIA_OS_AZURE_OPENAI_API_KEY }}" ] && echo "azure" || echo "mock"))
@@ -289,14 +316,14 @@ jobs:
           AI__AzureOpenAI__Deployment=${{ secrets.AGENTIA_OS_AZURE_OPENAI_DEPLOYMENT }}
           ENV
 
-      - name: "4.6 Transférer bundle API (rsync)"
+      - name: "4.7 Transférer bundle API (rsync)"
         run: |
           rsync -az --delete \
             -e "ssh -i $HOME/.ssh/deploy_key -p $SSH_PORT -o BatchMode=yes" \
             publish/api/ \
             "${SSH_USER}@${SSH_HOST}:${APP_ROOT}/api/"
 
-      - name: "4.7 Redémarrer service API"
+      - name: "4.8 Redémarrer service API"
         run: |
           ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
             "${SSH_USER}@${SSH_HOST}" bash <<'RESTART'
@@ -313,7 +340,7 @@ jobs:
             echo "✓ Service API actif"
           RESTART
 
-      - name: "4.8 Health check API"
+      - name: "4.9 Health check API"
         run: |
           ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
             "${SSH_USER}@${SSH_HOST}" \
