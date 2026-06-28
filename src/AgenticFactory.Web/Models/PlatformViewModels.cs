@@ -103,6 +103,27 @@ public sealed class DeploymentDetailViewModel
     public UsageDetailItem Usage { get; set; } = new(0, 0, 0, 0, []);
     public List<TimelineItem> RecentTimeline { get; set; } = [];
     public List<OperationLogItem> OperationLogs { get; set; } = [];
+    public TestInvokeFormModel TestInvoke { get; set; } = new();
+    public InvokeTestResultViewModel? InvokeResult { get; set; }
+}
+
+public sealed class TestInvokeFormModel
+{
+    public string ApiKey { get; set; } = "";
+    public string InputJson { get; set; } = """{"message": "Test invoke"}""";
+}
+
+public sealed class InvokeTestResultViewModel
+{
+    public bool Success { get; set; }
+    public int? HttpStatus { get; set; }
+    public string? ErrorMessage { get; set; }
+    public Guid? RunId { get; set; }
+    public string? Status { get; set; }
+    public string? OutputJson { get; set; }
+    public int? PromptTokens { get; set; }
+    public int? CompletionTokens { get; set; }
+    public decimal? EstimatedCostUsd { get; set; }
 }
 
 public sealed record PipelineStageItem(string Stage, string Label, string Status, DateTime? DeployedAt, string? VersionLabel);

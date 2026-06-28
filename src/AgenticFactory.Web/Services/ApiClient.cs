@@ -44,6 +44,13 @@ public record DeployResponse(
     Guid DeploymentId,
     string EndpointSlug,
     string PlainApiKey);
+public record InvokeAgentResponse(
+    Guid RunId,
+    string Status,
+    Dictionary<string, object?>? Output,
+    int PromptTokens,
+    int CompletionTokens,
+    decimal EstimatedCostUsd);
 public record ChatRequest(string Message, Guid? ExistingAgentId = null);
 public record SubmitDomainRequestPayload(string DomainName, string? Industry, string? UseCase, string? Description);
 public record SubmitObjectiveRequestPayload(string ObjectiveName, string? RelatedDomain, string? UseCase, string? Description);
@@ -351,6 +358,54 @@ public class ApiClient(HttpClient http)
         if (!response.IsSuccessStatusCode)
             return (null, content);
         return (JsonSerializer.Deserialize<DeployResponse>(content, _json), null);
+    }
+
+    public async Task<(InvokeAgentResponse? Result, string? Error, int? StatusCode)> InvokeAgentAsync(
+        string endpointSlug,
+        string apiKey,
+        string organizationId,
+        Dictionary<string, object?> input)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/agents/{endpointSlug}/invoke");
+            request.Headers.Add("X-Agent-Key", apiKey);
+            if (!string.IsNullOrWhiteSpace(organizationId))
+                request.Headers.Add("X-Organization-Id", organizationId);
+
+            var body = JsonSerializer.Serialize(new { input }, _json);
+            request.Content = new StringContent(body, Encoding.UTF8, "application/json");
+
+            using var response = await http.SendAsync(request);
+            var content = await response.Content.ReadAsStringAsync();
+            var statusCode = (int)response.StatusCode;
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var message = TryReadErrorMessage(content) ?? content;
+                if (string.IsNullOrWhiteSpace(message))
+                    message = $"L'API a répondu avec le code {statusCode}.";
+                return (null, message, statusCode);
+            }
+
+            var result = JsonSerializer.Deserialize<InvokeAgentResponse>(content, _json);
+            if (result is null || result.RunId == Guid.Empty)
+                return (null, "Réponse API invalide lors de l'invoke.", statusCode);
+
+            return (result, null, statusCode);
+        }
+        catch (TaskCanceledException)
+        {
+            return (null, "Délai dépassé : l'API met trop de temps à répondre.", null);
+        }
+        catch (HttpRequestException)
+        {
+            return (null, "Impossible de joindre l'API backend. Vérifiez la configuration ou réessayez.", null);
+        }
+        catch (JsonException)
+        {
+            return (null, "Réponse API illisible lors de l'invoke.", null);
+        }
     }
 
     public async Task<List<ExecutionProviderResponse>?> GetExecutionProvidersAsync()

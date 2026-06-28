@@ -216,6 +216,105 @@
                 </div>
             }
 
+            @if (!string.IsNullOrWhiteSpace(Model.EndpointSlug))
+            {
+                <div class="deploy-panel" id="test-invoke-panel">
+                    <h2 class="deploy-panel-title mb-2">Tester l'invoke</h2>
+                    <p class="deploy-invoke-help text-muted small mb-3">
+                        Envoyez une requête de test à <code class="user-select-all">@Model.InvokeUrl</code>.
+                        La clé API n'est affichée qu'une seule fois lors du déploiement — collez-la ci-dessous si vous ne l'avez plus enregistrée.
+                    </p>
+
+                    <form asp-action="TestInvoke" method="post" class="deploy-invoke-form">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@Model.AgentId" />
+
+                        <div class="deploy-invoke-field">
+                            <label class="deploy-field-label" for="invokeApiKey">Clé API</label>
+                            <input type="password"
+                                   class="deploy-invoke-input"
+                                   id="invokeApiKey"
+                                   name="testInvoke.ApiKey"
+                                   autocomplete="off"
+                                   placeholder="Collez votre clé API agent" />
+                        </div>
+
+                        <div class="deploy-invoke-field">
+                            <label class="deploy-field-label" for="invokeInputJson">Entrée JSON</label>
+                            <textarea class="deploy-invoke-textarea"
+                                      id="invokeInputJson"
+                                      name="testInvoke.InputJson"
+                                      rows="5"
+                                      spellcheck="false">@Model.TestInvoke.InputJson</textarea>
+                            <div class="deploy-invoke-hint">Objet JSON passé dans le champ <code>input</code> de l'invoke.</div>
+                        </div>
+
+                        <div class="deploy-actions-row mt-0 pt-0 border-0">
+                            <button type="submit" class="deploy-btn-primary border-0">
+                                <i class="bi bi-play-fill"></i> Tester l'invoke
+                            </button>
+                        </div>
+                    </form>
+
+                    @if (Model.InvokeResult is not null)
+                    {
+                        var r = Model.InvokeResult;
+                        <div class="deploy-invoke-result @(r.Success ? "ok" : "err")">
+                            <div class="deploy-invoke-result-head">
+                                <strong>@(r.Success ? "Invoke réussi" : "Échec de l'invoke")</strong>
+                                @if (r.HttpStatus is int code)
+                                {
+                                    <span class="deploy-invoke-http">HTTP @code</span>
+                                }
+                            </div>
+
+                            @if (!r.Success)
+                            {
+                                <p class="deploy-invoke-error mb-0">@r.ErrorMessage</p>
+                            }
+                            else
+                            {
+                                <div class="deploy-invoke-metrics">
+                                    @if (r.RunId is Guid runId)
+                                    {
+                                        <div><span class="label">Run ID</span><span class="value mono user-select-all">@runId</span></div>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(r.Status))
+                                    {
+                                        <div><span class="label">Statut</span><span class="value">@r.Status</span></div>
+                                    }
+                                    @if (r.PromptTokens is int pt)
+                                    {
+                                        <div><span class="label">Tokens (prompt)</span><span class="value">@pt.ToString("N0")</span></div>
+                                    }
+                                    @if (r.CompletionTokens is int ct)
+                                    {
+                                        <div><span class="label">Tokens (complétion)</span><span class="value">@ct.ToString("N0")</span></div>
+                                    }
+                                    @if (r.EstimatedCostUsd is decimal cost)
+                                    {
+                                        <div><span class="label">Coût estimé</span><span class="value">$@cost.ToString("0.0000")</span></div>
+                                    }
+                                </div>
+
+                                @if (!string.IsNullOrWhiteSpace(r.OutputJson))
+                                {
+                                    <div class="deploy-invoke-output-wrap">
+                                        <div class="deploy-invoke-output-head">
+                                            <span class="deploy-field-label mb-0">Sortie</span>
+                                            <button type="button" class="deploy-btn-outline btn-sm" id="copyInvokeOutput" title="Copier le JSON">
+                                                <i class="bi bi-clipboard"></i> Copier
+                                            </button>
+                                        </div>
+                                        <pre class="deploy-invoke-output" id="invokeOutputPre">@r.OutputJson</pre>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    }
+                </div>
+            }
+
             <!-- Logs -->
             <div class="deploy-panel">
                 <h2 class="deploy-panel-title mb-3">Journal des opérations</h2>
@@ -329,6 +428,29 @@
             scales: { x: { display: false }, y: { display: false, beginAtZero: true } }
         }
     });
+})();
+
+(() => {
+    const copyBtn = document.getElementById('copyInvokeOutput');
+    const pre = document.getElementById('invokeOutputPre');
+    if (!copyBtn || !pre) return;
+    copyBtn.addEventListener('click', async () => {
+        try {
+            await navigator.clipboard.writeText(pre.textContent || '');
+            copyBtn.innerHTML = '<i class="bi bi-check2"></i> Copié';
+            setTimeout(() => { copyBtn.innerHTML = '<i class="bi bi-clipboard"></i> Copier'; }, 2000);
+        } catch {
+            copyBtn.title = 'Copie impossible dans ce navigateur';
+        }
+    });
+})();
+
+(() => {
+    const panel = document.getElementById('test-invoke-panel');
+    @if (Model.InvokeResult is not null)
+    {
+        <text>if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });</text>
+    }
 })();
 </script>
 }

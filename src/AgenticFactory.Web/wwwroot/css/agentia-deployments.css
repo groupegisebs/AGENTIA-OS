@@ -146,3 +146,52 @@ body.deployments-mode .af-topbar { display: none; }
 .deploy-agent-card:hover { border-color: #c7d2fe; box-shadow: 0 4px 16px rgba(99,102,241,.1); color: inherit; }
 .deploy-agent-card h3 { font-size: 1rem; font-weight: 700; margin: 0 0 4px; }
 .deploy-agent-card .slug { font-size: 0.75rem; color: #64748b; font-family: monospace; }
+
+/* Test invoke */
+.deploy-invoke-help code { font-size: 0.78rem; color: #475569; }
+.deploy-invoke-form { display: flex; flex-direction: column; gap: 14px; }
+.deploy-invoke-field { display: flex; flex-direction: column; gap: 6px; }
+.deploy-invoke-input,
+.deploy-invoke-textarea {
+    width: 100%; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px;
+    font-size: 0.85rem; color: #0f172a; background: #fff;
+}
+.deploy-invoke-textarea {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    resize: vertical; min-height: 110px;
+}
+.deploy-invoke-input:focus,
+.deploy-invoke-textarea:focus {
+    outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.12);
+}
+.deploy-invoke-hint { font-size: 0.72rem; color: #64748b; }
+.deploy-invoke-result {
+    margin-top: 20px; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0;
+}
+.deploy-invoke-result.ok { background: #f0fdf4; border-color: #bbf7d0; }
+.deploy-invoke-result.err { background: #fef2f2; border-color: #fecaca; }
+.deploy-invoke-result-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    margin-bottom: 12px; font-size: 0.9rem;
+}
+.deploy-invoke-http {
+    font-size: 0.72rem; font-weight: 600; color: #64748b; background: rgba(255,255,255,.7);
+    padding: 2px 8px; border-radius: 999px;
+}
+.deploy-invoke-error { font-size: 0.85rem; color: #b91c1c; }
+.deploy-invoke-metrics {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 10px 16px; margin-bottom: 14px;
+}
+.deploy-invoke-metrics .label {
+    display: block; font-size: 0.68rem; color: #64748b; text-transform: uppercase; font-weight: 600;
+}
+.deploy-invoke-metrics .value { font-size: 0.85rem; font-weight: 600; color: #0f172a; }
+.deploy-invoke-output-wrap { margin-top: 4px; }
+.deploy-invoke-output-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px;
+}
+.deploy-invoke-output {
+    margin: 0; padding: 12px; background: #0f172a; color: #e2e8f0; border-radius: 10px;
+    font-size: 0.78rem; max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-word;
+}
