@@ -9,14 +9,24 @@ public class AgentsController(ApiClient api) : AuthenticatedController
     public async Task<IActionResult> Index()
     {
         SetActiveNav("Agents");
+        ViewData["AgentsMode"] = true;
         AuthenticateApi(api);
-        var items = await api.GetAgentsAsync();
-        var vm = new AgentsIndexViewModel
+
+        var page = await api.GetAgentsAsync();
+        var vm = new AgentsIndexViewModel();
+
+        if (page is not null)
         {
-            Agents = items?.Select(a => new AgentListItem(
-                a.Id, a.Name, a.Description, a.EndpointSlug,
-                a.Status, a.CreatedAtUtc, a.LatestBlueprintId)).ToList() ?? []
-        };
+            vm.Summary = new AgentsSummary(
+                page.Summary.Total,
+                page.Summary.Active,
+                page.Summary.Running,
+                page.Summary.Paused,
+                page.Summary.Disabled);
+
+            vm.Agents = page.Agents.Select(MapAgent).ToList();
+        }
+
         return View(vm);
     }
 
@@ -24,6 +34,7 @@ public class AgentsController(ApiClient api) : AuthenticatedController
     public IActionResult Create()
     {
         SetActiveNav("Agents");
+        ViewData["AgentsMode"] = true;
         return View(new CreateAgentViewModel());
     }
 
@@ -69,5 +80,33 @@ public class AgentsController(ApiClient api) : AuthenticatedController
             TempData["ApiKey"] = result.PlainApiKey;
         }
         return RedirectToAction(nameof(Index));
+    }
+
+    private static AgentListItem MapAgent(AgentListItemResponse a) => new(
+        a.Id,
+        a.Name,
+        a.Description,
+        a.EndpointSlug,
+        a.Status,
+        a.DisplayStatus,
+        GuessCategory(a.Name, a.Description),
+        a.CreatedAtUtc,
+        a.LatestBlueprintId,
+        a.VersionNumber.HasValue ? $"v1.{a.VersionNumber}.0" : "—",
+        a.Environment,
+        a.LastRunAt,
+        a.RunsLast7Days,
+        a.CostLast30Days,
+        a.RunsSparkline ?? []);
+
+    private static string GuessCategory(string name, string description)
+    {
+        var text = $"{name} {description}".ToLowerInvariant();
+        if (text.Contains("email") || text.Contains("mail")) return "Email";
+        if (text.Contains("document") || text.Contains("pdf")) return "Documents";
+        if (text.Contains("support") || text.Contains("client")) return "Support";
+        if (text.Contains("data") || text.Contains("analyt")) return "Analytics";
+        if (text.Contains("security") || text.Contains("sécurit")) return "Sécurité";
+        return "Automation";
     }
 }

@@ -2,8 +2,11 @@ namespace AgenticFactory.Web.Models;
 
 public sealed class AgentsIndexViewModel
 {
+    public AgentsSummary Summary { get; set; } = new(0, 0, 0, 0, 0);
     public List<AgentListItem> Agents { get; set; } = [];
 }
+
+public sealed record AgentsSummary(int Total, int Active, int Running, int Paused, int Disabled);
 
 public sealed record AgentListItem(
     Guid Id,
@@ -11,8 +14,16 @@ public sealed record AgentListItem(
     string Description,
     string EndpointSlug,
     string Status,
+    string DisplayStatus,
+    string Category,
     DateTime CreatedAtUtc,
-    Guid? LatestBlueprintId);
+    Guid? LatestBlueprintId,
+    string VersionLabel,
+    string Environment,
+    DateTime? LastRunAt,
+    int RunsLast7Days,
+    decimal CostLast30Days,
+    int[] RunsSparkline);
 
 public sealed class CreateAgentViewModel
 {

@@ -1,85 +1,339 @@
 @model AgenticFactory.Web.Models.AgentsIndexViewModel
 @{
-    ViewData["Title"] = "Agents";
+    ViewData["Title"] = "Mes Agents";
+    var s = Model.Summary;
+    var activePct = s.Total > 0 ? s.Active * 100.0 / s.Total : 0;
+    var disabledPct = s.Total > 0 ? s.Disabled * 100.0 / s.Total : 0;
+
+    string StatusLabel(string display) => display switch
+    {
+        "Running" => "En cours",
+        "Active" => "Actif",
+        "Draft" => "En pause",
+        "Disabled" => "Désactivé",
+        _ => display
+    };
+    string StatusClass(string display) => display switch
+    {
+        "Running" => "running",
+        "Active" => "active",
+        "Draft" => "paused",
+        "Disabled" => "disabled",
+        _ => "draft"
+    };
+    string RelTime(DateTime? dt)
+    {
+        if (dt is null) return "Jamais";
+        var diff = DateTime.UtcNow - dt.Value;
+        if (diff.TotalMinutes < 1) return "À l'instant";
+        if (diff.TotalMinutes < 60) return $"Il y a {(int)diff.TotalMinutes} min";
+        if (diff.TotalHours < 24) return $"Il y a {(int)diff.TotalHours}h";
+        if (diff.TotalDays < 7) return $"Il y a {(int)diff.TotalDays}j";
+        return dt.Value.ToLocalTime().ToString("d MMM");
+    }
+    string EnvClass(string env) => env.Equals("production", StringComparison.OrdinalIgnoreCase) ? "prod"
+        : env.Equals("staging", StringComparison.OrdinalIgnoreCase) ? "staging" : "other";
+    string[] iconBgs = ["#eef2ff", "#fce7f3", "#dcfce7", "#fef3c7", "#dbeafe", "#f3e8ff"];
+    string[] iconColors = ["#6366f1", "#db2777", "#16a34a", "#d97706", "#2563eb", "#9333ea"];
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h2 class="mb-1">Agents</h2>
-        <p class="text-muted mb-0">Créez et déployez vos agents IA.</p>
+<div class="agents-page">
+    <nav class="agents-breadcrumb">
+        <a asp-controller="Dashboard" asp-action="Index">Accueil</a>
+        <span class="sep">›</span>
+        <span>Agents</span>
+    </nav>
+
+    @if (TempData["Success"] is string success)
+    {
+        <div class="agents-alert alert alert-success">@success</div>
+    }
+    @if (TempData["Error"] is string error)
+    {
+        <div class="agents-alert alert alert-danger">@error</div>
+    }
+    @if (TempData["ApiKey"] is string apiKey)
+    {
+        <div class="agents-alert alert alert-warning">
+            <strong>Clé API (affichée une seule fois) :</strong>
+            <code class="user-select-all">@apiKey</code>
+        </div>
+    }
+
+    <div class="agents-kpi-row">
+        <div class="agents-kpi">
+            <div class="agents-kpi-label">Total Agents</div>
+            <div class="agents-kpi-value">@s.Total</div>
+            <div class="agents-kpi-meta">Tous statuts</div>
+        </div>
+        <div class="agents-kpi">
+            <div class="agents-kpi-label">Agents Actifs</div>
+            <div class="agents-kpi-value">@s.Active</div>
+            <div class="agents-kpi-meta">@activePct.ToString("0")% du total</div>
+        </div>
+        <div class="agents-kpi">
+            <div class="agents-kpi-label">En Exécution</div>
+            <div class="agents-kpi-value">@s.Running</div>
+            <div class="agents-kpi-meta">Maintenant</div>
+        </div>
+        <div class="agents-kpi">
+            <div class="agents-kpi-label">En Pause</div>
+            <div class="agents-kpi-value">@s.Paused</div>
+            <div class="agents-kpi-meta">Brouillons</div>
+        </div>
+        <div class="agents-kpi">
+            <div class="agents-kpi-label">Désactivés</div>
+            <div class="agents-kpi-value">@s.Disabled</div>
+            <div class="agents-kpi-meta">@disabledPct.ToString("0.0")% du total</div>
+        </div>
     </div>
-    <a asp-action="Create" class="btn btn-primary">
-        <i class="bi bi-plus-lg me-1"></i> Nouvel agent
-    </a>
+
+    <div class="agents-toolbar">
+        <div class="agents-search">
+            <i class="bi bi-search"></i>
+            <input type="search" id="agentSearch" placeholder="Rechercher un agent..." />
+        </div>
+        <div class="agents-filter">
+            <select id="filterStatus">
+                <option value="">Statut</option>
+                <option value="Active">Actif</option>
+                <option value="Running">En cours</option>
+                <option value="Draft">En pause</option>
+                <option value="Disabled">Désactivé</option>
+            </select>
+        </div>
+        <div class="agents-filter">
+            <select id="filterCategory">
+                <option value="">Catégorie</option>
+                @foreach (var cat in Model.Agents.Select(a => a.Category).Distinct().OrderBy(c => c))
+                {
+                    <option value="@cat">@cat</option>
+                }
+            </select>
+        </div>
+        <div class="agents-filter">
+            <select id="filterEnv">
+                <option value="">Environnement</option>
+                @foreach (var env in Model.Agents.Select(a => a.Environment).Where(e => e != "—").Distinct())
+                {
+                    <option value="@env">@env</option>
+                }
+            </select>
+        </div>
+        <button type="button" class="agents-btn-reset" id="resetFilters">
+            <i class="bi bi-arrow-counterclockwise me-1"></i> Réinitialiser
+        </button>
+        <a asp-action="Create" class="agents-btn-create">
+            <i class="bi bi-plus-lg"></i> Créer un nouvel agent
+        </a>
+    </div>
+
+    @if (!Model.Agents.Any())
+    {
+        <div class="agents-table-wrap">
+            <div class="agents-empty">
+                <i class="bi bi-robot d-block mb-3"></i>
+                <p class="mb-3">Aucun agent pour le moment.</p>
+                <a asp-action="Create" class="agents-btn-create">Créer votre premier agent</a>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="agents-table-wrap">
+            <table class="agents-table" id="agentsTable">
+                <thead>
+                    <tr>
+                        <th>Agent</th>
+                        <th>Catégorie</th>
+                        <th>Statut</th>
+                        <th>Version</th>
+                        <th>Environnement</th>
+                        <th>Dernière exécution</th>
+                        <th>Exécutions (7j)</th>
+                        <th>Coût (30j)</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var agent in Model.Agents)
+                {
+                    var idx = Math.Abs(agent.Name.GetHashCode()) % iconBgs.Length;
+                    var maxSpark = agent.RunsSparkline.DefaultIfEmpty(0).Max();
+                    var canDeploy = agent.DisplayStatus is "Draft" or "Disabled" && agent.LatestBlueprintId.HasValue;
+                    <tr data-name="@agent.Name.ToLowerInvariant()"
+                        data-status="@agent.DisplayStatus"
+                        data-category="@agent.Category"
+                        data-env="@agent.Environment">
+                        <td>
+                            <div class="agent-cell">
+                                <div class="agent-icon" style="background:@iconBgs[idx];color:@iconColors[idx]">
+                                    <i class="bi bi-robot"></i>
+                                </div>
+                                <div>
+                                    <div class="agent-name">@agent.Name</div>
+                                    <div class="agent-desc">@agent.Description</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="agents-cat">@agent.Category</span></td>
+                        <td><span class="agents-badge @StatusClass(agent.DisplayStatus)">@StatusLabel(agent.DisplayStatus)</span></td>
+                        <td>@agent.VersionLabel</td>
+                        <td><span class="agents-env @EnvClass(agent.Environment)">@agent.Environment</span></td>
+                        <td>@RelTime(agent.LastRunAt)</td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="agents-spark-bars" title="@agent.RunsLast7Days runs">
+                                    @foreach (var v in agent.RunsSparkline)
+                                    {
+                                        var h = maxSpark > 0 ? (int)(v * 100.0 / maxSpark) : 0;
+                                        if (h < 8 && v > 0) h = 8;
+                                        <span style="height:@(h)%"></span>
+                                    }
+                                </div>
+                                <span class="text-muted small">@agent.RunsLast7Days</span>
+                            </div>
+                        </td>
+                        <td>$@agent.CostLast30Days.ToString("0.00")</td>
+                        <td>
+                            <div class="agents-actions">
+                                @if (canDeploy)
+                                {
+                                    <form asp-action="Deploy" method="post" class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="agentId" value="@agent.Id" />
+                                        <input type="hidden" name="blueprintId" value="@agent.LatestBlueprintId" />
+                                        <button type="submit" class="agents-action-btn primary" title="Déployer">
+                                            <i class="bi bi-play-fill"></i>
+                                        </button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <a asp-controller="Executions" asp-action="Index" class="agents-action-btn" title="Exécutions">
+                                        <i class="bi bi-play-fill"></i>
+                                    </a>
+                                }
+                                <a asp-controller="Executions" asp-action="Index" class="agents-action-btn" title="Statistiques">
+                                    <i class="bi bi-bar-chart"></i>
+                                </a>
+                                <div class="dropdown">
+                                    <button class="agents-action-btn" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><span class="dropdown-item-text small text-muted">@agent.EndpointSlug</span></li>
+                                        @if (canDeploy)
+                                        {
+                                            <li>
+                                                <form asp-action="Deploy" method="post">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="agentId" value="@agent.Id" />
+                                                    <input type="hidden" name="blueprintId" value="@agent.LatestBlueprintId" />
+                                                    <button type="submit" class="dropdown-item"><i class="bi bi-lightning me-2"></i>Déployer</button>
+                                                </form>
+                                            </li>
+                                        }
+                                        <li><a class="dropdown-item" asp-action="Create"><i class="bi bi-copy me-2"></i>Dupliquer (bientôt)</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+            <div class="agents-footer">
+                <span id="agentsCount">Affichage 1 à @Math.Min(10, Model.Agents.Count) sur @Model.Agents.Count agents</span>
+                <div class="d-flex align-items-center gap-3">
+                    <select id="pageSize" class="form-select form-select-sm" style="width:auto;">
+                        <option value="10">10 par page</option>
+                        <option value="25">25 par page</option>
+                        <option value="50">50 par page</option>
+                    </select>
+                    <div class="agents-pagination" id="pagination"></div>
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
-@if (TempData["Success"] is string success)
-{
-    <div class="alert alert-success">@success</div>
-}
-@if (TempData["Error"] is string error)
-{
-    <div class="alert alert-danger">@error</div>
-}
-@if (TempData["ApiKey"] is string apiKey)
-{
-    <div class="alert alert-warning">
-        <strong>Clé API (affichée une seule fois) :</strong>
-        <code class="user-select-all">@apiKey</code>
-    </div>
-}
+@section Scripts {
+<script>
+(() => {
+    const rows = [...document.querySelectorAll('#agentsTable tbody tr')];
+    if (!rows.length) return;
 
-@if (!Model.Agents.Any())
-{
-    <div class="af-card text-center py-5">
-        <i class="bi bi-robot display-4 text-muted"></i>
-        <p class="mt-3 mb-3 text-muted">Aucun agent pour le moment.</p>
-        <a asp-action="Create" class="btn btn-primary">Créer votre premier agent</a>
-    </div>
-}
-else
-{
-    <div class="table-responsive af-card p-0">
-        <table class="table table-hover mb-0">
-            <thead class="table-light">
-                <tr>
-                    <th>Nom</th>
-                    <th>Endpoint</th>
-                    <th>Statut</th>
-                    <th>Créé le</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-            @foreach (var agent in Model.Agents)
-            {
-                var isActive = agent.Status.Equals("Active", StringComparison.OrdinalIgnoreCase);
-                <tr>
-                    <td>
-                        <strong>@agent.Name</strong>
-                        <div class="small text-muted">@agent.Description</div>
-                    </td>
-                    <td><code class="small">@agent.EndpointSlug</code></td>
-                    <td>
-                        <span class="badge @(isActive ? "text-bg-success" : "text-bg-secondary")">@agent.Status</span>
-                    </td>
-                    <td>@agent.CreatedAtUtc.ToLocalTime().ToString("g")</td>
-                    <td class="text-end">
-                        @if (!isActive && agent.LatestBlueprintId.HasValue)
-                        {
-                            <form asp-action="Deploy" method="post" class="d-inline">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="agentId" value="@agent.Id" />
-                                <input type="hidden" name="blueprintId" value="@agent.LatestBlueprintId" />
-                                <button type="submit" class="btn btn-sm btn-outline-primary">
-                                    <i class="bi bi-lightning"></i> Déployer
-                                </button>
-                            </form>
-                        }
-                    </td>
-                </tr>
-            }
-            </tbody>
-        </table>
-    </div>
+    const search = document.getElementById('agentSearch');
+    const filterStatus = document.getElementById('filterStatus');
+    const filterCategory = document.getElementById('filterCategory');
+    const filterEnv = document.getElementById('filterEnv');
+    const resetBtn = document.getElementById('resetFilters');
+    const pageSizeEl = document.getElementById('pageSize');
+    const pagination = document.getElementById('pagination');
+    const countEl = document.getElementById('agentsCount');
+    let page = 1;
+
+    function filtered() {
+        const q = (search?.value || '').trim().toLowerCase();
+        const st = filterStatus?.value || '';
+        const cat = filterCategory?.value || '';
+        const env = filterEnv?.value || '';
+        return rows.filter(r => {
+            if (q && !r.dataset.name.includes(q)) return false;
+            if (st && r.dataset.status !== st) return false;
+            if (cat && r.dataset.category !== cat) return false;
+            if (env && r.dataset.env !== env) return false;
+            return true;
+        });
+    }
+
+    function render() {
+        const size = parseInt(pageSizeEl?.value || '10', 10);
+        const visible = filtered();
+        const totalPages = Math.max(1, Math.ceil(visible.length / size));
+        if (page > totalPages) page = totalPages;
+        rows.forEach(r => r.style.display = 'none');
+        const start = (page - 1) * size;
+        const slice = visible.slice(start, start + size);
+        slice.forEach(r => r.style.display = '');
+        const end = Math.min(start + size, visible.length);
+        if (countEl) {
+            countEl.textContent = visible.length
+                ? `Affichage ${start + 1} à ${end} sur ${visible.length} agents`
+                : 'Aucun agent correspondant';
+        }
+        if (!pagination) return;
+        pagination.innerHTML = '';
+        const prev = document.createElement('button');
+        prev.className = 'agents-page-btn'; prev.textContent = '‹'; prev.disabled = page <= 1;
+        prev.onclick = () => { page--; render(); };
+        pagination.appendChild(prev);
+        for (let i = 1; i <= totalPages && i <= 5; i++) {
+            const btn = document.createElement('button');
+            btn.className = 'agents-page-btn' + (i === page ? ' active' : '');
+            btn.textContent = String(i);
+            btn.onclick = () => { page = i; render(); };
+            pagination.appendChild(btn);
+        }
+        const next = document.createElement('button');
+        next.className = 'agents-page-btn'; next.textContent = '›'; next.disabled = page >= totalPages;
+        next.onclick = () => { page++; render(); };
+        pagination.appendChild(next);
+    }
+
+    [search, filterStatus, filterCategory, filterEnv, pageSizeEl].forEach(el => {
+        el?.addEventListener('input', () => { page = 1; render(); });
+        el?.addEventListener('change', () => { page = 1; render(); });
+    });
+    resetBtn?.addEventListener('click', () => {
+        if (search) search.value = '';
+        if (filterStatus) filterStatus.value = '';
+        if (filterCategory) filterCategory.value = '';
+        if (filterEnv) filterEnv.value = '';
+        page = 1; render();
+    });
+    render();
+})();
+</script>
 }

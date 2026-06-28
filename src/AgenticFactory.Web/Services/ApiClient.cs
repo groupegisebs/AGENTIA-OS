@@ -52,14 +52,23 @@ public record BlueprintResult(
     string BlueprintJson,
     string Status,
     string ValidationNotes);
+public record AgentsSummaryResponse(int Total, int Active, int Running, int Paused, int Disabled);
 public record AgentListItemResponse(
     Guid Id,
     string Name,
     string Description,
     string EndpointSlug,
     string Status,
+    string DisplayStatus,
     DateTime CreatedAtUtc,
-    Guid? LatestBlueprintId);
+    Guid? LatestBlueprintId,
+    int? VersionNumber,
+    string Environment,
+    DateTime? LastRunAt,
+    int RunsLast7Days,
+    decimal CostLast30Days,
+    int[] RunsSparkline);
+public record AgentsPageResponse(AgentsSummaryResponse Summary, List<AgentListItemResponse> Agents);
 public record DeploymentListItemResponse(
     Guid Id,
     Guid AgentId,
@@ -125,12 +134,12 @@ public class ApiClient(HttpClient http)
         return JsonSerializer.Deserialize<DashboardResponse>(content, _json);
     }
 
-    public async Task<List<AgentListItemResponse>?> GetAgentsAsync()
+    public async Task<AgentsPageResponse?> GetAgentsAsync()
     {
         var response = await http.GetAsync("/api/agents");
         if (!response.IsSuccessStatusCode) return null;
         var content = await response.Content.ReadAsStringAsync();
-        return JsonSerializer.Deserialize<List<AgentListItemResponse>>(content, _json);
+        return JsonSerializer.Deserialize<AgentsPageResponse>(content, _json);
     }
 
     public async Task<List<DeploymentListItemResponse>?> GetDeploymentsAsync()
