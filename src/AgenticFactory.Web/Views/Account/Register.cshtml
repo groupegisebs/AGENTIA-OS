@@ -1,46 +1,43 @@
 @model AgenticFactory.Web.Models.RegisterViewModel
-@{ ViewData["Title"] = "Créer un compte"; Layout = "_Layout"; }
+@{
+    Layout = "_AuthLayout";
+    ViewData["Title"] = "Inscription";
+    ViewData["CardTitle"] = "Créer votre compte";
+    ViewData["CardSubtitle"] = "Accédez à toutes les fonctionnalités après inscription";
+}
 
-<div class="af-auth-wrapper">
-    <div class="af-auth-card">
-        <div class="af-auth-logo">A</div>
-        <h4 class="text-center mb-1" style="font-weight:700;">Créer votre espace</h4>
-        <p class="text-center text-muted mb-4" style="font-size:.875rem;">Construisez des agents IA sans coder</p>
-
-        @if (!ViewData.ModelState.IsValid)
+@if (!ViewData.ModelState.IsValid)
+{
+    <div class="auth-alert">
+        @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
         {
-            <div class="alert alert-danger py-2 mb-3" style="font-size:.85rem;">
-                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
-                {
-                    <div>@error.ErrorMessage</div>
-                }
-            </div>
+            <div>@error.ErrorMessage</div>
         }
-
-        <form asp-action="Register" method="post">
-            <div class="mb-3">
-                <label class="form-label" style="font-size:.875rem;font-weight:500;">Organisation</label>
-                <input asp-for="OrganizationName" class="form-control" placeholder="Mon Entreprise" />
-            </div>
-            <div class="mb-3">
-                <label class="form-label" style="font-size:.875rem;font-weight:500;">Votre nom</label>
-                <input asp-for="DisplayName" class="form-control" placeholder="Jean Dupont" />
-            </div>
-            <div class="mb-3">
-                <label class="form-label" style="font-size:.875rem;font-weight:500;">Email</label>
-                <input asp-for="Email" class="form-control" placeholder="admin@entreprise.com" autocomplete="email" />
-            </div>
-            <div class="mb-4">
-                <label class="form-label" style="font-size:.875rem;font-weight:500;">Mot de passe</label>
-                <input asp-for="Password" type="password" class="form-control" placeholder="••••••••" autocomplete="new-password" />
-            </div>
-            <button type="submit" class="btn btn-af-primary mb-3">
-                Créer mon compte <i class="bi bi-arrow-right ms-1"></i>
-            </button>
-            <p class="text-center text-muted mb-0" style="font-size:.85rem;">
-                Déjà un compte ?
-                <a asp-action="Login" style="color:#6366f1;font-weight:600;">Se connecter</a>
-            </p>
-        </form>
     </div>
-</div>
+}
+
+<form asp-action="Register" method="post" class="auth-form">
+    <label>
+        Nom complet
+        <input asp-for="DisplayName" placeholder="Jean Dupont" autocomplete="name" />
+    </label>
+    <label>
+        Organisation
+        <input asp-for="OrganizationName" placeholder="Mon entreprise" autocomplete="organization" />
+    </label>
+    <label>
+        Email
+        <input asp-for="Email" type="email" placeholder="vous@entreprise.com" autocomplete="email" />
+    </label>
+    <label class="auth-password-wrap">
+        Mot de passe
+        <span class="auth-password-input">
+            <input asp-for="Password" type="password" placeholder="8 caractères minimum" autocomplete="new-password" />
+            <button type="button" class="auth-password-toggle" aria-label="Afficher le mot de passe" title="Afficher le mot de passe">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+        </span>
+    </label>
+    <button type="submit" class="btn btn-primary btn-block btn-glow">Commencer gratuitement →</button>
+</form>
+<p class="auth-link">Déjà inscrit ? <a asp-action="Login">Se connecter</a></p>
