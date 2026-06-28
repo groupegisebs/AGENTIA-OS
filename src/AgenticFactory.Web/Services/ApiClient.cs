@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using AgenticFactory.Shared;
 
 namespace AgenticFactory.Web.Services;
 
@@ -13,13 +14,18 @@ public record AuthResponse(
     string FullName,
     string OrganizationId,
     string Role);
-public record DashboardStatsResponse(
-    int TotalAgents, int TotalRuns, int TotalErrors,
-    long TotalTokens, double TotalCostUsd,
-    int TodayRuns, int TodayErrors, long TodayTokens, double TodayCostUsd);
-public record RunItemResponse(Guid Id, string Status, DateTime CreatedAt, double CostUsd, int PromptTokens, int CompletionTokens);
-public record RuntimeStatusResponse(string NodeName, string Status, DateTime LastSeen, int ActiveTriggers);
-public record DashboardResponse(DashboardStatsResponse Stats, List<RunItemResponse> RecentRuns, List<RuntimeStatusResponse> RuntimeStatuses);
+public record RunItemResponse(
+    Guid Id,
+    int Status,
+    DateTime CreatedAtUtc,
+    decimal EstimatedCostUsd,
+    int PromptTokens,
+    int CompletionTokens);
+
+public record DashboardResponse(
+    DashboardStatsDto Stats,
+    List<RunItemResponse>? RecentRuns,
+    [property: JsonPropertyName("runtime")] List<RuntimeStatusDto>? RuntimeStatuses);
 
 public class ApiClient(HttpClient http)
 {

@@ -25,18 +25,28 @@ public class DashboardController(ApiClient api) : Controller
                 Stats = new DashboardStatsDto(
                     dashboard.Stats.TotalAgents,
                     dashboard.Stats.TotalRuns,
-                    dashboard.Stats.TotalErrors,
+                    dashboard.Stats.FailedRuns,
                     dashboard.Stats.TotalTokens,
-                    dashboard.Stats.TotalCostUsd,
-                    dashboard.Stats.TodayRuns,
-                    dashboard.Stats.TodayErrors,
-                    dashboard.Stats.TodayTokens,
-                    dashboard.Stats.TodayCostUsd),
-                RecentRuns = dashboard.RecentRuns
-                    .Select(r => new RunItem(r.Id, r.Status, r.CreatedAt, r.CostUsd, r.PromptTokens, r.CompletionTokens))
+                    (double)dashboard.Stats.EstimatedCostUsd,
+                    dashboard.Stats.RunsToday,
+                    dashboard.Stats.FailedRunsToday,
+                    dashboard.Stats.TokensToday,
+                    (double)dashboard.Stats.EstimatedCostTodayUsd),
+                RecentRuns = (dashboard.RecentRuns ?? [])
+                    .Select(r => new RunItem(
+                        r.Id,
+                        r.Status.ToString(),
+                        r.CreatedAtUtc,
+                        (double)r.EstimatedCostUsd,
+                        r.PromptTokens,
+                        r.CompletionTokens))
                     .ToList(),
-                RuntimeStatuses = dashboard.RuntimeStatuses
-                    .Select(r => new RuntimeStatusDto(r.NodeName, r.Status, r.LastSeen, r.ActiveTriggers))
+                RuntimeStatuses = (dashboard.RuntimeStatuses ?? [])
+                    .Select(r => new Models.RuntimeStatusDto(
+                        r.NodeName,
+                        r.Status,
+                        r.LastSeenUtc,
+                        r.ActiveTriggerCount))
                     .ToList()
             };
 
