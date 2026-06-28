@@ -98,7 +98,7 @@
             <p>Gérez, déployez et suivez tous vos agents IA.</p>
         </div>
         <div class="agents-page-head-right">
-            <span class="agents-online">En ligne</span>
+            @await Component.InvokeAsync("PlatformStatus")
             <button type="button" class="agents-notif-btn" title="Notifications">
                 <i class="bi bi-bell"></i>
                 @if (s.Running > 0)

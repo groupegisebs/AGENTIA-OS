@@ -102,6 +102,35 @@ public class MonitoringController(
         return Ok(new { stats, activeAgents, recentRuns, runtime, dailyRuns, statusBreakdown, tokenSeries });
     }
 
+    [HttpGet("platform-status")]
+    public async Task<IActionResult> PlatformStatus(CancellationToken cancellationToken)
+    {
+        var heartbeats = await dbContext.RuntimeHeartbeats
+            .OrderByDescending(x => x.LastSeenUtc)
+            .ToListAsync(cancellationToken);
+
+        if (heartbeats.Count == 0)
+            return Ok(new { status = "Offline", nodeCount = 0, lastSeenUtc = (DateTime?)null });
+
+        var staleThreshold = TimeSpan.FromMinutes(2);
+        var now = DateTime.UtcNow;
+        var anyFresh = heartbeats.Any(h => now - h.LastSeenUtc <= staleThreshold);
+        var allHealthy = heartbeats
+            .Where(h => now - h.LastSeenUtc <= staleThreshold)
+            .All(h => h.Status.Equals("Healthy", StringComparison.OrdinalIgnoreCase));
+
+        var status = anyFresh
+            ? (allHealthy ? "Healthy" : "Degraded")
+            : "Offline";
+
+        return Ok(new
+        {
+            status,
+            nodeCount = heartbeats.Count,
+            lastSeenUtc = heartbeats[0].LastSeenUtc
+        });
+    }
+
     [HttpGet("runs")]
     public async Task<IActionResult> Runs([FromQuery] int limit = 50, CancellationToken cancellationToken = default)
     {

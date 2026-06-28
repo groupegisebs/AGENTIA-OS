@@ -51,6 +51,19 @@ public sealed class StudioObjectiveRequestModel
     public string? Description { get; set; }
 }
 
+public sealed class StudioEstimateRequestModel
+{
+    public bool HasDomain { get; set; }
+    public int ObjectiveCount { get; set; }
+    public int SourceCount { get; set; }
+    public int ActionCount { get; set; }
+    public int AutonomyLevel { get; set; }
+    public string? TriggerId { get; set; }
+    public string? TriggerFrequency { get; set; }
+    public string? RuntimeId { get; set; }
+    public bool HeartbeatEnabled { get; set; }
+}
+
 public sealed class DeploymentsIndexViewModel
 {
     public List<DeploymentAgentGroup> AgentGroups { get; set; } = [];

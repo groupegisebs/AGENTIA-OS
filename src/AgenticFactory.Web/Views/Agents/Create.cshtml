@@ -21,7 +21,7 @@
             <span>Créer un nouvel agent</span>
         </nav>
         <div class="studio-page-head-right">
-            <span class="studio-online">En ligne</span>
+            @await Component.InvokeAsync("PlatformStatus")
             <button type="button" class="studio-notif-btn" title="Notifications">
                 <i class="bi bi-bell"></i>
             </button>
@@ -260,7 +260,7 @@
                         <div class="studio-bp-field">
                             <div class="studio-bp-label">Complexité estimée</div>
                             <div class="studio-bp-stars" id="bp-complexity">
-                                <span class="filled">★</span><span class="filled">★</span><span>★</span><span>★</span><span>★</span>
+                                <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
                             </div>
                         </div>
                         <div class="studio-bp-field">

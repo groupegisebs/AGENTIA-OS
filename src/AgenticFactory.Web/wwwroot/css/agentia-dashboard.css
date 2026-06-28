@@ -173,3 +173,23 @@ body.dash-mode .af-topbar { display: none; }
 .dash-online::before {
     content: ''; width: 8px; height: 8px; background: #22c55e; border-radius: 50%;
 }
+
+.platform-status {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px;
+    border-radius: 999px; font-size: 0.75rem; font-weight: 600;
+}
+.platform-status::before {
+    content: ''; width: 7px; height: 7px; border-radius: 50%;
+}
+.platform-status--healthy {
+    background: #dcfce7; color: #16a34a;
+}
+.platform-status--healthy::before { background: #22c55e; }
+.platform-status--degraded {
+    background: #fef3c7; color: #d97706;
+}
+.platform-status--degraded::before { background: #f59e0b; }
+.platform-status--offline {
+    background: #f1f5f9; color: #64748b;
+}
+.platform-status--offline::before { background: #94a3b8; }

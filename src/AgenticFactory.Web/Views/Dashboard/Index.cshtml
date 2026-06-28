@@ -11,6 +11,12 @@
     var weekEnd = weekStart.AddDays(6);
     string FormatTokens(long n) => n >= 1_000_000 ? $"{n / 1_000_000.0:0.##}M" : n >= 1_000 ? $"{n / 1_000.0:0.#}k" : n.ToString("N0");
     string FormatDuration(double? sec) => sec is null or <= 0 ? "—" : sec < 60 ? $"{sec:0.#}s" : $"{sec / 60:0.#} min";
+    string RuntimeStatusLabel(string status) => status switch
+    {
+        "Healthy" => "Sain",
+        "Degraded" => "Dégradé",
+        _ => status
+    };
     var totalStatus = Model.StatusBreakdown.Sum(s => s.Count);
 }
 
@@ -21,7 +27,7 @@
         <p class="dash-subtitle">Surveillez, gérez et optimisez vos agents IA en temps réel.</p>
     </div>
     <div class="dash-header-actions">
-        <span class="dash-online">En ligne</span>
+        @await Component.InvokeAsync("PlatformStatus")
         <div class="dash-date-picker">
             <i class="bi bi-calendar3"></i>
             @weekStart.ToString("d MMM") – @weekEnd.ToString("d MMM yyyy")
@@ -95,7 +101,7 @@
                         var stale = DateTime.UtcNow - rt.LastSeen > TimeSpan.FromMinutes(2);
                         <tr>
                             <td><strong>@rt.NodeName</strong></td>
-                            <td><span class="dash-badge @(stale ? "warn" : "ok")">@(stale ? "Stale" : rt.Status)</span></td>
+                            <td><span class="dash-badge @(stale ? "warn" : "ok")">@(stale ? "Inactif" : RuntimeStatusLabel(rt.Status))</span></td>
                             <td>@rt.ActiveTriggers</td>
                             <td>@rt.LastSeen.ToLocalTime().ToString("HH:mm:ss")</td>
                         </tr>

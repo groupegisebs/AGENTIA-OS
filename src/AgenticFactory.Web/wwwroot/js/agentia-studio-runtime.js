@@ -237,7 +237,8 @@
             memory: rt.maxMemoryGb ? `${rt.maxMemoryGb} Go` : (rt.memoryLimit || rt.memoryMb ? `${rt.memoryLimit || rt.memoryMb + ' Mo'}` : '2 Go'),
             cpu: rt.maxCpuPercent ? `${rt.maxCpuPercent} %` : (rt.cpuLimit ? rt.cpuLimit : '40 %'),
             mode: rt.deployMode || 'Production',
-            health: exec?.supervision?.heartbeat ? 'Healthy' : '—',
+            health: exec?.supervision?.heartbeat ? 'Heartbeat activé' : 'Non configuré',
+            healthBadge: exec?.supervision?.heartbeat ? 'config' : 'none',
             monitoring: (exec?.supervision?.monitoring?.length || 0) > 0 ? 'Activé' : 'Désactivé',
             logs: exec?.logging?.level ? 'Activés' : '—',
             restart: rt.autoRestart !== false ? 'Automatique' : 'Manuel'
@@ -619,13 +620,13 @@
         const rows = [
             ['Nom', p.name], ['Type', p.type], ['Déclencheur', p.trigger],
             ['Temps maximum', p.maxTime], ['Mémoire', p.memory], ['CPU', p.cpu],
-            ['Mode', p.mode], ['Health', p.health], ['Monitoring', p.monitoring],
+            ['Mode', p.mode], ['Supervision', p.health], ['Monitoring', p.monitoring],
             ['Logs', p.logs], ['Restart', p.restart]
         ];
         wrap.innerHTML = `
             <div class="studio-runtime-preview-head">
                 <h4><i class="bi bi-cpu"></i> Runtime Preview</h4>
-                <span class="studio-runtime-preview-badge">${p.health === 'Healthy' ? '● Healthy' : '○ —'}</span>
+                <span class="studio-runtime-preview-badge">${p.healthBadge === 'config' ? '○ Prévu' : '○ —'}</span>
             </div>
             <div class="studio-runtime-preview-grid">
                 ${rows.map(([k, v]) => `

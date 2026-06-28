@@ -13,6 +13,20 @@
         var h = hours % 24;
         return days > 0 ? $"{days} jour{(days > 1 ? "s" : "")}, {h} heure{(h > 1 ? "s" : "")}" : $"{hours} heure{(hours > 1 ? "s" : "")}";
     }
+    string DeploymentStatusLabel(string status) => status switch
+    {
+        "Active" => "Actif",
+        "Failed" => "Échec",
+        "Pending" => "En attente",
+        _ => status
+    };
+    string RuntimeStatusLabel(string status) => status switch
+    {
+        "Healthy" => "Sain",
+        "Degraded" => "Dégradé",
+        "Unknown" => "Inconnu",
+        _ => status
+    };
 }
 
 <div class="deploy-page">
@@ -50,7 +64,7 @@
             <p class="text-muted mb-0 mt-1">@Model.AgentName — @Model.Description</p>
         </div>
         <div class="deploy-head-actions">
-            <span class="deploy-online">En ligne</span>
+            @await Component.InvokeAsync("PlatformStatus")
             @if (Model.LatestBlueprintId.HasValue)
             {
                 <form asp-action="Redeploy" method="post" class="d-inline">
@@ -150,7 +164,7 @@
                     <div class="deploy-prod-grid">
                         <div>
                             <div class="deploy-field-label">Statut</div>
-                            <div class="deploy-field-value"><span class="deploy-badge deployed">Actif</span></div>
+                            <div class="deploy-field-value"><span class="deploy-badge deployed">@DeploymentStatusLabel(prod.Status)</span></div>
                         </div>
                         <div>
                             <div class="deploy-field-label">URL de l'agent</div>
@@ -164,7 +178,7 @@
                             <div class="deploy-field-label">Nœud d'exécution</div>
                             <div class="deploy-field-value">
                                 @prod.RuntimeNode
-                                <span class="deploy-badge deployed ms-1">@prod.RuntimeStatus</span>
+                                <span class="deploy-badge deployed ms-1">@RuntimeStatusLabel(prod.RuntimeStatus)</span>
                             </div>
                         </div>
                         <div>

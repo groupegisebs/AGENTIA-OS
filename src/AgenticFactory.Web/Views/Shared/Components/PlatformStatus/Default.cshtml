@@ -1,0 +1,5 @@
+@model AgenticFactory.Web.Models.PlatformStatusViewModel
+@{
+    var title = Model.NodeCount > 0 ? $"{Model.Label} — {Model.NodeCount} nœud(s) runtime" : Model.Label;
+}
+<span class="platform-status platform-status--@Model.CssModifier" title="@title">@Model.Label</span>

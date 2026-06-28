@@ -193,7 +193,7 @@ public class AgentsController(
                 label = $"v1.{v.VersionNumber}.0",
                 description = bp?.PromptSummary ?? agent.Description,
                 v.CreatedAtUtc,
-                createdBy = "Admin",
+                createdBy = "—",
                 isCurrent = currentVersion?.Id == v.Id,
                 status = dep is not null ? "Deployed" : "Ready"
             };

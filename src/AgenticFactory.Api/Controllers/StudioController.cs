@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 
 namespace AgenticFactory.Api.Controllers;
 
@@ -14,6 +15,7 @@ namespace AgenticFactory.Api.Controllers;
 public class StudioController(
     AgenticFactoryDbContext db,
     ICurrentTenantService tenantService,
+    IConfiguration configuration,
     ILogger<StudioController> logger) : ControllerBase
 {
     [HttpPost("domain-requests")]
@@ -135,6 +137,117 @@ public class StudioController(
             message = "Votre demande d'objectif a été transmise à l'équipe Agentia."
         });
     }
+
+    [HttpPost("estimate")]
+    [Authorize(Policy = "CanCreateAgent")]
+    public async Task<IActionResult> EstimateBlueprint(
+        StudioEstimateRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var organizationId = tenantService.OrganizationId;
+        if (organizationId == Guid.Empty)
+            return BadRequest(new { message = "Contexte organisation manquant." });
+
+        var complexity = ComputeComplexity(
+            request.HasDomain,
+            request.ObjectiveCount,
+            request.SourceCount,
+            request.ActionCount,
+            request.AutonomyLevel);
+
+        var aiModel = configuration["AI:OpenAI:Model"]
+            ?? configuration["AI:AzureOpenAI:Deployment"]
+            ?? "gpt-4o-mini";
+
+        var runsPerMonth = EstimateRunsPerMonth(request.TriggerId, request.TriggerFrequency);
+        var promptTokensPerRun = 400
+            + request.ObjectiveCount * 80
+            + request.SourceCount * 120
+            + request.ActionCount * 100;
+        var completionTokensPerRun = (int)(promptTokensPerRun * 0.5) + 200;
+
+        var promptRate = ParseDecimal(configuration["AI:Pricing:PromptPer1kUsd"], 0.00015m);
+        var completionRate = ParseDecimal(configuration["AI:Pricing:CompletionPer1kUsd"], 0.0006m);
+        var costPerRun = (promptTokensPerRun / 1000m) * promptRate
+            + (completionTokensPerRun / 1000m) * completionRate;
+        costPerRun *= 1 + request.AutonomyLevel * 0.15m;
+        costPerRun *= GetRuntimeMultiplier(request.RuntimeId);
+
+        var monthlyCost = costPerRun * runsPerMonth;
+        var costBasis = "pricing";
+
+        var thirtyDaysAgo = DateTime.UtcNow.Date.AddDays(-29);
+        var orgRunCosts = await db.AgentRuns
+            .AsNoTracking()
+            .Where(x => x.OrganizationId == organizationId && x.CreatedAtUtc >= thirtyDaysAgo)
+            .Select(x => x.EstimatedCostUsd)
+            .ToListAsync(cancellationToken);
+
+        if (orgRunCosts.Count >= 3)
+        {
+            var historicalMonthly = orgRunCosts.Average() * runsPerMonth;
+            monthlyCost = (monthlyCost + historicalMonthly) / 2m;
+            costBasis = "blended";
+        }
+
+        return Ok(new
+        {
+            complexity,
+            estimatedMonthlyCostUsd = Math.Round(monthlyCost, 2),
+            aiModel,
+            costBasis,
+            costLabel = costBasis switch
+            {
+                "blended" => "Estimation (tarifs + historique org.)",
+                _ => "Estimation (tarifs configurés)"
+            }
+        });
+    }
+
+    private static int ComputeComplexity(
+        bool hasDomain, int objectives, int sources, int actions, int autonomy)
+    {
+        var score = (hasDomain ? 2 : 0)
+            + objectives * 0.5
+            + sources * 0.25
+            + actions * 0.3
+            + autonomy * 0.35;
+        return Math.Min(5, Math.Max(0, (int)Math.Round(score)));
+    }
+
+    private static int EstimateRunsPerMonth(string? triggerId, string? frequency)
+    {
+        if (string.Equals(triggerId, "scheduled", StringComparison.OrdinalIgnoreCase))
+        {
+            return frequency switch
+            {
+                "5min" => 8640,
+                "15min" => 2880,
+                "hourly" => 720,
+                "daily" => 30,
+                _ => 120
+            };
+        }
+
+        if (string.Equals(triggerId, "webhook", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(triggerId, "api", StringComparison.OrdinalIgnoreCase))
+            return 300;
+
+        return 30;
+    }
+
+    private static decimal GetRuntimeMultiplier(string? runtimeId) => runtimeId switch
+    {
+        "kubernetes" => 1.35m,
+        "azure" or "aws" => 1.25m,
+        "docker" => 1.15m,
+        _ => 1m
+    };
+
+    private static decimal ParseDecimal(string? value, decimal fallback) =>
+        decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : fallback;
 }
 
 public sealed record SubmitDomainRequestDto(
@@ -148,3 +261,14 @@ public sealed record SubmitObjectiveRequestDto(
     string? RelatedDomain,
     string? UseCase,
     string? Description);
+
+public sealed record StudioEstimateRequestDto(
+    bool HasDomain,
+    int ObjectiveCount,
+    int SourceCount,
+    int ActionCount,
+    int AutonomyLevel,
+    string? TriggerId,
+    string? TriggerFrequency,
+    string? RuntimeId,
+    bool HeartbeatEnabled);

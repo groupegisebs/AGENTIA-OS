@@ -16,7 +16,7 @@
             <p class="text-muted mb-0 mt-1">Pipeline, versions et environnements de vos agents.</p>
         </div>
         <div class="deploy-head-actions">
-            <span class="deploy-online">En ligne</span>
+            @await Component.InvokeAsync("PlatformStatus")
             <a asp-controller="Agents" asp-action="Create" class="deploy-btn-primary">
                 <i class="bi bi-plus-lg"></i> Nouveau déploiement
             </a>

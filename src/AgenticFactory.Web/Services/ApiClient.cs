@@ -118,6 +118,26 @@ public record UsageDetailResponse(int Runs, long Tokens, decimal Cost, int Error
 public record TimelineResponse(string Environment, string VersionLabel, DateTime At, string Outcome);
 public record OperationLogResponse(DateTime At, string Level, string Message);
 
+public record PlatformStatusResponse(string Status, int NodeCount, DateTime? LastSeenUtc);
+
+public record StudioEstimateRequest(
+    bool HasDomain,
+    int ObjectiveCount,
+    int SourceCount,
+    int ActionCount,
+    int AutonomyLevel,
+    string? TriggerId,
+    string? TriggerFrequency,
+    string? RuntimeId,
+    bool HeartbeatEnabled);
+
+public record StudioEstimateResponse(
+    int Complexity,
+    decimal EstimatedMonthlyCostUsd,
+    string AiModel,
+    string CostBasis,
+    string CostLabel);
+
 public class ApiClient(HttpClient http)
 {
     private static readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
@@ -160,6 +180,24 @@ public class ApiClient(HttpClient http)
         if (!response.IsSuccessStatusCode) return null;
         var content = await response.Content.ReadAsStringAsync();
         return JsonSerializer.Deserialize<DashboardResponse>(content, _json);
+    }
+
+    public async Task<PlatformStatusResponse?> GetPlatformStatusAsync()
+    {
+        var response = await http.GetAsync("/api/monitoring/platform-status");
+        if (!response.IsSuccessStatusCode) return null;
+        var content = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<PlatformStatusResponse>(content, _json);
+    }
+
+    public async Task<StudioEstimateResponse?> EstimateBlueprintAsync(StudioEstimateRequest request)
+    {
+        var body = JsonSerializer.Serialize(request, _json);
+        var response = await http.PostAsync("/api/studio/estimate",
+            new StringContent(body, Encoding.UTF8, "application/json"));
+        if (!response.IsSuccessStatusCode) return null;
+        var content = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<StudioEstimateResponse>(content, _json);
     }
 
     public async Task<AgentsPageResponse?> GetAgentsAsync()

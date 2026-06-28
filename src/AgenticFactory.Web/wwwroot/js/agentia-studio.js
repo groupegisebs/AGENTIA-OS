@@ -83,6 +83,9 @@
         freeText: ''
     };
 
+    let latestEstimate = null;
+    let estimateTimer = null;
+
     const $ = (sel, ctx) => (ctx || document).querySelector(sel);
     const $$ = (sel, ctx) => [...(ctx || document).querySelectorAll(sel)];
     const UNDEF = '— Non défini —';
@@ -897,12 +900,63 @@
 
     function computeCost() {
         if (!state.objectives.length && !state.sources.length && !state.actions.length) return 0;
+        if (latestEstimate?.estimatedMonthlyCostUsd != null)
+            return latestEstimate.estimatedMonthlyCostUsd;
         const base = 0.5;
         const perSource = state.sources.length * 0.18;
         const perAction = state.actions.length * 0.14;
         const exec = ensureExecution();
         const mult = exec && EXEC() ? EXEC().getCostMultiplier(exec) : 1;
         return (base + perSource + perAction) * mult * (1 + state.autonomy * 0.2);
+    }
+
+    function scheduleEstimate() {
+        clearTimeout(estimateTimer);
+        estimateTimer = setTimeout(fetchEstimate, 350);
+    }
+
+    async function fetchEstimate() {
+        if (!state.objectives.length && !state.sources.length && !state.actions.length) {
+            latestEstimate = null;
+            return;
+        }
+        const exec = ensureExecution();
+        const payload = {
+            hasDomain: !!state.domain,
+            objectiveCount: state.objectives.length,
+            sourceCount: state.sources.length,
+            actionCount: state.actions.length,
+            autonomyLevel: state.autonomy,
+            triggerId: exec?.trigger || 'manual',
+            triggerFrequency: exec?.triggerConfig?.frequency || null,
+            runtimeId: exec?.runtime || 'windows-service',
+            heartbeatEnabled: !!exec?.supervision?.heartbeat
+        };
+        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+        try {
+            const res = await fetch('/Agents/EstimateBlueprint', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': token
+                },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) return;
+            latestEstimate = await res.json();
+            applyEstimateToPanel();
+        } catch (_) { /* fallback to local compute */ }
+    }
+
+    function applyEstimateToPanel() {
+        if (!latestEstimate) return;
+        const compEl = $('#bp-complexity');
+        if (compEl) compEl.innerHTML = renderStars(latestEstimate.complexity);
+        const costEl = $('#bp-cost');
+        if (costEl) {
+            costEl.textContent = `$${Number(latestEstimate.estimatedMonthlyCostUsd).toFixed(2)} / mois`;
+            if (latestEstimate.costLabel) costEl.title = latestEstimate.costLabel;
+        }
     }
 
     function buildWorkflowText() {
@@ -936,9 +990,9 @@
             security: [...state.security],
             freeText: state.freeText.trim(),
             agentName: suggestAgentName(),
-            complexity: computeComplexity(),
+            complexity: latestEstimate?.complexity ?? computeComplexity(),
             estimatedCost: computeCost().toFixed(2),
-            aiModel: computeComplexity() >= 3 ? 'GPT-4.1' : 'GPT-4.1 mini'
+            aiModel: latestEstimate?.aiModel ?? 'gpt-4o-mini'
         };
     }
 
@@ -1060,10 +1114,15 @@
         if (autoLabel) autoLabel.textContent = level.label;
 
         const compEl = $('#bp-complexity');
-        if (compEl) compEl.innerHTML = renderStars(p.complexity);
+        if (compEl && !latestEstimate) compEl.innerHTML = renderStars(p.complexity);
 
         const costEl = $('#bp-cost');
-        if (costEl) costEl.textContent = `$${p.estimatedCost} / mois`;
+        if (costEl && !latestEstimate) {
+            costEl.textContent = `$${p.estimatedCost} / mois`;
+            costEl.removeAttribute('title');
+        }
+
+        scheduleEstimate();
 
         const rtEl = $('#bp-runtime');
         if (rtEl) rtEl.innerHTML = `<span class="studio-bp-pill blue">${getRuntimeLabel()}</span>`;

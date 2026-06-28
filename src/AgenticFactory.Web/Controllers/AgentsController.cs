@@ -129,6 +129,35 @@ public class AgentsController(ApiClient api) : AuthenticatedController
         return Ok(new { message = result.Message, id = result.Id });
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EstimateBlueprint([FromBody] StudioEstimateRequestModel model)
+    {
+        AuthenticateApi(api);
+        var result = await api.EstimateBlueprintAsync(new StudioEstimateRequest(
+            model.HasDomain,
+            model.ObjectiveCount,
+            model.SourceCount,
+            model.ActionCount,
+            model.AutonomyLevel,
+            model.TriggerId,
+            model.TriggerFrequency,
+            model.RuntimeId,
+            model.HeartbeatEnabled));
+
+        if (result is null)
+            return StatusCode(502, new { message = "Impossible de calculer l'estimation." });
+
+        return Ok(new
+        {
+            complexity = result.Complexity,
+            estimatedMonthlyCostUsd = result.EstimatedMonthlyCostUsd,
+            aiModel = result.AiModel,
+            costBasis = result.CostBasis,
+            costLabel = result.CostLabel
+        });
+    }
+
     private static string BuildCreationMessage(CreateAgentViewModel model)
     {
         if (!string.IsNullOrWhiteSpace(model.Message))
