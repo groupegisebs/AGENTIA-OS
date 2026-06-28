@@ -432,6 +432,84 @@ body.studio-mode .af-topbar { display: none; }
     text-align: center;
     padding: 28px 22px;
 }
+.studio-config-modal { max-width: 640px; }
+.studio-config-modal-head { padding-bottom: 14px; }
+.studio-config-modal-title-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+.studio-config-modal-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: #eef2ff;
+    color: #6366f1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+.studio-config-modal-title-text { flex: 1; min-width: 0; }
+.studio-config-modal-title-text h3 { margin-bottom: 4px; }
+.studio-config-modal-selector {
+    width: 100%;
+    margin-top: 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 9px 12px;
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: #334155;
+    background: #f8fafc;
+}
+.studio-config-modal-selector:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+.studio-config-modal-body {
+    max-height: min(52vh, 420px);
+    overflow-y: auto;
+}
+.studio-config-modal-body .studio-source-config-fields {
+    padding: 0;
+    grid-template-columns: 1fr;
+}
+.studio-config-summary-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.studio-config-summary-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: #fff;
+    border: 1px solid #e8ecf4;
+    border-radius: 10px;
+}
+.studio-config-summary-name {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.studio-config-summary-name i {
+    color: #6366f1;
+    font-size: 1rem;
+}
+.studio-btn-sm {
+    padding: 6px 12px;
+    font-size: 0.78rem;
+    white-space: nowrap;
+}
 .studio-modal-success-icon {
     width: 52px;
     height: 52px;

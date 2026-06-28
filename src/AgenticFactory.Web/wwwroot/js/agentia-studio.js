@@ -106,6 +106,8 @@
         bindNameEdit();
         bindDomainRequestModal();
         bindObjectiveRequestModal();
+        bindSourceConfigModal();
+        bindActionConfigModal();
         goToStep(state.step, false);
         updateBlueprint();
     }
@@ -396,11 +398,16 @@
                     delete state.sourceConfigs[id];
                     item.classList.remove('checked');
                     $('input', item).checked = false;
+                    if ($('#sourceConfigModalBackdrop')?.classList.contains('open')) {
+                        if (state.sources.length) openSourceConfigModal(state.sources[0]);
+                        else closeSourceConfigModal();
+                    }
                 } else {
                     state.sources.push(id);
                     if (!state.sourceConfigs[id]) state.sourceConfigs[id] = {};
                     item.classList.add('checked');
                     $('input', item).checked = true;
+                    openSourceConfigModal(id);
                 }
                 renderSourceConfigs();
                 updateBlueprint();
@@ -424,17 +431,39 @@
         panel.innerHTML = `
             <div class="studio-source-config-head">
                 <h4><i class="bi bi-key"></i> Paramètres de connexion</h4>
-                <p>Les identifiants sensibles seront stockés chiffrés dans <strong>Agentia Vault</strong> — jamais en clair dans le blueprint.</p>
+                <p>Configurez chaque source sélectionnée via le bouton « Configurer ». Les identifiants sensibles seront stockés chiffrés dans <strong>Agentia Vault</strong>.</p>
             </div>
-            ${state.sources.map(id => renderSourceConfigCard(id)).join('')}`;
-        bindSourceConfigInputs(panel);
+            <div class="studio-config-summary-list">
+                ${state.sources.map(id => renderSourceConfigSummaryRow(id)).join('')}
+            </div>`;
+
+        $$('[data-configure-source]', panel).forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.preventDefault();
+                e.stopPropagation();
+                openSourceConfigModal(btn.dataset.configureSource);
+            });
+        });
     }
 
-    function renderSourceConfigCard(sourceId) {
+    function renderSourceConfigSummaryRow(sourceId) {
         const src = getStudioSource(sourceId);
         if (!src) return '';
         const cfg = state.sourceConfigs[sourceId] || {};
-        const fields = (src.fields || []).map(f => {
+        const configured = countConfiguredFields(src, cfg);
+        const total = (src.fields || []).length;
+        return `
+            <div class="studio-config-summary-row">
+                <span class="studio-config-summary-name"><i class="bi ${src.icon}"></i> ${src.label}</span>
+                <span class="studio-config-progress">${configured}/${total} renseigné(s)</span>
+                <button type="button" class="studio-btn studio-btn-outline studio-btn-sm" data-configure-source="${sourceId}">
+                    <i class="bi bi-gear"></i> Configurer
+                </button>
+            </div>`;
+    }
+
+    function renderConfigFields(fields, cfg, idAttr, idValue) {
+        return (fields || []).map(f => {
             const val = cfg[f.key] ?? '';
             if (f.type === 'select') {
                 const opts = (f.options || []).map(o =>
@@ -443,14 +472,14 @@
                 return `
                     <div class="studio-config-field">
                         <label>${f.label}${f.secret ? ' <span class="studio-config-secret">🔒 Vault</span>' : ''}</label>
-                        <select data-source="${sourceId}" data-key="${f.key}">${opts}</select>
+                        <select ${idAttr}="${idValue}" data-key="${f.key}">${opts}</select>
                     </div>`;
             }
             if (f.type === 'textarea') {
                 return `
                     <div class="studio-config-field">
                         <label>${f.label}${f.secret ? ' <span class="studio-config-secret">🔒 Vault</span>' : ''}</label>
-                        <textarea data-source="${sourceId}" data-key="${f.key}" rows="2"
+                        <textarea ${idAttr}="${idValue}" data-key="${f.key}" rows="2"
                             placeholder="${escapeAttr(f.placeholder)}">${escapeHtml(val)}</textarea>
                     </div>`;
             }
@@ -458,42 +487,106 @@
                 <div class="studio-config-field">
                     <label>${f.label}${f.secret ? ' <span class="studio-config-secret">🔒 Vault</span>' : ''}</label>
                     <input type="${f.type === 'password' ? 'password' : f.type === 'number' ? 'number' : 'text'}"
-                        data-source="${sourceId}" data-key="${f.key}"
+                        ${idAttr}="${idValue}" data-key="${f.key}"
                         value="${escapeAttr(val)}"
                         placeholder="${escapeAttr(f.placeholder)}" autocomplete="off" />
                 </div>`;
         }).join('');
+    }
 
-        const configured = countConfiguredFields(src, cfg);
-        const total = (src.fields || []).length;
-        return `
-            <div class="studio-source-config-card" data-source-card="${sourceId}">
-                <div class="studio-source-config-card-head">
-                    <span><i class="bi ${src.icon}"></i> ${src.label}</span>
-                    <span class="studio-config-progress">${configured}/${total} renseigné(s)</span>
-                </div>
-                <div class="studio-source-config-fields">${fields}</div>
-            </div>`;
+    function updateConfigProgress(kind, id) {
+        const isSource = kind === 'source';
+        const item = isSource ? getStudioSource(id) : getStudioAction(id);
+        if (!item) return;
+        const cfg = isSource ? (state.sourceConfigs[id] || {}) : (state.actionConfigs[id] || {});
+        const configured = countConfiguredFields(item, cfg);
+        const total = (item.fields || []).length;
+        const text = `${configured}/${total} renseigné(s)`;
+        const modalProgress = $(isSource ? '#sourceConfigModalProgress' : '#actionConfigModalProgress');
+        if (modalProgress) modalProgress.textContent = text;
+        const panel = $(isSource ? '#sourceConfigPanel' : '#actionConfigPanel');
+        const row = panel?.querySelector(
+            isSource ? `[data-configure-source="${id}"]` : `[data-configure-action="${id}"]`
+        );
+        const badge = row?.closest('.studio-config-summary-row')?.querySelector('.studio-config-progress');
+        if (badge) badge.textContent = text;
+    }
+
+    function bindSourceConfigModal() {
+        $('#sourceConfigModalClose')?.addEventListener('click', closeSourceConfigModal);
+        $('#sourceConfigModalSave')?.addEventListener('click', closeSourceConfigModal);
+        $('#sourceConfigModalBackdrop')?.addEventListener('click', e => {
+            if (e.target.id === 'sourceConfigModalBackdrop') closeSourceConfigModal();
+        });
+        $('#sourceConfigModalSelector')?.addEventListener('change', e => {
+            populateSourceConfigModal(e.target.value);
+        });
+    }
+
+    function openSourceConfigModal(sourceId) {
+        if (!sourceId || !state.sources.includes(sourceId)) return;
+        const backdrop = $('#sourceConfigModalBackdrop');
+        if (!backdrop) return;
+        backdrop.classList.add('open');
+        document.body.style.overflow = 'hidden';
+        populateSourceConfigModal(sourceId);
+    }
+
+    function closeSourceConfigModal() {
+        $('#sourceConfigModalBackdrop')?.classList.remove('open');
+        document.body.style.overflow = '';
+        renderSourceConfigs();
+        updateBlueprint();
+    }
+
+    function populateSourceConfigModal(sourceId) {
+        const src = getStudioSource(sourceId);
+        if (!src) return;
+
+        const title = $('#sourceConfigModalTitle');
+        const icon = $('#sourceConfigModalIcon');
+        const selector = $('#sourceConfigModalSelector');
+        const body = $('#sourceConfigModalBody');
+        if (title) title.textContent = src.label;
+        if (icon) icon.innerHTML = `<i class="bi ${src.icon}"></i>`;
+
+        if (selector) {
+            if (state.sources.length > 1) {
+                selector.classList.remove('d-none');
+                selector.innerHTML = state.sources.map(id => {
+                    const s = getStudioSource(id);
+                    return `<option value="${id}"${id === sourceId ? ' selected' : ''}>${s?.label || id}</option>`;
+                }).join('');
+            } else {
+                selector.classList.add('d-none');
+                selector.innerHTML = '';
+            }
+        }
+
+        const cfg = state.sourceConfigs[sourceId] || {};
+        if (body) {
+            body.innerHTML = `<div class="studio-source-config-fields">${renderConfigFields(src.fields, cfg, 'data-source', sourceId)}</div>`;
+            bindSourceConfigInputs(body, sourceId);
+        }
+        updateConfigProgress('source', sourceId);
+    }
+
+    function bindSourceConfigInputs(container, sourceId) {
+        $$('[data-source][data-key]', container).forEach(el => {
+            const evt = el.tagName === 'SELECT' ? 'change' : 'input';
+            el.addEventListener(evt, () => {
+                const sid = el.dataset.source || sourceId;
+                const key = el.dataset.key;
+                if (!state.sourceConfigs[sid]) state.sourceConfigs[sid] = {};
+                state.sourceConfigs[sid][key] = el.value;
+                updateConfigProgress('source', sid);
+                updateBlueprint();
+            });
+        });
     }
 
     function countConfiguredFields(src, cfg) {
         return (src.fields || []).filter(f => (cfg[f.key] || '').toString().trim()).length;
-    }
-
-    function bindSourceConfigInputs(panel) {
-        $$('[data-source][data-key]', panel).forEach(el => {
-            const evt = el.tagName === 'SELECT' ? 'change' : 'input';
-            el.addEventListener(evt, () => {
-                const sid = el.dataset.source;
-                const key = el.dataset.key;
-                if (!state.sourceConfigs[sid]) state.sourceConfigs[sid] = {};
-                state.sourceConfigs[sid][key] = el.value;
-                const src = getStudioSource(sid);
-                const card = panel.querySelector(`[data-source-card="${sid}"] .studio-config-progress`);
-                if (card && src) card.textContent = `${countConfiguredFields(src, state.sourceConfigs[sid])}/${src.fields.length} renseigné(s)`;
-                updateBlueprint();
-            });
-        });
     }
 
     function escapeAttr(s) {
@@ -557,11 +650,16 @@
                     delete state.actionConfigs[id];
                     item.classList.remove('checked');
                     $('input', item).checked = false;
+                    if ($('#actionConfigModalBackdrop')?.classList.contains('open')) {
+                        if (state.actions.length) openActionConfigModal(state.actions[0]);
+                        else closeActionConfigModal();
+                    }
                 } else {
                     state.actions.push(id);
                     if (!state.actionConfigs[id]) state.actionConfigs[id] = {};
                     item.classList.add('checked');
                     $('input', item).checked = true;
+                    openActionConfigModal(id);
                 }
                 renderActionConfigs();
                 updateBlueprint();
@@ -585,69 +683,105 @@
         panel.innerHTML = `
             <div class="studio-source-config-head">
                 <h4><i class="bi bi-gear"></i> Paramètres des actions</h4>
-                <p>Configurez chaque action sélectionnée. Les secrets seront stockés dans <strong>Agentia Vault</strong>.</p>
+                <p>Configurez chaque action sélectionnée via le bouton « Configurer ». Les secrets seront stockés dans <strong>Agentia Vault</strong>.</p>
             </div>
-            ${state.actions.map(id => renderActionConfigCard(id)).join('')}`;
-        bindActionConfigInputs(panel);
+            <div class="studio-config-summary-list">
+                ${state.actions.map(id => renderActionConfigSummaryRow(id)).join('')}
+            </div>`;
+
+        $$('[data-configure-action]', panel).forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.preventDefault();
+                e.stopPropagation();
+                openActionConfigModal(btn.dataset.configureAction);
+            });
+        });
     }
 
-    function renderActionConfigCard(actionId) {
+    function renderActionConfigSummaryRow(actionId) {
         const act = getStudioAction(actionId);
         if (!act) return '';
         const cfg = state.actionConfigs[actionId] || {};
-        const fields = (act.fields || []).map(f => {
-            const val = cfg[f.key] ?? '';
-            if (f.type === 'select') {
-                const opts = (f.options || []).map(o =>
-                    `<option value="${escapeAttr(o)}"${val === o ? ' selected' : ''}>${o}</option>`
-                ).join('');
-                return `
-                    <div class="studio-config-field">
-                        <label>${f.label}${f.secret ? ' <span class="studio-config-secret">🔒 Vault</span>' : ''}</label>
-                        <select data-action="${actionId}" data-key="${f.key}">${opts}</select>
-                    </div>`;
-            }
-            if (f.type === 'textarea') {
-                return `
-                    <div class="studio-config-field">
-                        <label>${f.label}${f.secret ? ' <span class="studio-config-secret">🔒 Vault</span>' : ''}</label>
-                        <textarea data-action="${actionId}" data-key="${f.key}" rows="2"
-                            placeholder="${escapeAttr(f.placeholder)}">${escapeHtml(val)}</textarea>
-                    </div>`;
-            }
-            return `
-                <div class="studio-config-field">
-                    <label>${f.label}${f.secret ? ' <span class="studio-config-secret">🔒 Vault</span>' : ''}</label>
-                    <input type="${f.type === 'password' ? 'password' : f.type === 'number' ? 'number' : 'text'}"
-                        data-action="${actionId}" data-key="${f.key}"
-                        value="${escapeAttr(val)}"
-                        placeholder="${escapeAttr(f.placeholder)}" autocomplete="off" />
-                </div>`;
-        }).join('');
-
         const configured = countConfiguredFields(act, cfg);
         const total = (act.fields || []).length;
         return `
-            <div class="studio-source-config-card" data-action-card="${actionId}">
-                <div class="studio-source-config-card-head">
-                    <span><i class="bi ${act.icon}"></i> ${act.label}</span>
-                    <span class="studio-config-progress">${configured}/${total} renseigné(s)</span>
-                </div>
-                <div class="studio-source-config-fields">${fields}</div>
+            <div class="studio-config-summary-row">
+                <span class="studio-config-summary-name"><i class="bi ${act.icon}"></i> ${act.label}</span>
+                <span class="studio-config-progress">${configured}/${total} renseigné(s)</span>
+                <button type="button" class="studio-btn studio-btn-outline studio-btn-sm" data-configure-action="${actionId}">
+                    <i class="bi bi-gear"></i> Configurer
+                </button>
             </div>`;
     }
 
-    function bindActionConfigInputs(panel) {
-        $$('[data-action][data-key]', panel).forEach(el => {
+    function bindActionConfigModal() {
+        $('#actionConfigModalClose')?.addEventListener('click', closeActionConfigModal);
+        $('#actionConfigModalSave')?.addEventListener('click', closeActionConfigModal);
+        $('#actionConfigModalBackdrop')?.addEventListener('click', e => {
+            if (e.target.id === 'actionConfigModalBackdrop') closeActionConfigModal();
+        });
+        $('#actionConfigModalSelector')?.addEventListener('change', e => {
+            populateActionConfigModal(e.target.value);
+        });
+    }
+
+    function openActionConfigModal(actionId) {
+        if (!actionId || !state.actions.includes(actionId)) return;
+        const backdrop = $('#actionConfigModalBackdrop');
+        if (!backdrop) return;
+        backdrop.classList.add('open');
+        document.body.style.overflow = 'hidden';
+        populateActionConfigModal(actionId);
+    }
+
+    function closeActionConfigModal() {
+        $('#actionConfigModalBackdrop')?.classList.remove('open');
+        document.body.style.overflow = '';
+        renderActionConfigs();
+        updateBlueprint();
+    }
+
+    function populateActionConfigModal(actionId) {
+        const act = getStudioAction(actionId);
+        if (!act) return;
+
+        const title = $('#actionConfigModalTitle');
+        const icon = $('#actionConfigModalIcon');
+        const selector = $('#actionConfigModalSelector');
+        const body = $('#actionConfigModalBody');
+        if (title) title.textContent = act.label;
+        if (icon) icon.innerHTML = `<i class="bi ${act.icon}"></i>`;
+
+        if (selector) {
+            if (state.actions.length > 1) {
+                selector.classList.remove('d-none');
+                selector.innerHTML = state.actions.map(id => {
+                    const a = getStudioAction(id);
+                    return `<option value="${id}"${id === actionId ? ' selected' : ''}>${a?.label || id}</option>`;
+                }).join('');
+            } else {
+                selector.classList.add('d-none');
+                selector.innerHTML = '';
+            }
+        }
+
+        const cfg = state.actionConfigs[actionId] || {};
+        if (body) {
+            body.innerHTML = `<div class="studio-source-config-fields">${renderConfigFields(act.fields, cfg, 'data-action', actionId)}</div>`;
+            bindActionConfigInputs(body, actionId);
+        }
+        updateConfigProgress('action', actionId);
+    }
+
+    function bindActionConfigInputs(container, actionId) {
+        $$('[data-action][data-key]', container).forEach(el => {
             const evt = el.tagName === 'SELECT' ? 'change' : 'input';
             el.addEventListener(evt, () => {
-                const aid = el.dataset.action;
+                const aid = el.dataset.action || actionId;
                 const key = el.dataset.key;
                 if (!state.actionConfigs[aid]) state.actionConfigs[aid] = {};
                 state.actionConfigs[aid][key] = el.value;
-                const act = getStudioAction(aid);
-                const card = panel.querySelector(`[data-action-card="${aid}"] .studio-config-progress`);
-                if (card && act) card.textContent = `${countConfiguredFields(act, state.actionConfigs[aid])}/${act.fields.length} renseigné(s)`;
+                updateConfigProgress('action', aid);
                 updateBlueprint();
             });
         });
@@ -791,12 +925,38 @@
         $('#btnDraft')?.addEventListener('click', saveDraft);
     }
 
+    function normalizeWizardState() {
+        if (!Array.isArray(state.objectives)) state.objectives = [];
+        if (!Array.isArray(state.sources)) state.sources = [];
+        if (!Array.isArray(state.actions)) state.actions = [];
+        if (!Array.isArray(state.security)) state.security = [];
+        if (!state.sourceConfigs || typeof state.sourceConfigs !== 'object') state.sourceConfigs = {};
+        if (!state.actionConfigs || typeof state.actionConfigs !== 'object') state.actionConfigs = {};
+        if (state.step < 1 || state.step > TOTAL_STEPS) state.step = 1;
+    }
+
+    function populateHiddenFields() {
+        const msgEl = document.getElementById('hiddenMessage');
+        const jsonEl = document.getElementById('hiddenWizardJson');
+        if (!msgEl || !jsonEl) throw new Error('Missing hidden form fields');
+        normalizeWizardState();
+        const payload = buildPayload();
+        msgEl.value = compileMessage(payload);
+        jsonEl.value = JSON.stringify(payload);
+    }
+
     function bindFormSubmit() {
-        $('#studioForm')?.addEventListener('submit', e => {
+        const form = document.getElementById('studioForm');
+        if (!form) return;
+        form.addEventListener('submit', e => {
             if (!validateForSubmit()) { e.preventDefault(); return; }
-            const payload = buildPayload();
-            $('#hiddenMessage').value = compileMessage(payload);
-            $('#hiddenWizardJson').value = JSON.stringify(payload);
+            try {
+                populateHiddenFields();
+            } catch (err) {
+                e.preventDefault();
+                console.error('Agentia Studio — submit', err);
+                alert('Impossible de préparer le blueprint. Rechargez la page ou effacez le brouillon local.');
+            }
         });
     }
 
@@ -844,14 +1004,22 @@
         const prev = $('#btnPrev');
         if (prev) prev.style.display = n > 1 ? '' : 'none';
 
+        const onFinalStep = n === TOTAL_STEPS;
         const next = $('#btnNext');
         const gen = $('#btnGenerate');
-        if (next) next.style.display = n === TOTAL_STEPS ? 'none' : '';
-        if (gen) gen.style.display = n === TOTAL_STEPS ? '' : 'none';
+        if (next) {
+            next.hidden = onFinalStep;
+            next.style.display = onFinalStep ? 'none' : '';
+        }
+        if (gen) {
+            gen.hidden = !onFinalStep;
+            gen.style.display = onFinalStep ? '' : 'none';
+        }
 
         if (n === TOTAL_STEPS) renderFinalReview();
         if (n === 1) renderDomainGrid();
         if (n === 3) renderSourceConfigs();
+        if (n === 4) renderActionConfigs();
         if (n === 5) renderExecution();
         updateBlueprint();
     }
@@ -1199,6 +1367,7 @@
             delete saved.trigger;
             delete saved.runtime;
             Object.assign(state, saved);
+            normalizeWizardState();
         } catch (_) { /* ignore */ }
     }
 

@@ -40,7 +40,7 @@
         <p>Suivez les étapes pour décrire votre agent. Nous générerons automatiquement le blueprint.</p>
     </header>
 
-    <form id="studioForm" asp-action="Create" method="post">
+    <form id="studioForm" asp-controller="Agents" asp-action="Create" method="post">
         @Html.AntiForgeryToken()
         <input type="hidden" asp-for="Message" id="hiddenMessage" />
         <input type="hidden" asp-for="WizardJson" id="hiddenWizardJson" />
@@ -205,7 +205,7 @@
                             <button type="button" class="studio-btn studio-btn-primary" id="btnNext">
                                 Suivant <i class="bi bi-arrow-right"></i>
                             </button>
-                            <button type="submit" class="studio-btn studio-btn-primary" id="btnGenerate" style="display:none">
+                            <button type="submit" class="studio-btn studio-btn-primary" id="btnGenerate" hidden style="display:none">
                                 <i class="bi bi-stars"></i> Générer le Blueprint
                             </button>
                         </div>
@@ -376,6 +376,52 @@
             <h4 style="font-size:1rem;font-weight:700;margin-bottom:8px;">Demande envoyée</h4>
             <p id="objectiveSuccessMsg" style="font-size:0.85rem;color:#64748b;margin-bottom:16px;"></p>
             <button type="button" class="studio-btn studio-btn-primary" id="objectiveModalClose">Fermer</button>
+        </div>
+    </div>
+</div>
+
+<div class="studio-modal-backdrop" id="sourceConfigModalBackdrop" role="dialog" aria-modal="true" aria-labelledby="sourceConfigModalTitle">
+    <div class="studio-modal studio-config-modal">
+        <div class="studio-modal-head studio-config-modal-head">
+            <div class="studio-config-modal-title-row">
+                <span class="studio-config-modal-icon" id="sourceConfigModalIcon"><i class="bi bi-plug"></i></span>
+                <div class="studio-config-modal-title-text">
+                    <h3 id="sourceConfigModalTitle">Paramètres de connexion</h3>
+                    <p>Les identifiants sensibles seront stockés chiffrés dans <strong>Agentia Vault</strong> — jamais en clair dans le blueprint.</p>
+                </div>
+                <span class="studio-config-progress" id="sourceConfigModalProgress">0/0 renseigné(s)</span>
+            </div>
+            <select class="studio-config-modal-selector d-none" id="sourceConfigModalSelector" aria-label="Source à configurer"></select>
+        </div>
+        <div class="studio-modal-body studio-config-modal-body" id="sourceConfigModalBody"></div>
+        <div class="studio-modal-foot">
+            <button type="button" class="studio-btn studio-btn-ghost" id="sourceConfigModalClose">Fermer</button>
+            <button type="button" class="studio-btn studio-btn-primary" id="sourceConfigModalSave">
+                <i class="bi bi-check-lg"></i> Enregistrer
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="studio-modal-backdrop" id="actionConfigModalBackdrop" role="dialog" aria-modal="true" aria-labelledby="actionConfigModalTitle">
+    <div class="studio-modal studio-config-modal">
+        <div class="studio-modal-head studio-config-modal-head">
+            <div class="studio-config-modal-title-row">
+                <span class="studio-config-modal-icon" id="actionConfigModalIcon"><i class="bi bi-gear"></i></span>
+                <div class="studio-config-modal-title-text">
+                    <h3 id="actionConfigModalTitle">Paramètres de l'action</h3>
+                    <p>Configurez cette action. Les secrets seront stockés chiffrés dans <strong>Agentia Vault</strong>.</p>
+                </div>
+                <span class="studio-config-progress" id="actionConfigModalProgress">0/0 renseigné(s)</span>
+            </div>
+            <select class="studio-config-modal-selector d-none" id="actionConfigModalSelector" aria-label="Action à configurer"></select>
+        </div>
+        <div class="studio-modal-body studio-config-modal-body" id="actionConfigModalBody"></div>
+        <div class="studio-modal-foot">
+            <button type="button" class="studio-btn studio-btn-ghost" id="actionConfigModalClose">Fermer</button>
+            <button type="button" class="studio-btn studio-btn-primary" id="actionConfigModalSave">
+                <i class="bi bi-check-lg"></i> Enregistrer
+            </button>
         </div>
     </div>
 </div>
