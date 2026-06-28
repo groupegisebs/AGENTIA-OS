@@ -584,6 +584,12 @@
             if (validateStep(state.step)) goToStep(state.step + 1);
         });
         $('#btnDraft')?.addEventListener('click', saveDraft);
+        $$('.studio-stepper-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const step = parseInt(item.dataset.step, 10);
+                if (step >= 1 && step <= TOTAL_STEPS) goToStep(step, false);
+            });
+        });
     }
 
     function bindFormSubmit() {
@@ -965,46 +971,242 @@
         const progress = (p.mission ? 1 : 0) + p.sensors.length + p.skills.length + p.actuators.length;
         const empty = $('#bp-empty');
         if (empty) empty.style.display = progress <= 0 ? '' : 'none';
+
+        if (state.step === TOTAL_STEPS) renderFinalReview();
+        renderBlueprintCondensed(p);
     }
 
-    function renderFinalReview() {
+    const WF_EDIT_LABELS = {
+        1: 'Modifier la mission',
+        2: 'Modifier les capteurs',
+        3: 'Modifier les compétences',
+        4: 'Modifier les outils',
+        5: 'Modifier les actionneurs',
+        6: 'Modifier la décision',
+        7: 'Modifier la mémoire',
+        8: 'Modifier le runtime',
+        9: 'Modifier la sécurité'
+    };
+
+    function buildCatalogDetailsForPayload(key) {
+        return buildCatalogDetails(key);
+    }
+
+    function summarizeFields(config, fieldDefs) {
+        const entries = [];
+        (fieldDefs || []).forEach(f => {
+            const v = (config[f.key] || '').toString().trim();
+            if (!v) return;
+            entries.push({ label: f.label || f.key, value: f.secret ? '[Vault]' : v, vault: !!f.secret });
+        });
+        return entries;
+    }
+
+    function renderConfigTags(entries) {
+        if (!entries.length) return '<span class="studio-wf-muted">Configuration par défaut</span>';
+        return `<div class="studio-wf-tags">${entries.map(e =>
+            `<span class="studio-wf-tag${e.vault ? ' vault' : ''}"><span class="studio-wf-tag-k">${escapeHtml(e.label)}</span> ${escapeHtml(e.value)}</span>`
+        ).join('')}</div>`;
+    }
+
+    function renderCatalogItems(details, emptyText) {
+        if (!details?.length) return `<span class="studio-wf-muted">${escapeHtml(emptyText)}</span>`;
+        return details.map(d => {
+            const keys = Object.entries(d.config || {});
+            const tags = keys.length
+                ? keys.map(([k, v]) =>
+                    `<span class="studio-wf-tag${v === '[VAULT]' ? ' vault' : ''}"><span class="studio-wf-tag-k">${escapeHtml(k)}</span> ${escapeHtml(v)}</span>`
+                ).join('')
+                : '<span class="studio-wf-muted">Par défaut</span>';
+            return `<div class="studio-wf-item"><span class="studio-wf-item-label">${escapeHtml(d.label)}</span><div class="studio-wf-tags">${tags}</div></div>`;
+        }).join('');
+    }
+
+    function renderEditBtn(step) {
+        const label = WF_EDIT_LABELS[step] || 'Modifier';
+        return `<button type="button" class="studio-wf-edit" data-goto-step="${step}" title="${escapeAttr(label)}"><i class="bi bi-pencil"></i> ${escapeHtml(label)}</button>`;
+    }
+
+    function renderWfCard(title, icon, phase, step, bodyHtml, wide) {
+        return `
+            <div class="studio-wf-card${wide ? ' studio-wf-card-wide' : ''}">
+                <div class="studio-wf-card-head">
+                    <span class="studio-wf-card-icon"><i class="bi ${icon}"></i></span>
+                    <h4 class="studio-wf-card-title">${escapeHtml(title)}</h4>
+                    <span class="studio-wf-card-phase">${escapeHtml(phase)}</span>
+                    ${renderEditBtn(step)}
+                </div>
+                <div class="studio-wf-card-body">${bodyHtml}</div>
+            </div>`;
+    }
+
+    function buildDecisionSummary() {
+        const fields = getStudioDecisionFields(state.decision.engine);
+        return summarizeFields(state.decision.config || {}, fields);
+    }
+
+    function buildMemorySummary() {
+        return (state.memory.types || []).map(typeId => {
+            const fields = getStudioMemoryFields(typeId);
+            const cfg = state.memory.config?.[typeId] || {};
+            return { label: getStudioMemoryLabel(typeId), entries: summarizeFields(cfg, fields) };
+        });
+    }
+
+    function buildExecutionSummary(p) {
+        const exec = ensureExecution();
+        const preview = exec && EXEC() ? EXEC().getRuntimePreview(exec, p.agentName) : null;
+        const ex = p.execution || {};
+        const rows = [];
+        if (preview) {
+            rows.push(['Runtime', preview.type]);
+            rows.push(['Déclencheur', preview.trigger]);
+            rows.push(['CPU', preview.cpu]);
+            rows.push(['Mémoire', preview.memory]);
+            rows.push(['Timeout', preview.maxTime]);
+            rows.push(['Supervision', preview.health]);
+            rows.push(['Monitoring', preview.monitoring]);
+            rows.push(['Logs', preview.logs]);
+            rows.push(['Restart', preview.restart]);
+        }
+        if (ex.resilience) {
+            const r = ex.resilience;
+            rows.push(['Retry', r.retryOnError ? `${r.maxAttempts || 3} tentatives` : 'Désactivé']);
+            if (r.backoffSec) rows.push(['Backoff', `${r.backoffSec}s`]);
+        }
+        if (ex.logging) {
+            rows.push(['Niveau logs', ex.logging.level || '—']);
+            if (ex.logging.retentionDays) rows.push(['Rétention', `${ex.logging.retentionDays} j`]);
+        }
+        return rows;
+    }
+
+    function renderKvRows(rows) {
+        if (!rows.length) return '<span class="studio-wf-muted">Non configuré</span>';
+        return rows.map(([k, v]) =>
+            `<div class="studio-wf-kv-row"><span class="studio-wf-kv-k">${escapeHtml(k)}</span><span class="studio-wf-kv-v">${escapeHtml(String(v))}</span></div>`
+        ).join('');
+    }
+
+    function renderAgenticLoopDiagram() {
+        const nodes = AGENTIC_LOOP.map(step =>
+            `<div class="studio-wf-loop-node"><div class="studio-wf-loop-node-circle">${escapeHtml(step)}</div><span class="studio-wf-loop-node-label">${escapeHtml(step)}</span></div>`
+        );
+        const connectors = AGENTIC_LOOP.slice(0, -1).map(() => '<div class="studio-wf-loop-connector" aria-hidden="true"></div>');
+        const track = [];
+        nodes.forEach((n, i) => {
+            track.push(n);
+            if (connectors[i]) track.push(connectors[i]);
+        });
+        return `
+            <div class="studio-workflow-diagram">
+                <p class="studio-wf-loop-title">Boucle agentique — Runtime Agentic</p>
+                <div class="studio-wf-loop-track">${track.join('')}</div>
+            </div>`;
+    }
+
+    function bindWorkflowEditLinks(container) {
+        container?.querySelectorAll('[data-goto-step]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const step = parseInt(btn.dataset.gotoStep, 10);
+                if (step >= 1 && step <= TOTAL_STEPS) goToStep(step, false);
+            });
+        });
+    }
+
+    function renderBlueprintCondensed(p) {
+        const wrap = $('#bp-workflow-condensed-wrap');
+        const el = $('#bp-workflow-condensed');
+        if (!wrap || !el) return;
+        const onFinal = state.step === TOTAL_STEPS;
+        wrap.hidden = !onFinal;
+        if (!onFinal) { el.innerHTML = ''; return; }
+
+        const miniLoop = AGENTIC_LOOP.map(s =>
+            `<span class="studio-bp-wf-mini-node">${escapeHtml(s)}</span>`
+        ).join('');
+        const counts = [
+            p.sensors.length ? `${p.sensors.length} capteur(s)` : null,
+            p.skills.length ? `${p.skills.length} skill(s)` : null,
+            p.tools.length ? `${p.tools.length} outil(s)` : null,
+            p.actuators.length ? `${p.actuators.length} actionneur(s)` : null,
+            p.memory.types.length ? `${p.memory.types.length} mémoire(s)` : null,
+            p.security.length ? `${p.security.length} règle(s)` : null
+        ].filter(Boolean);
+
+        el.innerHTML = `
+            <div class="studio-bp-wf-mini-loop">${miniLoop}</div>
+            <div class="studio-bp-wf-mini-counts">${counts.map(c => `<span>${escapeHtml(c)}</span>`).join('') || '<span>Aucune capacité</span>'}</div>
+            <p class="studio-wf-agent-sub" style="margin-top:8px">${escapeHtml(p.decision.label)} · ${escapeHtml(p.runtime)}</p>`;
+    }
+
+    function renderWorkflowBlueprint() {
         const p = buildPayload();
         const review = $('#finalReview');
         if (!review) return;
+
+        const missionBody = `
+            ${p.businessDomain ? `<span class="studio-wf-domain">${escapeHtml(p.businessDomain)}</span>` : ''}
+            <p class="studio-wf-text">${escapeHtml(p.mission || '— Mission non définie —')}</p>
+            ${p.missionContext ? `<p class="studio-wf-text"><strong>Contexte :</strong> ${escapeHtml(p.missionContext)}</p>` : ''}
+            ${p.freeText ? `<p class="studio-wf-text"><strong>Notes :</strong> ${escapeHtml(p.freeText)}</p>` : ''}`;
+
+        const memoryBody = buildMemorySummary().length
+            ? buildMemorySummary().map(m =>
+                `<div class="studio-wf-item"><span class="studio-wf-item-label">${escapeHtml(m.label)}</span>${renderConfigTags(m.entries)}</div>`
+            ).join('')
+            : '<span class="studio-wf-muted">Aucun type de mémoire sélectionné</span>';
+
+        const securityBody = p.security.length
+            ? `<div class="studio-wf-tags">${p.security.map(s => `<span class="studio-badge green">${escapeHtml(s)}</span>`).join('')}</div>`
+            : '<span class="studio-wf-muted">Aucune règle de sécurité</span>';
+
         review.innerHTML = `
-            <div class="studio-review-grid">
-                <div class="studio-review-row"><span class="studio-review-label">Nom</span>
-                    <span class="studio-review-value"><strong>${escapeHtml(p.agentName)}</strong></span></div>
-                <div class="studio-review-row"><span class="studio-review-label">Mission</span>
-                    <span class="studio-review-value">${escapeHtml(p.mission || '—')}</span></div>
-                <div class="studio-review-row"><span class="studio-review-label">Moteur IA</span>
-                    <span class="studio-review-value">${escapeHtml(p.decision.label)}</span></div>
-                <div class="studio-review-row"><span class="studio-review-label">Runtime</span>
-                    <span class="studio-review-value">${escapeHtml(p.runtime)} — ${escapeHtml(p.trigger)}</span></div>
-                <div class="studio-review-row"><span class="studio-review-label">Complexité</span>
-                    <span class="studio-review-value studio-bp-stars">${renderStars(p.complexity)}</span></div>
-                <div class="studio-review-row"><span class="studio-review-label">Coût estimé</span>
-                    <span class="studio-review-value">$${p.estimatedCost} / mois</span></div>
-                <div class="studio-review-row"><span class="studio-review-label">Temps création</span>
-                    <span class="studio-review-value">${p.creationTimeEstimate}</span></div>
-                <div class="studio-review-row"><span class="studio-review-label">Sécurité</span>
-                    <span class="studio-review-value">${p.security.map(s => `<span class="studio-badge green">${escapeHtml(s)}</span>`).join('') || '—'}</span></div>
-            </div>
-            <div class="studio-subsection">
-                <h4>Boucle agentique</h4>
-                <div class="studio-workflow-preview">${p.agenticLoop}</div>
-            </div>
-            <div class="studio-subsection">
-                <h4>Capacités</h4>
-                <div class="studio-workflow-preview">
-                    Observe: ${p.sensors.join(', ') || '—'}<br>
-                    Understand: ${p.skills.join(', ') || '—'}<br>
-                    Tools: ${p.tools.join(', ') || '—'}<br>
-                    Act: ${p.actuators.join(', ') || '—'}<br>
-                    Memory: ${p.memory.types.join(', ') || '—'}
+            <div class="studio-workflow-blueprint">
+                <div class="studio-wf-review-banner">
+                    <i class="bi bi-eye"></i>
+                    <div>Vérifiez le workflow complet ci-dessous. Cliquez sur <strong>Modifier</strong> pour ajuster une section, ou sur une étape du stepper en haut. Puis cliquez sur <strong>Générer le Blueprint</strong>.</div>
                 </div>
-            </div>
-            ${p.freeText ? `<div class="studio-subsection"><h4>Notes</h4><p>${escapeHtml(p.freeText)}</p></div>` : ''}`;
+                <div class="studio-wf-header">
+                    <div>
+                        <h3 class="studio-wf-agent-name">${escapeHtml(p.agentName)}</h3>
+                        <p class="studio-wf-agent-sub">${escapeHtml(p.aiModel)} · ${escapeHtml(p.runtime)} — ${escapeHtml(p.trigger)}</p>
+                    </div>
+                    <div class="studio-wf-metrics">
+                        <div class="studio-wf-metric">
+                            <span class="studio-wf-metric-k">Complexité</span>
+                            <span class="studio-wf-metric-v studio-bp-stars">${renderStars(p.complexity)}</span>
+                        </div>
+                        <div class="studio-wf-metric">
+                            <span class="studio-wf-metric-k">Coût IA</span>
+                            <span class="studio-wf-metric-v cost">$${p.estimatedCost}/mois</span>
+                        </div>
+                        <div class="studio-wf-metric">
+                            <span class="studio-wf-metric-k">Création</span>
+                            <span class="studio-wf-metric-v">${escapeHtml(p.creationTimeEstimate)}</span>
+                        </div>
+                    </div>
+                </div>
+                ${renderAgenticLoopDiagram()}
+                <div class="studio-wf-capabilities">
+                    ${renderWfCard('Mission & contexte', 'bi-bullseye', 'Observe', 1, missionBody, true)}
+                    ${renderWfCard('Sensors — Observe', 'bi-radar', 'Observe', 2, renderCatalogItems(p.sensorDetails, 'Aucun capteur'))}
+                    ${renderWfCard('Skills — Understand', 'bi-lightbulb', 'Understand', 3, renderCatalogItems(p.skillDetails, 'Aucune compétence'))}
+                    ${renderWfCard('Decision Engine — Decide', 'bi-cpu', 'Decide', 6,
+                        `<p class="studio-wf-text"><strong>${escapeHtml(p.decision.label)}</strong></p>${renderConfigTags(buildDecisionSummary())}`)}
+                    ${renderWfCard('Tools — Capacités', 'bi-wrench', 'Decide / Act', 4, renderCatalogItems(p.toolDetails, 'Aucun outil'))}
+                    ${renderWfCard('Actuators — Act', 'bi-send', 'Act', 5, renderCatalogItems(p.actuatorDetails, 'Aucun actionneur'))}
+                    ${renderWfCard('Memory — Log / Contexte', 'bi-database', 'Log', 7, memoryBody)}
+                    ${renderWfCard('Execution Runtime — Wait', 'bi-gear-wide-connected', 'Wait', 8, renderKvRows(buildExecutionSummary(p)))}
+                    ${renderWfCard('Security — Verify', 'bi-shield-check', 'Verify', 9, securityBody)}
+                </div>
+            </div>`;
+
+        bindWorkflowEditLinks(review);
+    }
+
+    function renderFinalReview() {
+        renderWorkflowBlueprint();
     }
 
     function escapeAttr(s) {
