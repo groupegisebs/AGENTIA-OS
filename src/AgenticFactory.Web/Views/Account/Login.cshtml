@@ -1,0 +1,19 @@
+@model AgenticFactory.Web.Models.LoginViewModel
+@{
+    ViewData["Title"] = "Login";
+}
+<div class="container py-5" style="max-width:460px;">
+    <h3>Login</h3>
+    <form method="post">
+        <div class="mb-3">
+            <label asp-for="Email" class="form-label"></label>
+            <input asp-for="Email" class="form-control" />
+        </div>
+        <div class="mb-3">
+            <label asp-for="Password" class="form-label"></label>
+            <input asp-for="Password" type="password" class="form-control" />
+        </div>
+        <button class="btn btn-primary" type="submit">Sign in</button>
+        <a class="btn btn-link" asp-action="Register">Create account</a>
+    </form>
+</div>

@@ -1,0 +1,104 @@
+using System.Text;
+using AgenticFactory.Application;
+using AgenticFactory.Infrastructure.Identity;
+using AgenticFactory.Infrastructure.Persistence;
+using AgenticFactory.Infrastructure.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
+using OpenTelemetry.Trace;
+using Serilog;
+
+namespace AgenticFactory.Infrastructure;
+
+public static class DependencyInjection
+{
+    public static IServiceCollection AddAgenticInfrastructure(this IServiceCollection services, IConfiguration configuration)
+    {
+        var provider = (configuration["Database:Provider"] ?? Environment.GetEnvironmentVariable("DATABASE_PROVIDER") ?? "postgres").ToLowerInvariant();
+        var connectionString = configuration.GetConnectionString("Default")
+            ?? Environment.GetEnvironmentVariable("DATABASE_CONNECTION_STRING")
+            ?? "Host=localhost;Port=5432;Database=agentic_factory;Username=postgres;Password=postgres";
+
+        services.AddDbContext<AgenticFactoryDbContext>(options =>
+        {
+            if (string.Equals(provider, "sqlserver", StringComparison.OrdinalIgnoreCase))
+            {
+                options.UseSqlServer(connectionString);
+                return;
+            }
+
+            if (string.Equals(provider, "inmemory", StringComparison.OrdinalIgnoreCase))
+            {
+                options.UseInMemoryDatabase("agentic-factory-dev");
+                return;
+            }
+
+            options.UseNpgsql(connectionString);
+        });
+
+        services.AddHttpContextAccessor();
+        services.AddIdentity<AppIdentityUser, IdentityRole<Guid>>(options =>
+            {
+                options.Password.RequireDigit = true;
+                options.Password.RequireUppercase = false;
+                options.Password.RequireNonAlphanumeric = true;
+                options.User.RequireUniqueEmail = true;
+            })
+            .AddEntityFrameworkStores<AgenticFactoryDbContext>()
+            .AddDefaultTokenProviders();
+
+        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddJwtBearer(options =>
+            {
+                var key = configuration["Auth:JwtKey"] ?? "change-this-development-key-min-32-characters";
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateIssuerSigningKey = true,
+                    ValidateLifetime = true,
+                    ValidIssuer = configuration["Auth:Issuer"] ?? "AgenticFactory",
+                    ValidAudience = configuration["Auth:Audience"] ?? "AgenticFactoryClients",
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key))
+                };
+            });
+
+        services.AddAuthorization(options =>
+        {
+            options.AddPolicy("CanCreateAgent", policy => policy.RequireRole("Admin", "Creator"));
+            options.AddPolicy("CanViewDashboard", policy => policy.RequireRole("Admin", "Creator", "Viewer"));
+        });
+
+        services.AddScoped<ICurrentTenantService, CurrentTenantService>();
+        services.AddScoped<IBlueprintGenerator, MockBlueprintGenerator>();
+        services.AddScoped<IAgentCreationService, AgentCreationService>();
+        services.AddScoped<IAgentDeploymentService, AgentDeploymentService>();
+        services.AddScoped<IAgentInvocationService, AgentInvocationService>();
+        services.AddScoped<IJwtTokenService, JwtTokenService>();
+        services.AddScoped<IAgentExecutor, AgentExecutor>();
+        services.AddScoped<IAgentToolExecutor, AgentToolExecutor>();
+        services.AddScoped<IAgentMemoryService, AgentMemoryService>();
+        services.AddScoped<IAgentModelProvider, AgentModelProvider>();
+        services.AddScoped<IAgentRuntime, RuntimeEngine>();
+        services.AddScoped<IdentitySeedService>();
+
+        services.AddOpenTelemetry()
+            .WithTracing(builder => builder
+                .AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation()
+                .AddConsoleExporter());
+
+        Log.Logger = new LoggerConfiguration()
+            .WriteTo.Console()
+            .WriteTo.File("logs/agentic-factory-.log", rollingInterval: RollingInterval.Day)
+            .Enrich.FromLogContext()
+            .CreateLogger();
+
+        services.AddSerilog();
+        return services;
+    }
+}

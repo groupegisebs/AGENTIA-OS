@@ -1,0 +1,53 @@
+@model AgenticFactory.Web.Models.DashboardViewModel
+@{
+    ViewData["Title"] = "Agentic Factory Dashboard";
+}
+
+<div class="container py-4">
+    <h2 class="mb-4">Agentic Factory Monitoring</h2>
+    <div class="row g-3 mb-4">
+        <div class="col-md-2"><div class="card"><div class="card-body"><strong>Agents</strong><div>@Model.Stats.TotalAgents</div></div></div></div>
+        <div class="col-md-2"><div class="card"><div class="card-body"><strong>Runs</strong><div>@Model.Stats.TotalRuns</div></div></div></div>
+        <div class="col-md-2"><div class="card"><div class="card-body"><strong>Failed</strong><div>@Model.Stats.FailedRuns</div></div></div></div>
+        <div class="col-md-3"><div class="card"><div class="card-body"><strong>Tokens</strong><div>@Model.Stats.TotalTokens</div></div></div></div>
+        <div class="col-md-3"><div class="card"><div class="card-body"><strong>Cost (USD)</strong><div>@Model.Stats.EstimatedCostUsd.ToString("0.0000")</div></div></div></div>
+    </div>
+
+    <h4>Runtime Status</h4>
+    <table class="table table-striped">
+        <thead><tr><th>Node</th><th>Status</th><th>Last Seen</th><th>Active Triggers</th></tr></thead>
+        <tbody>
+        @foreach (var rt in Model.RuntimeStatuses)
+        {
+            <tr><td>@rt.NodeName</td><td>@rt.Status</td><td>@rt.LastSeenUtc.ToLocalTime()</td><td>@rt.ActiveTriggerCount</td></tr>
+        }
+        </tbody>
+    </table>
+
+    <h4>Latest Runs</h4>
+    <table class="table table-hover">
+        <thead><tr><th>Run Id</th><th>Status</th><th>Created</th><th>Tokens</th><th>Cost</th></tr></thead>
+        <tbody id="runsBody">
+        @foreach (var run in Model.RecentRuns)
+        {
+            <tr data-run-id="@run.Id">
+                <td>@run.Id</td>
+                <td class="run-status">@run.Status</td>
+                <td>@run.CreatedAtUtc.ToLocalTime()</td>
+                <td>@(run.PromptTokens + run.CompletionTokens)</td>
+                <td>@run.EstimatedCostUsd.ToString("0.0000")</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
+<script>
+    const connection = new signalR.HubConnectionBuilder().withUrl("http://localhost:5107/hubs/runs").build();
+    connection.on("run-status", (runId, status) => {
+        const row = document.querySelector(`tr[data-run-id='${runId}'] .run-status`);
+        if (row) row.innerText = status;
+    });
+    connection.start().catch(console.error);
+</script>

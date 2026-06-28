@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "4bVU6wGCkSY=",
+  "dgSpecHash": "c6YbskjtRR8=",
   "success": true,
   "projectFilePath": "C:\\Users\\bedig\\source\\repos\\GISEEnterpriseEcosystemSolution\\AGENTIA-OS\\tests\\AgenticFactory.Tests\\AgenticFactory.Tests.csproj",
   "expectedPackageFiles": [
@@ -23,6 +23,7 @@
     "C:\\Users\\bedig\\.nuget\\packages\\microsoft.entityframeworkcore\\10.0.9\\microsoft.entityframeworkcore.10.0.9.nupkg.sha512",
     "C:\\Users\\bedig\\.nuget\\packages\\microsoft.entityframeworkcore.abstractions\\10.0.9\\microsoft.entityframeworkcore.abstractions.10.0.9.nupkg.sha512",
     "C:\\Users\\bedig\\.nuget\\packages\\microsoft.entityframeworkcore.analyzers\\10.0.9\\microsoft.entityframeworkcore.analyzers.10.0.9.nupkg.sha512",
+    "C:\\Users\\bedig\\.nuget\\packages\\microsoft.entityframeworkcore.inmemory\\10.0.9\\microsoft.entityframeworkcore.inmemory.10.0.9.nupkg.sha512",
     "C:\\Users\\bedig\\.nuget\\packages\\microsoft.entityframeworkcore.relational\\10.0.9\\microsoft.entityframeworkcore.relational.10.0.9.nupkg.sha512",
     "C:\\Users\\bedig\\.nuget\\packages\\microsoft.entityframeworkcore.sqlserver\\10.0.9\\microsoft.entityframeworkcore.sqlserver.10.0.9.nupkg.sha512",
     "C:\\Users\\bedig\\.nuget\\packages\\microsoft.extensions.apidescription.server\\10.0.0\\microsoft.extensions.apidescription.server.10.0.0.nupkg.sha512",

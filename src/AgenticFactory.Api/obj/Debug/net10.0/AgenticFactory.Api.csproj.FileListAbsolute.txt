@@ -1,0 +1,9 @@
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\src\AgenticFactory.Api\obj\Debug\net10.0\AgenticFactory.Api.csproj.AssemblyReference.cache
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\src\AgenticFactory.Api\obj\Debug\net10.0\rpswa.dswa.cache.json
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\src\AgenticFactory.Api\obj\Debug\net10.0\AgenticFactory.Api.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\src\AgenticFactory.Api\obj\Debug\net10.0\AgenticFactory.Api.AssemblyInfoInputs.cache
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\src\AgenticFactory.Api\obj\Debug\net10.0\AgenticFactory.Api.AssemblyInfo.cs
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\src\AgenticFactory.Api\obj\Debug\net10.0\AgenticFactory.Api.csproj.CoreCompileInputs.cache
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\src\AgenticFactory.Api\obj\Debug\net10.0\AgenticFactory.Api.MvcApplicationPartsAssemblyInfo.cs
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\src\AgenticFactory.Api\obj\Debug\net10.0\AgenticFactory.Api.MvcApplicationPartsAssemblyInfo.cache
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\src\AgenticFactory.Api\obj\Debug\net10.0\AgenticFactory.Api.sourcelink.json

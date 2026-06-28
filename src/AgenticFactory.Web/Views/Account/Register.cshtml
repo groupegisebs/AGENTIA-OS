@@ -1,0 +1,15 @@
+@model AgenticFactory.Web.Models.RegisterViewModel
+@{
+    ViewData["Title"] = "Register";
+}
+<div class="container py-5" style="max-width:520px;">
+    <h3>Create tenant admin</h3>
+    <form method="post">
+        <div class="mb-3"><label asp-for="OrganizationName" class="form-label"></label><input asp-for="OrganizationName" class="form-control" /></div>
+        <div class="mb-3"><label asp-for="DisplayName" class="form-label"></label><input asp-for="DisplayName" class="form-control" /></div>
+        <div class="mb-3"><label asp-for="Email" class="form-label"></label><input asp-for="Email" class="form-control" /></div>
+        <div class="mb-3"><label asp-for="Password" class="form-label"></label><input asp-for="Password" type="password" class="form-control" /></div>
+        <button class="btn btn-success" type="submit">Register</button>
+        <a class="btn btn-link" asp-action="Login">Back to login</a>
+    </form>
+</div>
