@@ -52,10 +52,6 @@
             color: #fff; background: rgba(99,102,241,.12);
             border-left-color: var(--af-primary);
         }
-        .af-nav-section {
-            padding: 16px 24px 6px; font-size: 0.7rem; font-weight: 600;
-            color: #475569; text-transform: uppercase; letter-spacing: .08em;
-        }
         .af-sidebar-footer { padding: 12px 16px 16px; border-top: 1px solid #1e293b; }
         .af-main { margin-left: 260px; min-height: 100vh; }
         .af-topbar {
@@ -80,94 +76,129 @@
             Agentia
         </div>
         <nav class="af-nav">
-            <div class="af-nav-section">Principal</div>
-            <div class="af-nav-item">
-                <a asp-controller="Dashboard" asp-action="Index" class="@(activeNav == "Dashboard" ? "active" : "")">
-                    <i class="bi bi-grid-1x2"></i> Dashboard
-                </a>
+            <div class="af-nav-section-group" data-section="principal">
+                <button type="button" class="af-nav-section-toggle" aria-expanded="true" aria-controls="nav-section-principal">
+                    <span class="af-nav-section-label">Principal</span>
+                    <i class="bi bi-chevron-down af-nav-section-chevron" aria-hidden="true"></i>
+                </button>
+                <div class="af-nav-section-body" id="nav-section-principal">
+                    <div class="af-nav-item">
+                        <a asp-controller="Dashboard" asp-action="Index" class="@(activeNav == "Dashboard" ? "active" : "")">
+                            <i class="bi bi-grid-1x2"></i> Dashboard
+                        </a>
+                    </div>
+                </div>
             </div>
 
-            <div class="af-nav-section">Plateforme</div>
-            <div class="af-nav-item">
-                <a asp-controller="Agents" asp-action="Index" class="@(activeNav == "Agents" ? "active" : "")">
-                    <i class="bi bi-robot"></i> Agents
-                </a>
-            </div>
-            <div class="af-nav-item">
-                <a asp-controller="Deployments" asp-action="Index" class="@(activeNav == "Deployments" ? "active" : "")">
-                    <i class="bi bi-lightning"></i> Déploiements
-                </a>
-            </div>
-            <div class="af-nav-item">
-                <a asp-controller="Executions" asp-action="Index" class="@(activeNav == "Executions" ? "active" : "")">
-                    <i class="bi bi-activity"></i> Exécutions
-                </a>
-            </div>
-            <div class="af-nav-item">
-                <a asp-controller="ExecutionProviders" asp-action="Index" class="@(activeNav == "ExecutionProviders" ? "active" : "")">
-                    <i class="bi bi-plug"></i> Execution Providers
-                </a>
-            </div>
-            <div class="af-nav-item">
-                <a asp-controller="Dashboard" asp-action="Index" class="@(activeNav == "Monitoring" ? "active" : "")">
-                    <i class="bi bi-graph-up"></i> Monitoring
-                </a>
-            </div>
-
-            <div class="af-nav-section">Marketplace</div>
-            <div class="af-nav-item">
-                <a asp-controller="Marketplace" asp-action="Index" class="@(activeNav == "Marketplace" ? "active" : "")">
-                    <i class="bi bi-shop"></i> Explorer
-                </a>
-            </div>
-            <div class="af-nav-item">
-                <a asp-controller="Agents" asp-action="Index" class="@(activeNav is "Agents" or "MyAgents" ? "active" : "")">
-                    <i class="bi bi-collection"></i> Mes Agents
-                </a>
-            </div>
-            <div class="af-nav-item">
-                <a asp-controller="ComingSoon" asp-action="Index" asp-route-name="Achats" class="@(activeNav == "Purchases" ? "active" : "")">
-                    <i class="bi bi-bag"></i> Achats
-                </a>
+            <div class="af-nav-section-group" data-section="plateforme">
+                <button type="button" class="af-nav-section-toggle" aria-expanded="true" aria-controls="nav-section-plateforme">
+                    <span class="af-nav-section-label">Plateforme</span>
+                    <i class="bi bi-chevron-down af-nav-section-chevron" aria-hidden="true"></i>
+                </button>
+                <div class="af-nav-section-body" id="nav-section-plateforme">
+                    <div class="af-nav-item">
+                        <a asp-controller="Agents" asp-action="Index" class="@(activeNav == "Agents" ? "active" : "")">
+                            <i class="bi bi-robot"></i> Agents
+                        </a>
+                    </div>
+                    <div class="af-nav-item">
+                        <a asp-controller="Deployments" asp-action="Index" class="@(activeNav == "Deployments" ? "active" : "")">
+                            <i class="bi bi-lightning"></i> Déploiements
+                        </a>
+                    </div>
+                    <div class="af-nav-item">
+                        <a asp-controller="Executions" asp-action="Index" class="@(activeNav == "Executions" ? "active" : "")">
+                            <i class="bi bi-activity"></i> Exécutions
+                        </a>
+                    </div>
+                    <div class="af-nav-item">
+                        <a asp-controller="ExecutionProviders" asp-action="Index" class="@(activeNav == "ExecutionProviders" ? "active" : "")">
+                            <i class="bi bi-plug"></i> Execution Providers
+                        </a>
+                    </div>
+                    <div class="af-nav-item">
+                        <a asp-controller="Dashboard" asp-action="Index" class="@(activeNav == "Monitoring" ? "active" : "")">
+                            <i class="bi bi-graph-up"></i> Monitoring
+                        </a>
+                    </div>
+                </div>
             </div>
 
-            <div class="af-nav-section">Facturation</div>
-            <div class="af-nav-item">
-                <a asp-controller="ComingSoon" asp-action="Index" asp-route-name="Abonnements">
-                    <i class="bi bi-credit-card"></i> Abonnements
-                </a>
-            </div>
-            <div class="af-nav-item">
-                <a asp-controller="ComingSoon" asp-action="Index" asp-route-name="Facturation">
-                    <i class="bi bi-receipt"></i> Facturation
-                </a>
-            </div>
-            <div class="af-nav-item">
-                <a asp-controller="ComingSoon" asp-action="Index" asp-route-name="Utilisation">
-                    <i class="bi bi-bar-chart"></i> Utilisation
-                </a>
+            <div class="af-nav-section-group" data-section="marketplace">
+                <button type="button" class="af-nav-section-toggle" aria-expanded="true" aria-controls="nav-section-marketplace">
+                    <span class="af-nav-section-label">Marketplace</span>
+                    <i class="bi bi-chevron-down af-nav-section-chevron" aria-hidden="true"></i>
+                </button>
+                <div class="af-nav-section-body" id="nav-section-marketplace">
+                    <div class="af-nav-item">
+                        <a asp-controller="Marketplace" asp-action="Index" class="@(activeNav == "Marketplace" ? "active" : "")">
+                            <i class="bi bi-shop"></i> Explorer
+                        </a>
+                    </div>
+                    <div class="af-nav-item">
+                        <a asp-controller="Agents" asp-action="Index" class="@(activeNav is "Agents" or "MyAgents" ? "active" : "")">
+                            <i class="bi bi-collection"></i> Mes Agents
+                        </a>
+                    </div>
+                    <div class="af-nav-item">
+                        <a asp-controller="ComingSoon" asp-action="Index" asp-route-name="Achats" class="@(activeNav == "Purchases" ? "active" : "")">
+                            <i class="bi bi-bag"></i> Achats
+                        </a>
+                    </div>
+                </div>
             </div>
 
-            <div class="af-nav-section">Paramètres</div>
-            <div class="af-nav-item">
-                <a asp-controller="ComingSoon" asp-action="Index" asp-route-name="Paramètres">
-                    <i class="bi bi-gear"></i> Paramètres
-                </a>
+            <div class="af-nav-section-group" data-section="facturation">
+                <button type="button" class="af-nav-section-toggle" aria-expanded="true" aria-controls="nav-section-facturation">
+                    <span class="af-nav-section-label">Facturation</span>
+                    <i class="bi bi-chevron-down af-nav-section-chevron" aria-hidden="true"></i>
+                </button>
+                <div class="af-nav-section-body" id="nav-section-facturation">
+                    <div class="af-nav-item">
+                        <a asp-controller="ComingSoon" asp-action="Index" asp-route-name="Abonnements">
+                            <i class="bi bi-credit-card"></i> Abonnements
+                        </a>
+                    </div>
+                    <div class="af-nav-item">
+                        <a asp-controller="ComingSoon" asp-action="Index" asp-route-name="Facturation">
+                            <i class="bi bi-receipt"></i> Facturation
+                        </a>
+                    </div>
+                    <div class="af-nav-item">
+                        <a asp-controller="ComingSoon" asp-action="Index" asp-route-name="Utilisation">
+                            <i class="bi bi-bar-chart"></i> Utilisation
+                        </a>
+                    </div>
+                </div>
             </div>
-            <div class="af-nav-item">
-                <a asp-controller="ComingSoon" asp-action="Index" asp-route-name="Utilisateurs">
-                    <i class="bi bi-people"></i> Utilisateurs
-                </a>
-            </div>
-            <div class="af-nav-item">
-                <a asp-controller="ComingSoon" asp-action="Index" asp-route-name="Rôles & Permissions">
-                    <i class="bi bi-shield-lock"></i> Rôles &amp; Permissions
-                </a>
-            </div>
-            <div class="af-nav-item">
-                <a asp-controller="ComingSoon" asp-action="Index" asp-route-name="Audit Logs">
-                    <i class="bi bi-journal-text"></i> Audit Logs
-                </a>
+
+            <div class="af-nav-section-group" data-section="parametres">
+                <button type="button" class="af-nav-section-toggle" aria-expanded="true" aria-controls="nav-section-parametres">
+                    <span class="af-nav-section-label">Paramètres</span>
+                    <i class="bi bi-chevron-down af-nav-section-chevron" aria-hidden="true"></i>
+                </button>
+                <div class="af-nav-section-body" id="nav-section-parametres">
+                    <div class="af-nav-item">
+                        <a asp-controller="ComingSoon" asp-action="Index" asp-route-name="Paramètres">
+                            <i class="bi bi-gear"></i> Paramètres
+                        </a>
+                    </div>
+                    <div class="af-nav-item">
+                        <a asp-controller="ComingSoon" asp-action="Index" asp-route-name="Utilisateurs">
+                            <i class="bi bi-people"></i> Utilisateurs
+                        </a>
+                    </div>
+                    <div class="af-nav-item">
+                        <a asp-controller="ComingSoon" asp-action="Index" asp-route-name="Rôles & Permissions">
+                            <i class="bi bi-shield-lock"></i> Rôles &amp; Permissions
+                        </a>
+                    </div>
+                    <div class="af-nav-item">
+                        <a asp-controller="ComingSoon" asp-action="Index" asp-route-name="Audit Logs">
+                            <i class="bi bi-journal-text"></i> Audit Logs
+                        </a>
+                    </div>
+                </div>
             </div>
         </nav>
 
@@ -201,6 +232,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/agentia-sidebar.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
