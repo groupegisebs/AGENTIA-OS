@@ -3,6 +3,8 @@ using AgenticFactory.Application;
 using AgenticFactory.Infrastructure.Identity;
 using AgenticFactory.Infrastructure.Persistence;
 using AgenticFactory.Infrastructure.Services;
+using AgenticFactory.Infrastructure.Services.ExecutionProviders;
+using AgenticFactory.Infrastructure.Services.ExecutionProviders.Generators;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -86,6 +88,33 @@ public static class DependencyInjection
         services.AddScoped<IAgentModelProvider, AgentModelProvider>();
         services.AddScoped<IAgentRuntime, RuntimeEngine>();
         services.AddScoped<IdentitySeedService>();
+
+        services.AddSingleton<WindowsRuntimeProvider>();
+        services.AddSingleton<IEnumerable<IExecutionProvider>>(sp =>
+        {
+            var runtime = sp.GetRequiredService<WindowsRuntimeProvider>();
+            ExecutionProviderType[] stubTypes =
+            [
+                Domain.ExecutionProviderType.PowerAutomate,
+                Domain.ExecutionProviderType.LogicApps,
+                Domain.ExecutionProviderType.N8n,
+                Domain.ExecutionProviderType.Webhook,
+                Domain.ExecutionProviderType.RestApi,
+                Domain.ExecutionProviderType.PowerShell,
+                Domain.ExecutionProviderType.Python,
+                Domain.ExecutionProviderType.DockerJob,
+                Domain.ExecutionProviderType.AzureFunction,
+                Domain.ExecutionProviderType.WindowsScript
+            ];
+            IExecutionProvider[] providers = [runtime, .. stubTypes.Select(t => new StubExecutionProvider(t))];
+            return providers;
+        });
+        services.AddSingleton<IExecutionProviderRegistry, ExecutionProviderRegistry>();
+        services.AddScoped<IExecutionProviderRecommendationService, ExecutionProviderRecommendationService>();
+        services.AddScoped<IExecutionProviderCatalogService, ExecutionProviderCatalogService>();
+        services.AddSingleton<IPowerAutomateGenerator, PowerAutomateGenerator>();
+        services.AddSingleton<ILogicAppGenerator, LogicAppGenerator>();
+        services.AddSingleton<IN8nWorkflowGenerator, N8nWorkflowGenerator>();
 
         services.AddOpenTelemetry()
             .WithTracing(builder => builder

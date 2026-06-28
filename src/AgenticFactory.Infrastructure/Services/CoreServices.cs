@@ -10,6 +10,7 @@ using AgenticFactory.Application;
 using AgenticFactory.Domain;
 using AgenticFactory.Infrastructure.Identity;
 using AgenticFactory.Infrastructure.Persistence;
+using AgenticFactory.Infrastructure.Services.ExecutionProviders;
 using AgenticFactory.Shared;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -59,10 +60,12 @@ public sealed class MockBlueprintGenerator(IConfiguration configuration) : IBlue
     public Task<BlueprintResponse> GenerateAsync(Guid organizationId, string message, CancellationToken cancellationToken)
     {
         var mode = configuration["AI:Mode"] ?? "mock";
+        var executionProviders = ExtractExecutionProviders(message);
         var definition = new
         {
             provider = mode,
             name = "Chat Generated Agent",
+            orchestrator = "WindowsService",
             steps = new[]
             {
                 "Parse incoming message",
@@ -70,12 +73,76 @@ public sealed class MockBlueprintGenerator(IConfiguration configuration) : IBlue
                 "Execute configured tools",
                 "Return structured output"
             },
+            actions = executionProviders.Select(p => new
+            {
+                p.Label,
+                p.ActuatorType,
+                executionProvider = p.ProviderName,
+                providerType = p.ProviderType,
+                p.ExecutionMode,
+                p.TimeoutSeconds
+            }).ToArray(),
+            executionProviders,
             fallback = "mock-workflow"
         };
 
         var json = JsonSerializer.Serialize(definition, new JsonSerializerOptions { WriteIndented = true });
         return Task.FromResult(new BlueprintResponse(json, $"Blueprint generated from '{message}'", true, "Blueprint appears valid in mock mode."));
     }
+
+    private static List<BlueprintActionProvider> ExtractExecutionProviders(string message)
+    {
+        var results = new List<BlueprintActionProvider>();
+        if (string.IsNullOrWhiteSpace(message))
+            return results;
+
+        foreach (var line in message.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (!line.Contains("Provider d'exécution", StringComparison.OrdinalIgnoreCase)
+                && !line.Contains("Execution provider", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var parts = line.Split(':', 2);
+            if (parts.Length < 2) continue;
+            var detail = parts[1].Trim();
+            var label = detail;
+            var provider = "Windows Runtime";
+            var providerType = "InternalRuntime";
+            if (detail.Contains('→'))
+            {
+                var seg = detail.Split('→', 2);
+                label = seg[0].Trim();
+                provider = seg[1].Trim();
+                providerType = MapProviderName(provider);
+            }
+
+            results.Add(new BlueprintActionProvider(label, label, provider, providerType, "Synchronous", 300));
+        }
+
+        return results;
+    }
+
+    private static string MapProviderName(string name) => name switch
+    {
+        var n when n.Contains("Power Automate", StringComparison.OrdinalIgnoreCase) => "PowerAutomate",
+        var n when n.Contains("Logic Apps", StringComparison.OrdinalIgnoreCase) => "LogicApps",
+        var n when n.Contains("n8n", StringComparison.OrdinalIgnoreCase) => "N8n",
+        var n when n.Contains("Webhook", StringComparison.OrdinalIgnoreCase) => "Webhook",
+        var n when n.Contains("REST", StringComparison.OrdinalIgnoreCase) => "RestApi",
+        var n when n.Contains("PowerShell", StringComparison.OrdinalIgnoreCase) => "PowerShell",
+        var n when n.Contains("Python", StringComparison.OrdinalIgnoreCase) => "Python",
+        var n when n.Contains("Docker", StringComparison.OrdinalIgnoreCase) => "DockerJob",
+        var n when n.Contains("Azure Function", StringComparison.OrdinalIgnoreCase) => "AzureFunction",
+        _ => "InternalRuntime"
+    };
+
+    private sealed record BlueprintActionProvider(
+        string Label,
+        string ActuatorType,
+        string ProviderName,
+        string ProviderType,
+        string ExecutionMode,
+        int TimeoutSeconds);
 
     public Task<BlueprintResponse> ValidateAsync(string blueprintJson, CancellationToken cancellationToken)
     {
@@ -241,6 +308,7 @@ public sealed class AgentExecutor(
         TenantGuard.EnsureMatch(organizationId, agent.OrganizationId, "Agent");
         TenantGuard.EnsureMatch(organizationId, version.OrganizationId, "Agent version");
 
+        // Future: persist ActionExecutionLog entries per action (Provider, Duration, Status, Error, Retry).
         var run = new AgentRun
         {
             OrganizationId = organizationId,
@@ -787,5 +855,7 @@ public sealed class IdentitySeedService(
             });
             await dbContext.SaveChangesAsync(cancellationToken);
         }
+
+        await ExecutionProviderSeed.SeedAsync(dbContext, cancellationToken);
     }
 }

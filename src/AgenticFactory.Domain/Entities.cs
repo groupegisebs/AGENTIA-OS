@@ -58,6 +58,88 @@ public enum DomainRequestStatus
     Rejected = 4
 }
 
+public enum ExecutionProviderType
+{
+    InternalRuntime = 1,
+    PowerAutomate = 2,
+    LogicApps = 3,
+    N8n = 4,
+    Webhook = 5,
+    RestApi = 6,
+    PowerShell = 7,
+    Python = 8,
+    DockerJob = 9,
+    AzureFunction = 10,
+    WindowsScript = 11
+}
+
+public enum ExecutionMode
+{
+    Synchronous = 1,
+    Asynchronous = 2,
+    Scheduled = 3
+}
+
+public enum ErrorPolicy
+{
+    Fail = 1,
+    Continue = 2,
+    Compensate = 3
+}
+
+/// <summary>
+/// Catalog entry for how agent actions can be executed (Power Automate, n8n, Windows Runtime, etc.).
+/// </summary>
+public class ActionExecutionProvider : BaseEntity
+{
+    [MaxLength(120)]
+    public required string Name { get; set; }
+
+    [MaxLength(500)]
+    public required string Description { get; set; }
+
+    [MaxLength(80)]
+    public required string Category { get; set; }
+
+    public ExecutionProviderType ProviderType { get; set; }
+    public bool IsSystem { get; set; } = true;
+    public bool SupportsParameters { get; set; }
+    public bool SupportsMonitoring { get; set; }
+    public bool SupportsRetry { get; set; }
+    public bool SupportsRollback { get; set; }
+    public bool SupportsScheduling { get; set; }
+
+    [MaxLength(20)]
+    public string Version { get; set; } = "1.0.0";
+
+    [MaxLength(120)]
+    public string Author { get; set; } = "Agentia";
+
+    public bool IsEnabled { get; set; } = true;
+}
+
+/// <summary>
+/// Agent action definition with execution provider binding (embedded in blueprint JSON or persisted per agent).
+/// </summary>
+public class AgentAction
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid? AgentId { get; set; }
+
+    [MaxLength(120)]
+    public required string ActionType { get; set; }
+
+    [MaxLength(200)]
+    public required string Label { get; set; }
+
+    public Guid? ExecutionProviderId { get; set; }
+    public ExecutionMode ExecutionMode { get; set; } = ExecutionMode.Synchronous;
+    public string ExecutionConfigurationJson { get; set; } = "{}";
+    public int TimeoutSeconds { get; set; } = 300;
+    public string RetryPolicy { get; set; } = "{}";
+    public ErrorPolicy ErrorPolicy { get; set; } = ErrorPolicy.Fail;
+}
+
 public class Organization : BaseEntity
 {
     [MaxLength(150)]

@@ -27,6 +27,7 @@ public class AgenticFactoryDbContext
     public DbSet<RuntimeHeartbeat> RuntimeHeartbeats => Set<RuntimeHeartbeat>();
     public DbSet<StudioDomainRequest> StudioDomainRequests => Set<StudioDomainRequest>();
     public DbSet<StudioObjectiveRequest> StudioObjectiveRequests => Set<StudioObjectiveRequest>();
+    public DbSet<ActionExecutionProvider> ActionExecutionProviders => Set<ActionExecutionProvider>();
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -130,6 +131,17 @@ public class AgenticFactoryDbContext
             entity.Property(x => x.RelatedDomain).HasMaxLength(120);
             entity.Property(x => x.RequestedByEmail).HasMaxLength(320);
             entity.Property(x => x.RequestedByName).HasMaxLength(150);
+        });
+
+        builder.Entity<ActionExecutionProvider>(entity =>
+        {
+            entity.HasIndex(x => x.ProviderType).IsUnique();
+            entity.HasIndex(x => x.IsEnabled);
+            entity.Property(x => x.Name).HasMaxLength(120);
+            entity.Property(x => x.Description).HasMaxLength(500);
+            entity.Property(x => x.Category).HasMaxLength(80);
+            entity.Property(x => x.Version).HasMaxLength(20);
+            entity.Property(x => x.Author).HasMaxLength(120);
         });
     }
 
