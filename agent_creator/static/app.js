@@ -1428,6 +1428,9 @@ async function render() {
 
   document.body.classList.toggle("page-auth",
     route.name === "connexion" || route.name === "inscription" || route.name === "oauth-callback");
+  document.body.classList.toggle("page-connexion", route.name === "connexion");
+  document.body.classList.toggle("page-inscription", route.name === "inscription");
+  document.body.classList.toggle("page-oauth-callback", route.name === "oauth-callback");
   document.body.classList.toggle("page-composer", route.name === "composer");
 
   updateAuthChrome();
