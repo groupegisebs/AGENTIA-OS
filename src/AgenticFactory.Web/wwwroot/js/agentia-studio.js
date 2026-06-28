@@ -1032,7 +1032,7 @@
             `- Autonomie : ${p.autonomy}`,
             `- Sécurité : ${p.security.join(', ')}`,
             `- Nom : ${p.agentName}`
-        ];
+        );
         if (p.freeText) lines.push(`Description : ${p.freeText}`);
         return lines.join('\n');
     }
