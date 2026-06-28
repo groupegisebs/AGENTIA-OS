@@ -1,17 +1,34 @@
-.git
+# Build artefacts .NET
+**/bin/
+**/obj/
+**/publish/
+**/TestResults/
+
+# Ancien prototype
+dotnet/
+
+# IDE / OS
+.vs/
+.vscode/
+**/*.user
+**/*.suo
+**/.DS_Store
+**/Thumbs.db
+
+# Git
+.git/
 .gitignore
-.env
-*.pyc
-__pycache__
-.pytest_cache
-.mypy_cache
-.ruff_cache
-tests/
-publish/
-data/
-*.db
-*.log
+
+# CI / deploy local
+.github/
 deploy/
-docs/
-*.md
-!README.md
+
+# Fichiers secrets / env
+.env
+.env.*
+secrets.json
+**/appsettings.Production.json
+
+# Logs
+logs/
+*.log
