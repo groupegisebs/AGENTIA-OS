@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════
    AGENTIA — Design System 2.0
    Palette : Obsidian · Indigo · Émeraude
-   Typo    : Inter (corps) · Fraunces (display)
+   Typo    : Inter
    ═══════════════════════════════════════════════════════════ */
 
 :root {
@@ -1037,12 +1037,12 @@ select:focus-visible {
 }
 
 /* Data table */
-.data-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.data-table { width: 100%; border-collapse: collapse; font-size: var(--font-size-sm); }
 
 .data-table th,
 .data-table td {
   text-align: left;
-  padding: 0.8rem 1rem;
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border);
 }
 
@@ -1077,8 +1077,8 @@ select:focus-visible {
   flex-shrink: 0;
 }
 
-.status-pill.active  { background: rgba(52,211,153,0.12); color: var(--success); }
-.status-pill.paused  { background: rgba(251,191,36,0.12); color: var(--warning); }
+.status-pill.active  { background: var(--success-bg); color: var(--success); }
+.status-pill.paused  { background: var(--warning-bg); color: var(--warning); }
 
 /* ────────────────────────────────────────────────────────────
    MARKETPLACE
@@ -1299,6 +1299,37 @@ select:focus-visible {
   font-size: 0.88rem;
   animation: toastIn 0.2s ease;
 }
+
+.toast-success { background: var(--success-bg); border-color: color-mix(in srgb, var(--success) 40%, transparent); color: var(--success); }
+.toast-info { background: var(--surface); }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.alert,
+.banner {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.alert-success,
+.banner-success { border-color: color-mix(in srgb, var(--success) 35%, var(--border)); background: var(--success-bg); }
+.alert-warning,
+.banner-warning { border-color: color-mix(in srgb, var(--warning) 35%, var(--border)); background: var(--warning-bg); }
+.alert-error,
+.banner-error { border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); background: var(--danger-bg); }
 
 @keyframes toastIn {
   from { opacity: 0; transform: translateY(8px); }
