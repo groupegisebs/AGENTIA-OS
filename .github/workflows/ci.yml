@@ -10,32 +10,40 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Stage 1 — Build & Test
+  # ─────────────────────────────────────────────────────────────────────────────
+  build-and-test:
+    name: "Stage 1 — Build & Test"
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: "1.1 Checkout"
         uses: actions/checkout@v4
 
-      - name: Setup .NET
+      - name: "1.2 Setup .NET 10"
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
 
-      - name: Restore dependencies
+      - name: "1.3 Restore dependencies"
         run: dotnet restore AgenticFactory.slnx
 
-      - name: Build
+      - name: "1.4 Build (Release)"
         run: dotnet build AgenticFactory.slnx --no-restore -c Release
 
-      - name: Test
-        run: dotnet test AgenticFactory.slnx --no-build -c Release --verbosity normal \
-               --logger "trx;LogFileName=test-results.trx" \
-               --results-directory ./test-results
+      - name: "1.5 Run unit tests"
+        run: |
+          dotnet test AgenticFactory.slnx \
+            --no-build -c Release \
+            --verbosity normal \
+            --logger "trx;LogFileName=test-results.trx" \
+            --results-directory "${{ github.workspace }}/test-results"
 
-      - name: Upload test results
+      - name: "1.6 Upload test results"
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: ./test-results/*.trx
+          path: "${{ github.workspace }}/test-results/"
+          if-no-files-found: warn
