@@ -215,6 +215,15 @@ body.studio-mode .af-topbar { display: none; }
     grid-template-columns: repeat(4, 1fr);
     gap: 14px;
     margin-bottom: 16px;
+    min-height: 120px;
+}
+.studio-domain-grid .studio-domain-card {
+    display: block;
+    width: 100%;
+    text-align: left;
+    font: inherit;
+    appearance: none;
+    -webkit-appearance: none;
 }
 @media (max-width: 1200px) {
     .studio-domain-grid { grid-template-columns: repeat(3, 1fr); }
@@ -1102,3 +1111,222 @@ body.studio-mode .af-topbar { display: none; }
     display: none;
 }
 .studio-validation-msg.show { display: block; }
+
+/* Execution Runtime — étape 5 */
+.studio-step-title i { color: #6366f1; margin-right: 6px; }
+
+.studio-exec-mode-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%);
+    border: 1px solid #e0e7ff;
+    border-radius: 12px;
+    margin-bottom: 22px;
+}
+.studio-exec-mode-label {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #4338ca;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.studio-exec-mode-btn { font-size: 0.78rem; padding: 8px 14px; white-space: nowrap; }
+
+.studio-exec-section { margin-bottom: 24px; }
+.studio-exec-section-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 14px;
+}
+.studio-exec-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 8px;
+    background: #6366f1;
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.studio-exec-trigger-grid,
+.studio-exec-runtime-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 14px;
+}
+@media (max-width: 900px) {
+    .studio-exec-trigger-grid,
+    .studio-exec-runtime-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 560px) {
+    .studio-exec-trigger-grid,
+    .studio-exec-runtime-grid { grid-template-columns: 1fr; }
+}
+
+.studio-exec-trigger-card,
+.studio-exec-runtime-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 14px;
+    border: 1px solid #e8ecf4;
+    border-radius: 12px;
+    background: #fff;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.studio-exec-trigger-card:hover,
+.studio-exec-runtime-card:hover {
+    border-color: #c7d2fe;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.08);
+}
+.studio-exec-trigger-card.selected,
+.studio-exec-runtime-card.selected {
+    border-color: #6366f1;
+    background: #eef2ff;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.12);
+}
+.studio-exec-trigger-card input,
+.studio-exec-runtime-card input { display: none; }
+.studio-exec-trigger-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: #f1f5f9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6366f1;
+    font-size: 1rem;
+    margin-bottom: 4px;
+}
+.studio-exec-trigger-card.selected .studio-exec-trigger-icon,
+.studio-exec-runtime-card.selected .studio-exec-trigger-icon {
+    background: #6366f1;
+    color: #fff;
+}
+.studio-exec-trigger-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #334155;
+}
+.studio-exec-trigger-card.selected .studio-exec-trigger-label,
+.studio-exec-runtime-card.selected .studio-exec-trigger-label { color: #4338ca; }
+.studio-exec-trigger-desc {
+    font-size: 0.68rem;
+    color: #94a3b8;
+    line-height: 1.35;
+}
+
+.studio-exec-config-box {
+    background: #f8fafc;
+    border: 1px solid #e8ecf4;
+    border-radius: 12px;
+    padding: 16px;
+}
+.studio-exec-hint {
+    font-size: 0.82rem;
+    color: #64748b;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.studio-exec-freq-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+@media (max-width: 700px) {
+    .studio-exec-freq-grid { grid-template-columns: repeat(2, 1fr); }
+}
+.studio-exec-freq {
+    padding: 10px 12px;
+    font-size: 0.78rem;
+}
+
+.studio-exec-advanced-block {
+    display: none;
+    border-top: 2px dashed #e2e8f0;
+    padding-top: 8px;
+    margin-top: 8px;
+}
+.studio-exec-advanced-block.show { display: block; }
+
+.studio-config-field-full { grid-column: 1 / -1; }
+.studio-exec-check-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: #334155;
+    cursor: pointer;
+    padding: 6px 0;
+}
+.studio-exec-check { font-size: 0.78rem; }
+
+/* Runtime Preview — panneau droit */
+.studio-runtime-preview-card {
+    margin-top: 16px;
+    padding: 14px;
+    background: linear-gradient(145deg, #0f172a 0%, #1e293b 100%);
+    border-radius: 12px;
+    color: #e2e8f0;
+    transition: box-shadow 0.25s;
+}
+.studio-runtime-preview-card.highlight {
+    box-shadow: 0 0 0 2px #6366f1, 0 8px 24px rgba(99, 102, 241, 0.25);
+}
+.studio-runtime-preview-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.studio-runtime-preview-head h4 {
+    margin: 0;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.studio-runtime-preview-badge {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #4ade80;
+    background: rgba(74, 222, 128, 0.12);
+    padding: 3px 8px;
+    border-radius: 999px;
+}
+.studio-runtime-preview-grid { display: flex; flex-direction: column; gap: 6px; }
+.studio-runtime-preview-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 0.72rem;
+}
+.studio-runtime-preview-key { color: #94a3b8; flex-shrink: 0; }
+.studio-runtime-preview-val {
+    color: #f1f5f9;
+    font-weight: 500;
+    text-align: right;
+    word-break: break-word;
+}

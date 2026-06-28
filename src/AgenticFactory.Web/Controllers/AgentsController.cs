@@ -51,6 +51,7 @@ public class AgentsController(ApiClient api) : AuthenticatedController
         SetActiveNav("Agents");
         ViewData["AgentsMode"] = true;
         ViewData["StudioMode"] = true;
+        ViewData["StudioDomains"] = StudioCatalog.Domains;
         return View(new CreateAgentViewModel());
     }
 
@@ -61,6 +62,7 @@ public class AgentsController(ApiClient api) : AuthenticatedController
         SetActiveNav("Agents");
         ViewData["AgentsMode"] = true;
         ViewData["StudioMode"] = true;
+        ViewData["StudioDomains"] = StudioCatalog.Domains;
 
         var message = BuildCreationMessage(model);
         if (string.IsNullOrWhiteSpace(message))
@@ -147,8 +149,9 @@ public class AgentsController(ApiClient api) : AuthenticatedController
             AppendSourceDetails(sb, root);
             AppendArray(sb, "Actions workflow", root, "actions");
             AppendActionDetails(sb, root);
-            AppendLine(sb, "Déclencheur", root, "trigger");
-            AppendLine(sb, "Runtime cible", root, "runtime");
+            AppendLine(sb, "Configuration d'exécution", root, "trigger");
+            AppendLine(sb, "Runtime", root, "runtime");
+            AppendExecutionDetails(sb, root);
             AppendLine(sb, "Niveau d'autonomie", root, "autonomy");
             AppendArray(sb, "Sécurité", root, "security");
             AppendLine(sb, "Nom proposé", root, "agentName");
@@ -207,6 +210,32 @@ public class AgentsController(ApiClient api) : AuthenticatedController
                 .Where(x => !string.IsNullOrWhiteSpace(x));
             var detail = string.Join(", ", parts);
             sb.AppendLine(string.IsNullOrWhiteSpace(detail) ? $"  · {label}" : $"  · {label} : {detail}");
+        }
+    }
+
+    private static void AppendExecutionDetails(StringBuilder sb, JsonElement root)
+    {
+        if (!root.TryGetProperty("execution", out var exec) || exec.ValueKind != JsonValueKind.Object)
+            return;
+
+        if (exec.TryGetProperty("resilience", out var res) && res.ValueKind == JsonValueKind.Object)
+        {
+            var retry = res.TryGetProperty("retryOnError", out var r) && r.GetBoolean();
+            var attempts = res.TryGetProperty("maxAttempts", out var a) ? a.GetInt32() : 0;
+            var wait = res.TryGetProperty("waitSeconds", out var w) ? w.GetInt32() : 0;
+            sb.AppendLine($"  · Résilience : retry={(retry ? attempts + "x / " + wait + "s" : "non")}");
+        }
+        if (exec.TryGetProperty("logging", out var log) && log.ValueKind == JsonValueKind.Object)
+        {
+            var level = log.TryGetProperty("level", out var l) ? l.GetString() : null;
+            var days = log.TryGetProperty("retentionDays", out var d) ? d.GetInt32() : 0;
+            if (!string.IsNullOrWhiteSpace(level))
+                sb.AppendLine($"  · Logs : {level}, rétention {days}j");
+        }
+        if (exec.TryGetProperty("supervision", out var sup) && sup.ValueKind == JsonValueKind.Object)
+        {
+            var hb = sup.TryGetProperty("heartbeat", out var h) && h.GetBoolean();
+            sb.AppendLine($"  · Supervision : heartbeat={(hb ? "activé" : "désactivé")}");
         }
     }
 

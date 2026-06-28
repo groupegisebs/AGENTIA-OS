@@ -5,32 +5,12 @@
     const TOTAL_STEPS = 8;
     const MAX_CHARS = 2000;
 
-    const DOMAINS = [
-        { id: 'comptabilite', icon: 'bi-calculator', bg: '#fef3c7', color: '#d97706', name: 'Comptabilité', desc: 'Factures, écritures, rapports financiers', namePrefix: 'Finance' },
-        { id: 'email', icon: 'bi-envelope', bg: '#eef2ff', color: '#6366f1', name: 'Email', desc: 'Courrier, tri, réponses automatiques', namePrefix: 'Email', defaultAgent: 'Email Invoice Agent' },
-        { id: 'documents', icon: 'bi-file-earmark-text', bg: '#fce7f3', color: '#db2777', name: 'Documents', desc: 'PDF, Word, OCR et archivage', namePrefix: 'Document' },
-        { id: 'support', icon: 'bi-headset', bg: '#dcfce7', color: '#16a34a', name: 'Support client', desc: 'Tickets, FAQ, escalade', namePrefix: 'Support' },
-        { id: 'rh', icon: 'bi-people', bg: '#dbeafe', color: '#2563eb', name: 'Ressources Humaines', desc: 'Recrutement, onboarding, dossiers', namePrefix: 'HR' },
-        { id: 'marketing', icon: 'bi-megaphone', bg: '#f3e8ff', color: '#9333ea', name: 'Marketing', desc: 'Campagnes, contenu, analytics', namePrefix: 'Marketing' },
-        { id: 'vente', icon: 'bi-briefcase', bg: '#ecfdf5', color: '#059669', name: 'Ventes / CRM', desc: 'Prospects, pipeline, relances', namePrefix: 'Sales' },
-        { id: 'juridique', icon: 'bi-file-earmark-ruled', bg: '#f1f5f9', color: '#475569', name: 'Juridique', desc: 'Contrats, conformité, veille', namePrefix: 'Legal' },
-        { id: 'data', icon: 'bi-bar-chart', bg: '#e0e7ff', color: '#4f46e5', name: 'Analyse de données', desc: 'KPI, tableaux de bord, insights', namePrefix: 'Analytics' },
-        { id: 'devops', icon: 'bi-cloud', bg: '#cffafe', color: '#0891b2', name: 'DevOps / IT', desc: 'CI/CD, infra, monitoring', namePrefix: 'DevOps' },
-        { id: 'cyber', icon: 'bi-shield-lock', bg: '#fee2e2', color: '#dc2626', name: 'Cybersécurité', desc: 'Alertes, audit, conformité', namePrefix: 'Security' },
-        { id: 'ecommerce', icon: 'bi-cart3', bg: '#ffedd5', color: '#ea580c', name: 'E-Commerce', desc: 'Commandes, stocks, catalogue', namePrefix: 'Commerce' },
-        { id: 'industrie', icon: 'bi-gear-wide-connected', bg: '#e2e8f0', color: '#334155', name: 'Industrie', desc: 'Production, qualité, maintenance', namePrefix: 'Industry' },
-        { id: 'sante', icon: 'bi-heart-pulse', bg: '#ffe4e6', color: '#e11d48', name: 'Santé', desc: 'Dossiers patients, protocoles', namePrefix: 'Health' },
-        { id: 'education', icon: 'bi-mortarboard', bg: '#ede9fe', color: '#7c3aed', name: 'Éducation', desc: 'Cours, évaluations, parcours', namePrefix: 'Education' },
-        { id: 'agriculture', icon: 'bi-flower1', bg: '#ecfccb', color: '#65a30d', name: 'Agriculture', desc: 'Cultures, météo, traçabilité', namePrefix: 'Agri' },
-        { id: 'logistique', icon: 'bi-truck', bg: '#fef9c3', color: '#ca8a04', name: 'Logistique', desc: 'Expéditions, entrepôts, tracking', namePrefix: 'Logistics' },
-        { id: 'immobilier', icon: 'bi-building', bg: '#fae8ff', color: '#c026d3', name: 'Immobilier', desc: 'Biens, baux, visites', namePrefix: 'RealEstate' },
-        { id: 'banque', icon: 'bi-bank', bg: '#dbeafe', color: '#1d4ed8', name: 'Banque & Finance', desc: 'Crédits, conformité, KYC', namePrefix: 'Banking' },
-        { id: 'medias', icon: 'bi-camera-reels', bg: '#fce7f3', color: '#be185d', name: 'Médias & Presse', desc: 'Contenus, diffusion, veille', namePrefix: 'Media' },
-        { id: 'qualite', icon: 'bi-patch-check', bg: '#d1fae5', color: '#047857', name: 'Qualité & ISO', desc: 'Audits, normes, non-conformités', namePrefix: 'Quality' },
-        { id: 'projet', icon: 'bi-kanban', bg: '#e0f2fe', color: '#0284c7', name: 'Gestion de projet', desc: 'Planning, risques, livrables', namePrefix: 'Project' },
-        { id: 'productivite', icon: 'bi-lightning-charge', bg: '#fef3c7', color: '#b45309', name: 'Productivité', desc: 'Tâches, calendrier, rappels', namePrefix: 'Productivity' },
-        { id: 'custom', icon: 'bi-sliders', bg: '#f8fafc', color: '#64748b', name: 'Autre domaine', desc: 'Domaine personnalisé pour ce projet', namePrefix: 'Custom' }
-    ];
+    function getDomains() {
+        if (window.STUDIO_DOMAINS?.length) return window.STUDIO_DOMAINS;
+        return [
+            { id: 'email', icon: 'bi-envelope', bg: '#eef2ff', color: '#6366f1', name: 'Email', desc: 'Courrier, tri, réponses automatiques', namePrefix: 'Email', defaultAgent: 'Email Invoice Agent' }
+        ];
+    }
 
     const OBJECTIVES = [
         { id: 'lire-analyser', label: 'Lire et analyser', icon: 'bi-search', domains: ['email', 'documents', 'data', 'medias'] },
@@ -73,26 +53,7 @@
 
     const SOURCES = window.STUDIO_SOURCE_CATALOG?.items || [];
     const ACTIONS = window.STUDIO_ACTION_CATALOG?.items || [];
-
-    const TRIGGERS = [
-        { id: 'manual', label: 'Manuel' },
-        { id: '5min', label: 'Toutes les 5 minutes' },
-        { id: 'hourly', label: 'Toutes les heures' },
-        { id: 'daily', label: 'Tous les jours' },
-        { id: 'email-in', label: 'À réception d\'un email' },
-        { id: 'file-created', label: 'À création d\'un fichier' },
-        { id: 'webhook', label: 'Via Webhook' },
-        { id: 'api', label: 'Via API' }
-    ];
-
-    const RUNTIMES = [
-        { id: 'windows-service', label: 'Windows Service' },
-        { id: 'docker', label: 'Docker' },
-        { id: 'kubernetes', label: 'Kubernetes' },
-        { id: 'linux-service', label: 'Linux Service' },
-        { id: 'azure', label: 'Azure' },
-        { id: 'aws', label: 'AWS' }
-    ];
+    const EXEC = () => window.STUDIO_EXECUTION;
 
     const AUTONOMY_LEVELS = [
         { id: 0, label: 'Assistant', pct: 25 },
@@ -115,8 +76,7 @@
         sourceConfigs: {},
         actions: [],
         actionConfigs: {},
-        trigger: 'manual',
-        runtime: 'windows-service',
+        execution: null,
         autonomy: 0,
         security: [],
         customDomainLabel: '',
@@ -129,14 +89,13 @@
 
     function init() {
         if (!$('.studio-page')) return;
-        loadDraft();
-        renderDomainGrid();
-        renderObjectives();
-        renderSources();
-        renderActions();
-        renderTriggers();
-        renderRuntimes();
-        renderSecurity();
+        try { loadDraft(); } catch (e) { console.error('Agentia Studio — loadDraft', e); }
+        try { renderDomainGrid(); } catch (e) { console.error('Agentia Studio — renderDomainGrid', e); }
+        try { renderObjectives(); } catch (e) { console.error('Agentia Studio — renderObjectives', e); }
+        try { renderSources(); } catch (e) { console.error('Agentia Studio — renderSources', e); }
+        try { renderActions(); } catch (e) { console.error('Agentia Studio — renderActions', e); }
+        try { renderExecution(); } catch (e) { console.error('Agentia Studio — renderExecution', e); }
+        try { renderSecurity(); } catch (e) { console.error('Agentia Studio — renderSecurity', e); }
         bindAutonomySlider();
         bindFreeText();
         bindNavigation();
@@ -151,25 +110,39 @@
     function renderDomainGrid() {
         const grid = $('#domainGrid');
         if (!grid) return;
-        const cards = DOMAINS.map(d => `
-            <button type="button" class="studio-domain-card${state.domain === d.id ? ' selected' : ''}" data-domain="${d.id}">
-                <span class="studio-domain-check"><i class="bi bi-check"></i></span>
-                <div class="studio-domain-icon-wrap" style="background:${d.bg};color:${d.color}">
-                    <i class="bi ${d.icon}"></i>
-                </div>
-                <div class="studio-domain-name">${d.name}</div>
-                <div class="studio-domain-desc">${d.desc}</div>
-            </button>
-        `).join('');
-        const requestCard = `
-            <button type="button" class="studio-domain-card studio-domain-request" data-action="request-domain">
-                <div class="studio-domain-request-icon"><i class="bi bi-plus-lg"></i></div>
-                <div class="studio-domain-name">Demander un domaine</div>
-                <div class="studio-domain-desc">Proposez un nouveau domaine métier à l'équipe Agentia</div>
-            </button>`;
-        grid.innerHTML = cards + requestCard;
+        const domains = getDomains();
+
+        if (!grid.querySelector('[data-domain]')) {
+            if (!domains.length) {
+                grid.innerHTML = '<p class="studio-exec-hint">Catalogue de domaines indisponible.</p>';
+                return;
+            }
+            const cards = domains.map(d => `
+                <button type="button" class="studio-domain-card${state.domain === d.id ? ' selected' : ''}" data-domain="${d.id}">
+                    <span class="studio-domain-check"><i class="bi bi-check"></i></span>
+                    <div class="studio-domain-icon-wrap" style="background:${d.bg};color:${d.color}">
+                        <i class="bi ${d.icon}"></i>
+                    </div>
+                    <div class="studio-domain-name">${d.name}</div>
+                    <div class="studio-domain-desc">${d.desc}</div>
+                </button>
+            `).join('');
+            const requestCard = `
+                <button type="button" class="studio-domain-card studio-domain-request" data-action="request-domain">
+                    <div class="studio-domain-request-icon"><i class="bi bi-plus-lg"></i></div>
+                    <div class="studio-domain-name">Demander un domaine</div>
+                    <div class="studio-domain-desc">Proposez un nouveau domaine métier à l'équipe Agentia</div>
+                </button>`;
+            grid.innerHTML = cards + requestCard;
+        }
 
         $$('.studio-domain-card[data-domain]', grid).forEach(card => {
+            card.classList.toggle('selected', card.dataset.domain === state.domain);
+        });
+
+        $$('.studio-domain-card[data-domain]', grid).forEach(card => {
+            if (card.dataset.bound === '1') return;
+            card.dataset.bound = '1';
             card.addEventListener('click', () => {
                 state.domain = card.dataset.domain;
                 state.customName = '';
@@ -188,6 +161,8 @@
         });
 
         $$('[data-action="request-domain"]', grid).forEach(btn => {
+            if (btn.dataset.bound === '1') return;
+            btn.dataset.bound = '1';
             btn.addEventListener('click', e => {
                 e.stopPropagation();
                 openDomainRequestModal();
@@ -693,25 +668,29 @@
         });
     }
 
-    function renderTriggers() {
-        const grid = $('#triggerGrid');
-        if (!grid) return;
-        grid.innerHTML = TRIGGERS.map(t => `
-            <label class="studio-radio-item${state.trigger === t.id ? ' selected' : ''}" data-id="${t.id}">
-                <input type="radio" name="trigger" ${state.trigger === t.id ? 'checked' : ''}> ${t.label}
-            </label>`).join('');
-        bindRadioGrid(grid, 'trigger');
+    function ensureExecution() {
+        if (!EXEC()) return null;
+        if (!state.execution) {
+            state.execution = EXEC().migrateExecutionFromLegacy(state, suggestAgentName());
+        }
+        return state.execution;
     }
 
-    function renderRuntimes() {
-        const grid = $('#runtimeGrid');
-        if (!grid) return;
-        grid.innerHTML = RUNTIMES.map(r => `
-            <label class="studio-radio-item${state.runtime === r.id ? ' selected' : ''}" data-id="${r.id}">
-                <input type="radio" name="runtime" ${state.runtime === r.id ? 'checked' : ''}> ${r.label}
-            </label>`).join('');
-        bindRadioGrid(grid, 'runtime');
+    function renderExecution() {
+        const exec = ensureExecution();
+        if (!exec || !EXEC()) return;
+        EXEC().renderExecutionPanel(exec, suggestAgentName(), fullRerender => {
+            if (fullRerender) renderExecution();
+            else {
+                EXEC().renderRuntimePreviewPanel(exec, suggestAgentName());
+                updateBlueprint();
+            }
+        });
+        EXEC().renderRuntimePreviewPanel(exec, suggestAgentName());
     }
+
+    function renderTriggers() { renderExecution(); }
+    function renderRuntimes() { /* merged into renderExecution */ }
 
     function renderSecurity() {
         const grid = $('#securityGrid');
@@ -868,12 +847,14 @@
         if (gen) gen.style.display = n === TOTAL_STEPS ? '' : 'none';
 
         if (n === TOTAL_STEPS) renderFinalReview();
+        if (n === 1) renderDomainGrid();
         if (n === 3) renderSourceConfigs();
+        if (n === 5) renderExecution();
         updateBlueprint();
     }
 
     function getDomain() {
-        const d = DOMAINS.find(x => x.id === state.domain);
+        const d = getDomains().find(x => x.id === state.domain);
         if (!d) return null;
         if (state.domain === 'custom' && state.customDomainLabel) {
             return { ...d, name: state.customDomainLabel, namePrefix: state.customDomainLabel.split(' ')[0] };
@@ -886,11 +867,13 @@
     }
 
     function getTriggerLabel() {
-        return TRIGGERS.find(t => t.id === state.trigger)?.label || UNDEF;
+        const exec = ensureExecution();
+        return exec && EXEC() ? EXEC().getTriggerSummary(exec) : UNDEF;
     }
 
     function getRuntimeLabel() {
-        return RUNTIMES.find(r => r.id === state.runtime)?.label || 'Windows Service';
+        const exec = ensureExecution();
+        return exec && EXEC() ? EXEC().getRuntimeSummary(exec) : 'Windows Service';
     }
 
     function suggestAgentName() {
@@ -917,20 +900,22 @@
         const base = 0.5;
         const perSource = state.sources.length * 0.18;
         const perAction = state.actions.length * 0.14;
-        const mult = { manual: 1, '5min': 2.2, hourly: 1.5, daily: 1.1, 'email-in': 1.4, 'file-created': 1.3, webhook: 1.2, api: 1.25 };
-        return (base + perSource + perAction) * (mult[state.trigger] || 1) * (1 + state.autonomy * 0.2);
+        const exec = ensureExecution();
+        const mult = exec && EXEC() ? EXEC().getCostMultiplier(exec) : 1;
+        return (base + perSource + perAction) * mult * (1 + state.autonomy * 0.2);
     }
 
     function buildWorkflowText() {
         const parts = [];
         if (state.sources.length) parts.push(`1. Collecter : ${getSourceLabels().join(', ')}`);
         if (state.actions.length) parts.push(`2. Traiter : ${getActionLabels().join(' → ')}`);
-        parts.push(`3. Déclenchement : ${getTriggerLabel()}`);
+        parts.push(`3. Runtime : ${getRuntimeLabel()} — ${getTriggerLabel()}`);
         parts.push(`4. Autonomie : ${AUTONOMY_LEVELS[state.autonomy].label}`);
         return parts.join('\n');
     }
 
     function buildPayload() {
+        const exec = ensureExecution();
         return {
             domain: getDomain()?.name || '',
             domainId: state.domain,
@@ -942,9 +927,10 @@
             actionIds: [...state.actions],
             actionDetails: buildActionDetailsForPayload(),
             trigger: getTriggerLabel(),
-            triggerId: state.trigger,
+            triggerId: exec?.trigger || 'manual',
             runtime: getRuntimeLabel(),
-            runtimeId: state.runtime,
+            runtimeId: exec?.runtime || 'windows-service',
+            execution: exec && EXEC() ? EXEC().buildExecutionPayload(exec) : {},
             autonomy: AUTONOMY_LEVELS[state.autonomy].label,
             autonomyLevel: state.autonomy,
             security: [...state.security],
@@ -979,8 +965,16 @@
             });
         }
         lines.push(
-            `- Déclencheur : ${p.trigger}`,
-            `- Runtime : ${p.runtime}`,
+            `- Configuration d'exécution : ${p.runtime} — ${p.trigger}`,
+        );
+        if (p.execution?.resilience) {
+            const r = p.execution.resilience;
+            lines.push(`  · Résilience : retry=${r.retryOnError ? r.maxAttempts + 'x' : 'non'}, notify=${(r.notify || []).join('/')}`);
+        }
+        if (p.execution?.logging) {
+            lines.push(`  · Logs : ${p.execution.logging.level}, rétention ${p.execution.logging.retentionDays}j`);
+        }
+        lines.push(
             `- Autonomie : ${p.autonomy}`,
             `- Sécurité : ${p.security.join(', ')}`,
             `- Nom : ${p.agentName}`
@@ -1053,9 +1047,10 @@
 
         const trigEl = $('#bp-trigger');
         if (trigEl) {
-            const isDefault = state.trigger === 'manual' && state.step < 5;
-            trigEl.textContent = isDefault ? UNDEF : getTriggerLabel();
-            trigEl.classList.toggle('undefined', isDefault);
+            const exec = ensureExecution();
+            const configured = state.step >= 5 && exec;
+            trigEl.textContent = configured ? `${getRuntimeLabel()} — ${getTriggerLabel()}` : UNDEF;
+            trigEl.classList.toggle('undefined', !configured);
         }
 
         const autoFill = $('#bp-autonomy-fill');
@@ -1072,6 +1067,14 @@
 
         const rtEl = $('#bp-runtime');
         if (rtEl) rtEl.innerHTML = `<span class="studio-bp-pill blue">${getRuntimeLabel()}</span>`;
+
+        if (EXEC()) {
+            const exec = ensureExecution();
+            EXEC().renderRuntimePreviewPanel(exec, suggestAgentName());
+        }
+
+        const previewWrap = $('#runtimePreviewCard');
+        if (previewWrap) previewWrap.classList.toggle('highlight', state.step === 5);
 
         const empty = $('#bp-empty');
         const progress = (state.domain ? 1 : 0) + state.objectives.length + state.sources.length + state.actions.length;
@@ -1131,6 +1134,11 @@
                 saved.actions = saved.actions.map(migrateActionId);
             }
             if (!saved.actionConfigs) saved.actionConfigs = {};
+            if (!saved.execution && EXEC()) {
+                saved.execution = EXEC().migrateExecutionFromLegacy(saved, saved.customName || 'Agent');
+            }
+            delete saved.trigger;
+            delete saved.runtime;
             Object.assign(state, saved);
         } catch (_) { /* ignore */ }
     }

@@ -1,6 +1,9 @@
 @model AgenticFactory.Web.Models.CreateAgentViewModel
+@using AgenticFactory.Web.Models
+@using System.Text.Json
 @{
     ViewData["Title"] = "Créer un nouvel agent";
+    var studioDomains = ViewData["StudioDomains"] as IReadOnlyList<StudioDomainItem> ?? StudioCatalog.Domains;
     var displayName = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
         ?? User.Identity?.Name ?? "Utilisateur";
     var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "Utilisateur";
@@ -68,8 +71,8 @@
                         </div>
                         <div class="studio-stepper-item" data-step="5">
                             <div class="studio-stepper-circle">5</div>
-                            <div class="studio-stepper-title">Déclencheur</div>
-                            <div class="studio-stepper-sub">Fréquence</div>
+                            <div class="studio-stepper-title">Exécution</div>
+                            <div class="studio-stepper-sub">Runtime</div>
                         </div>
                         <div class="studio-stepper-item" data-step="6">
                             <div class="studio-stepper-circle">6</div>
@@ -94,7 +97,24 @@
 
                     <div class="studio-step-panel active" id="stepPanel1">
                         <h2 class="studio-step-title">1. Choisissez le domaine métier de votre agent</h2>
-                        <div class="studio-domain-grid" id="domainGrid"></div>
+                        <div class="studio-domain-grid" id="domainGrid">
+                            @foreach (var d in studioDomains)
+                            {
+                                <button type="button" class="studio-domain-card@(d.Id == "email" ? " selected" : "")" data-domain="@d.Id">
+                                    <span class="studio-domain-check"><i class="bi bi-check"></i></span>
+                                    <div class="studio-domain-icon-wrap" style="background:@d.Bg;color:@d.Color">
+                                        <i class="bi @d.Icon"></i>
+                                    </div>
+                                    <div class="studio-domain-name">@d.Name</div>
+                                    <div class="studio-domain-desc">@d.Desc</div>
+                                </button>
+                            }
+                            <button type="button" class="studio-domain-card studio-domain-request" data-action="request-domain">
+                                <div class="studio-domain-request-icon"><i class="bi bi-plus-lg"></i></div>
+                                <div class="studio-domain-name">Demander un domaine</div>
+                                <div class="studio-domain-desc">Proposez un nouveau domaine métier à l'équipe Agentia</div>
+                            </button>
+                        </div>
                         <div class="studio-domain-request-bar">
                             <p>Vous ne trouvez pas votre secteur d'activité ?</p>
                             <button type="button" class="studio-btn-request" id="btnRequestDomain">
@@ -140,12 +160,9 @@
                     </div>
 
                     <div class="studio-step-panel" id="stepPanel5">
-                        <h2 class="studio-step-title">5. Quel est le déclencheur ?</h2>
-                        <div class="studio-radio-grid" id="triggerGrid"></div>
-                        <div class="studio-subsection">
-                            <h4>Runtime cible</h4>
-                            <div class="studio-radio-grid" id="runtimeGrid"></div>
-                        </div>
+                        <h2 class="studio-step-title"><i class="bi bi-gear-wide-connected"></i> 5. Configuration d'exécution</h2>
+                        <p class="studio-step-hint">Configurez le moteur d'exécution de l'agent : déclencheur, runtime, résilience, logs et supervision — comme un service Windows complet.</p>
+                        <div id="executionPanel"></div>
                     </div>
 
                     <div class="studio-step-panel" id="stepPanel6">
@@ -229,9 +246,10 @@
                             <div class="studio-bp-value undefined" id="bp-actions">— Non défini —</div>
                         </div>
                         <div class="studio-bp-field">
-                            <div class="studio-bp-label">Déclencheur</div>
+                            <div class="studio-bp-label">Exécution</div>
                             <div class="studio-bp-value undefined" id="bp-trigger">— Non défini —</div>
                         </div>
+                        <div class="studio-runtime-preview-card" id="runtimePreviewCard"></div>
                         <div class="studio-bp-field">
                             <div class="studio-bp-label">Niveau d'autonomie</div>
                             <div class="studio-bp-autonomy-bar">
@@ -363,7 +381,14 @@
 </div>
 
 @section Scripts {
+    <script>
+        window.STUDIO_DOMAINS = @Html.Raw(JsonSerializer.Serialize(studioDomains.Select(d => new {
+            id = d.Id, icon = d.Icon, bg = d.Bg, color = d.Color,
+            name = d.Name, desc = d.Desc, namePrefix = d.NamePrefix, defaultAgent = d.DefaultAgent
+        })));
+    </script>
     <script src="~/js/agentia-studio-sources.js" asp-append-version="true"></script>
     <script src="~/js/agentia-studio-actions.js" asp-append-version="true"></script>
+    <script src="~/js/agentia-studio-runtime.js" asp-append-version="true"></script>
     <script src="~/js/agentia-studio.js" asp-append-version="true"></script>
 }
