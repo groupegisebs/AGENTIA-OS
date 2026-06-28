@@ -433,6 +433,8 @@ jobs:
             "${SSH_USER}@${SSH_HOST}" "tee ${APP_ROOT}/.env.web > /dev/null" <<ENV
           ASPNETCORE_ENVIRONMENT=Production
           ASPNETCORE_URLS=http://+:8081
+          ConnectionStrings__Default=${{ secrets.AGENTIA_OS_CONNECTION_STRING }}
+          Database__Provider=postgres
           ApiBaseUrl=http://localhost:8080
           Auth__JwtKey=${{ secrets.AGENTIA_OS_JWT_SECRET }}
           Auth__Issuer=AgenticFactory
