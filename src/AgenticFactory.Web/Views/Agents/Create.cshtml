@@ -36,8 +36,9 @@
     </div>
 
     <header class="studio-header">
-        <h1>Créer un nouvel agent IA</h1>
-        <p>Suivez les étapes pour décrire votre agent. Nous générerons automatiquement le blueprint.</p>
+        <h1>Créer un agent Runtime Agentic</h1>
+        <p>Définissez un collaborateur IA autonome — même boucle d'exécution pour tous les agents.</p>
+        <div class="studio-agentic-loop-bar" id="agenticLoop" aria-label="Boucle agentique"></div>
     </header>
 
     <form id="studioForm" asp-controller="Agents" asp-action="Create" method="post">
@@ -48,47 +49,30 @@
         <div class="studio-layout">
             <div class="studio-main">
                 <div class="studio-stepper-wrap">
-                    <div class="studio-stepper" id="stepper">
-                        <div class="studio-stepper-item active" data-step="1">
-                            <div class="studio-stepper-circle">1</div>
-                            <div class="studio-stepper-title">Domaine</div>
-                            <div class="studio-stepper-sub">Métier</div>
-                        </div>
-                        <div class="studio-stepper-item" data-step="2">
-                            <div class="studio-stepper-circle">2</div>
-                            <div class="studio-stepper-title">Objectif</div>
-                            <div class="studio-stepper-sub">Mission</div>
-                        </div>
-                        <div class="studio-stepper-item" data-step="3">
-                            <div class="studio-stepper-circle">3</div>
-                            <div class="studio-stepper-title">Données</div>
-                            <div class="studio-stepper-sub">Sources</div>
-                        </div>
-                        <div class="studio-stepper-item" data-step="4">
-                            <div class="studio-stepper-circle">4</div>
-                            <div class="studio-stepper-title">Actions</div>
-                            <div class="studio-stepper-sub">Tâches</div>
-                        </div>
-                        <div class="studio-stepper-item" data-step="5">
-                            <div class="studio-stepper-circle">5</div>
-                            <div class="studio-stepper-title">Exécution</div>
-                            <div class="studio-stepper-sub">Runtime</div>
-                        </div>
-                        <div class="studio-stepper-item" data-step="6">
-                            <div class="studio-stepper-circle">6</div>
-                            <div class="studio-stepper-title">Autonomie</div>
-                            <div class="studio-stepper-sub">Niveau</div>
-                        </div>
-                        <div class="studio-stepper-item" data-step="7">
-                            <div class="studio-stepper-circle">7</div>
-                            <div class="studio-stepper-title">Sécurité</div>
-                            <div class="studio-stepper-sub">Règles</div>
-                        </div>
-                        <div class="studio-stepper-item" data-step="8">
-                            <div class="studio-stepper-circle">8</div>
-                            <div class="studio-stepper-title">Blueprint</div>
-                            <div class="studio-stepper-sub">Résumé</div>
-                        </div>
+                    <div class="studio-stepper studio-stepper-10" id="stepper">
+                        @{
+                            var steps = new[] {
+                                ("Mission", "Rôle"),
+                                ("Sensors", "Observe"),
+                                ("Skills", "Understand"),
+                                ("Tools", "Capacités"),
+                                ("Actuators", "Act"),
+                                ("Decision", "Decide"),
+                                ("Memory", "Contexte"),
+                                ("Runtime", "Exécution"),
+                                ("Security", "Règles"),
+                                ("Blueprint", "Résumé")
+                            };
+                            for (var i = 0; i < steps.Length; i++)
+                            {
+                                var n = i + 1;
+                                <div class="studio-stepper-item@(n == 1 ? " active" : "")" data-step="@n">
+                                    <div class="studio-stepper-circle">@n</div>
+                                    <div class="studio-stepper-title">@steps[i].Item1</div>
+                                    <div class="studio-stepper-sub">@steps[i].Item2</div>
+                                </div>
+                            }
+                        }
                     </div>
                 </div>
 
@@ -96,98 +80,86 @@
                     <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
 
                     <div class="studio-step-panel active" id="stepPanel1">
-                        <h2 class="studio-step-title">1. Choisissez le domaine métier de votre agent</h2>
-                        <div class="studio-domain-grid" id="domainGrid">
-                            @foreach (var d in studioDomains)
-                            {
-                                <button type="button" class="studio-domain-card@(d.Id == "email" ? " selected" : "")" data-domain="@d.Id">
-                                    <span class="studio-domain-check"><i class="bi bi-check"></i></span>
-                                    <div class="studio-domain-icon-wrap" style="background:@d.Bg;color:@d.Color">
-                                        <i class="bi @d.Icon"></i>
-                                    </div>
-                                    <div class="studio-domain-name">@d.Name</div>
-                                    <div class="studio-domain-desc">@d.Desc</div>
-                                </button>
-                            }
-                            <button type="button" class="studio-domain-card studio-domain-request" data-action="request-domain">
-                                <div class="studio-domain-request-icon"><i class="bi bi-plus-lg"></i></div>
-                                <div class="studio-domain-name">Demander un domaine</div>
-                                <div class="studio-domain-desc">Proposez un nouveau domaine métier à l'équipe Agentia</div>
-                            </button>
+                        <h2 class="studio-step-title">1. Mission — rôle et objectif de l'agent</h2>
+                        <p class="studio-step-hint">Décrivez ce que votre agent doit accomplir. Le domaine métier est un contexte optionnel, pas l'architecture.</p>
+                        <label class="studio-nl-label" for="missionText">Mission *</label>
+                        <textarea class="studio-freetext studio-mission-text" id="missionText" maxlength="2000" rows="4"
+                                  placeholder="Ex : Agent comptable qui surveille la boîte factures@@entreprise.com, extrait les données des PDF, les valide et les envoie dans CogniDoc."></textarea>
+                        <div class="studio-subsection studio-mission-context">
+                            <label class="studio-nl-label" for="missionContext">Contexte métier <span class="studio-nl-hint">(optionnel)</span></label>
+                            <textarea class="studio-freetext" id="missionContext" maxlength="1000" rows="2"
+                                      placeholder="Secteur, contraintes réglementaires, équipes concernées…"></textarea>
                         </div>
-                        <div class="studio-domain-request-bar">
-                            <p>Vous ne trouvez pas votre secteur d'activité ?</p>
-                            <button type="button" class="studio-btn-request" id="btnRequestDomain">
-                                Demander l'ajout d'un domaine <i class="bi bi-arrow-right"></i>
-                            </button>
+                        <div class="studio-subsection">
+                            <label class="studio-nl-label">Domaine métier <span class="studio-nl-hint">(tag optionnel)</span></label>
+                            <div class="studio-chip-grid" id="domainTags"></div>
                         </div>
                         <div class="studio-nl-section">
-                            <label class="studio-nl-label" for="freeText">
-                                Décrivez votre besoin en langage naturel
-                                <span class="studio-nl-hint">(optionnel mais recommandé)</span>
-                            </label>
-                            <textarea class="studio-freetext" id="freeText" maxlength="2000" rows="3"
-                                      placeholder="Ex : Je veux un agent qui lit mes emails Outlook, détecte les factures PDF, extrait les informations importantes, les envoie dans CogniDoc puis notifie le comptable."></textarea>
+                            <label class="studio-nl-label" for="freeText">Notes complémentaires <span class="studio-nl-hint">(optionnel)</span></label>
+                            <textarea class="studio-freetext" id="freeText" maxlength="2000" rows="2"
+                                      placeholder="Précisions, exemples, contraintes…"></textarea>
                             <div class="studio-char-count"><span id="charCount">0</span> / 2000</div>
                         </div>
                         <div class="studio-validation-msg" id="validationMsg"></div>
                     </div>
 
                     <div class="studio-step-panel" id="stepPanel2">
-                        <h2 class="studio-step-title">2. Quel est l'objectif principal de l'agent ?</h2>
-                        <p class="studio-step-hint">Sélectionnez un ou plusieurs objectifs. Les options marquées « Recommandé » correspondent à votre domaine.</p>
-                        <div class="studio-objective-grid" id="objectiveGrid"></div>
-                        <div class="studio-domain-request-bar">
-                            <p>L'objectif recherché n'est pas dans la liste ?</p>
-                            <button type="button" class="studio-btn-request" id="btnRequestObjective">
-                                Demander l'ajout d'un objectif <i class="bi bi-arrow-right"></i>
-                            </button>
-                        </div>
+                        <h2 class="studio-step-title">2. Sensors — d'où l'agent observe</h2>
+                        <p class="studio-step-hint">Sélectionnez vos sources de données puis configurez les connexions (OAuth, API, credentials…).</p>
+                        <div id="sensorGrid"></div>
+                        <div class="studio-source-config-panel" id="sensorConfigPanel"></div>
                     </div>
 
                     <div class="studio-step-panel" id="stepPanel3">
-                        <h2 class="studio-step-title">3. Où trouvent les données ?</h2>
-                        <p class="studio-step-hint">Sélectionnez vos sources puis renseignez les paramètres de connexion (SMTP, OAuth, API tokens, credentials…).</p>
-                        <div id="sourceGrid"></div>
-                        <div class="studio-source-config-panel" id="sourceConfigPanel"></div>
+                        <h2 class="studio-step-title">3. Skills — comment l'agent comprend</h2>
+                        <p class="studio-step-hint">Capacités cognitives : OCR, extraction, classification, RAG, etc.</p>
+                        <div id="skillGrid"></div>
+                        <div class="studio-source-config-panel" id="skillConfigPanel"></div>
                     </div>
 
                     <div class="studio-step-panel" id="stepPanel4">
-                        <h2 class="studio-step-title">4. Que doit faire l'agent ?</h2>
-                        <p class="studio-step-hint">Sélectionnez les actions du workflow puis renseignez leurs paramètres (destinataires, templates, règles, endpoints…).</p>
-                        <div id="actionGrid"></div>
-                        <div class="studio-source-config-panel" id="actionConfigPanel"></div>
+                        <h2 class="studio-step-title">4. Tools — avec quoi l'agent agit</h2>
+                        <p class="studio-step-hint">Intégrations et outils disponibles pendant l'exécution.</p>
+                        <div id="toolGrid"></div>
+                        <div class="studio-source-config-panel" id="toolConfigPanel"></div>
                     </div>
 
                     <div class="studio-step-panel" id="stepPanel5">
-                        <h2 class="studio-step-title"><i class="bi bi-gear-wide-connected"></i> 5. Configuration d'exécution</h2>
-                        <p class="studio-step-hint">Configurez le moteur d'exécution de l'agent : déclencheur, runtime, résilience, logs et supervision — comme un service Windows complet.</p>
-                        <div id="executionPanel"></div>
+                        <h2 class="studio-step-title">5. Actuators — ce que l'agent produit</h2>
+                        <p class="studio-step-hint">Actions concrètes en sortie : emails, tickets, fichiers, API…</p>
+                        <div id="actuatorGrid"></div>
+                        <div class="studio-source-config-panel" id="actuatorConfigPanel"></div>
                     </div>
 
                     <div class="studio-step-panel" id="stepPanel6">
-                        <h2 class="studio-step-title">6. Quel niveau d'autonomie ?</h2>
-                        <div class="studio-autonomy-wrap">
-                            <div class="studio-autonomy-label-row">
-                                <span>Assistant</span>
-                                <span>Superviseur multi-agent</span>
-                            </div>
-                            <div class="studio-autonomy-track">
-                                <div class="studio-autonomy-fill" id="autonomyFill" style="width:25%"></div>
-                            </div>
-                            <input type="range" class="studio-autonomy-slider" id="autonomySlider"
-                                   min="0" max="3" step="1" value="0" />
-                            <div class="studio-bp-autonomy-label" id="autonomyLabel">Assistant</div>
-                        </div>
+                        <h2 class="studio-step-title">6. Decision Engine — comment l'agent décide</h2>
+                        <p class="studio-step-hint">Moteur de raisonnement : LLM, règles métier, validation humaine ou hybride.</p>
+                        <div class="studio-exec-trigger-grid studio-decision-grid" id="decisionGrid"></div>
+                        <div id="decisionConfigPanel"></div>
                     </div>
 
                     <div class="studio-step-panel" id="stepPanel7">
-                        <h2 class="studio-step-title">7. Quelles règles de sécurité ?</h2>
-                        <div class="studio-check-grid cols-3" id="securityGrid"></div>
+                        <h2 class="studio-step-title">7. Memory — ce que l'agent retient</h2>
+                        <p class="studio-step-hint">Types de mémoire persistante pour le contexte et l'apprentissage.</p>
+                        <div class="studio-objective-grid" id="memoryGrid"></div>
+                        <div id="memoryConfigPanel"></div>
                     </div>
 
                     <div class="studio-step-panel" id="stepPanel8">
-                        <h2 class="studio-step-title">8. Blueprint — résumé final</h2>
+                        <h2 class="studio-step-title"><i class="bi bi-gear-wide-connected"></i> 8. Execution Runtime</h2>
+                        <p class="studio-step-hint">Déclencheur, runtime (Windows, Docker, K8s, Azure, AWS, OVH), résilience, logs et OpenTelemetry.</p>
+                        <div id="executionPanel"></div>
+                    </div>
+
+                    <div class="studio-step-panel" id="stepPanel9">
+                        <h2 class="studio-step-title">9. Security — règles et conformité</h2>
+                        <p class="studio-step-hint">Permissions, secrets, audit et validation humaine.</p>
+                        <div class="studio-check-grid cols-3" id="securityGrid"></div>
+                    </div>
+
+                    <div class="studio-step-panel" id="stepPanel10">
+                        <h2 class="studio-step-title">10. Blueprint — résumé final</h2>
+                        <p class="studio-step-hint">Vérifiez la configuration puis générez le blueprint de votre agent.</p>
                         <div id="finalReview"></div>
                     </div>
 
@@ -223,40 +195,49 @@
                         <div class="studio-bp-field">
                             <div class="studio-bp-label">Nom proposé</div>
                             <div class="studio-bp-name-row">
-                                <span class="studio-bp-value" id="bp-name">Email Invoice Agent</span>
+                                <span class="studio-bp-value" id="bp-name">Runtime Agent</span>
                                 <button type="button" class="studio-bp-edit" id="bpEditName" title="Modifier le nom">
                                     <i class="bi bi-pencil"></i>
                                 </button>
                             </div>
                         </div>
                         <div class="studio-bp-field">
-                            <div class="studio-bp-label">Catégorie</div>
-                            <div id="bp-category"><span class="studio-bp-pill">Email</span></div>
+                            <div class="studio-bp-label">Mission</div>
+                            <div class="studio-bp-value undefined" id="bp-mission">— Non défini —</div>
                         </div>
                         <div class="studio-bp-field">
-                            <div class="studio-bp-label">Objectif principal</div>
-                            <div class="studio-bp-value undefined" id="bp-objective">— Non défini —</div>
+                            <div class="studio-bp-label">Sensors</div>
+                            <div class="studio-bp-value undefined" id="bp-sensors">— Non défini —</div>
                         </div>
                         <div class="studio-bp-field">
-                            <div class="studio-bp-label">Sources détectées</div>
-                            <div class="studio-bp-value undefined" id="bp-sources">— Non défini —</div>
+                            <div class="studio-bp-label">Skills</div>
+                            <div class="studio-bp-value undefined" id="bp-skills">— Non défini —</div>
                         </div>
                         <div class="studio-bp-field">
-                            <div class="studio-bp-label">Actions prévues</div>
-                            <div class="studio-bp-value undefined" id="bp-actions">— Non défini —</div>
+                            <div class="studio-bp-label">Tools</div>
+                            <div class="studio-bp-value undefined" id="bp-tools">— Non défini —</div>
                         </div>
                         <div class="studio-bp-field">
-                            <div class="studio-bp-label">Exécution</div>
+                            <div class="studio-bp-label">Actions (Actuators)</div>
+                            <div class="studio-bp-value undefined" id="bp-actuators">— Non défini —</div>
+                        </div>
+                        <div class="studio-bp-field">
+                            <div class="studio-bp-label">Memory</div>
+                            <div class="studio-bp-value undefined" id="bp-memory">— Non défini —</div>
+                        </div>
+                        <div class="studio-bp-field">
+                            <div class="studio-bp-label">Moteur IA</div>
+                            <div class="studio-bp-value undefined" id="bp-decision">— Non défini —</div>
+                        </div>
+                        <div class="studio-bp-field">
+                            <div class="studio-bp-label">Runtime</div>
                             <div class="studio-bp-value undefined" id="bp-trigger">— Non défini —</div>
                         </div>
-                        <div class="studio-runtime-preview-card" id="runtimePreviewCard"></div>
                         <div class="studio-bp-field">
-                            <div class="studio-bp-label">Niveau d'autonomie</div>
-                            <div class="studio-bp-autonomy-bar">
-                                <div class="studio-bp-autonomy-fill" id="bp-autonomy-fill" style="width:25%"></div>
-                            </div>
-                            <div class="studio-bp-autonomy-label" id="bp-autonomy">Assistant</div>
+                            <div class="studio-bp-label">Boucle agentique</div>
+                            <div class="studio-bp-loop-preview" id="bp-agentic-loop">Observe → Understand → Decide → Act → Verify → Log → Wait</div>
                         </div>
+                        <div class="studio-runtime-preview-card" id="runtimePreviewCard"></div>
                         <div class="studio-bp-field">
                             <div class="studio-bp-label">Complexité estimée</div>
                             <div class="studio-bp-stars" id="bp-complexity">
@@ -266,6 +247,14 @@
                         <div class="studio-bp-field">
                             <div class="studio-bp-label">Coût estimé (IA)</div>
                             <div class="studio-bp-cost" id="bp-cost">$0.00 / mois</div>
+                        </div>
+                        <div class="studio-bp-field">
+                            <div class="studio-bp-label">Temps de création</div>
+                            <div class="studio-bp-value" id="bp-creation-time">~5 min</div>
+                        </div>
+                        <div class="studio-bp-field">
+                            <div class="studio-bp-label">Consommation IA</div>
+                            <div class="studio-bp-value" id="bp-ai-model">gpt-4o-mini</div>
                         </div>
                         <div class="studio-bp-field">
                             <div class="studio-bp-label">Runtime cible</div>
@@ -278,7 +267,7 @@
                     </div>
                     <div class="studio-bp-empty" id="bp-empty">
                         <div class="studio-bp-empty-icon"><i class="bi bi-diagram-3"></i></div>
-                        <p>Complétez les étapes pour voir le blueprint complet de votre agent.</p>
+                        <p>Décrivez la mission pour voir le blueprint de votre agent.</p>
                     </div>
                 </div>
             </aside>
@@ -288,138 +277,23 @@
     <div class="studio-draft-toast" id="draftToast">Brouillon enregistré localement</div>
 </div>
 
-<div class="studio-modal-backdrop" id="domainModalBackdrop" role="dialog" aria-modal="true" aria-labelledby="domainModalTitle">
-    <div class="studio-modal">
-        <div class="studio-modal-head">
-            <h3 id="domainModalTitle">Demander un nouveau domaine métier</h3>
-            <p>Votre demande sera transmise à l'équipe Agentia pour validation et ajout au catalogue.</p>
-        </div>
-        <div id="domainModalFormWrap">
-            <form id="domainRequestForm" class="studio-modal-body">
-                <div class="studio-modal-field">
-                    <label for="reqDomainName">Nom du domaine souhaité *</label>
-                    <input type="text" id="reqDomainName" maxlength="120"
-                           placeholder="Ex : Assurance, Transport maritime, Énergie…" required />
-                </div>
-                <div class="studio-modal-field">
-                    <label for="reqIndustry">Secteur / industrie</label>
-                    <input type="text" id="reqIndustry" maxlength="120"
-                           placeholder="Ex : Services financiers, Agroalimentaire…" />
-                </div>
-                <div class="studio-modal-field">
-                    <label for="reqUseCase">Cas d'usage principal</label>
-                    <textarea id="reqUseCase" maxlength="2000" rows="2"
-                              placeholder="Décrivez brièvement ce que l'agent devrait accomplir…"></textarea>
-                </div>
-                <div class="studio-modal-field">
-                    <label for="reqDescription">Informations complémentaires</label>
-                    <textarea id="reqDescription" maxlength="2000" rows="2"
-                              placeholder="Sources de données, contraintes, intégrations souhaitées…"></textarea>
-                </div>
-                <div class="studio-modal-error" id="domainModalError"></div>
-            </form>
-            <div class="studio-modal-foot">
-                <button type="button" class="studio-btn studio-btn-ghost" id="domainModalCancel">Annuler</button>
-                <button type="submit" form="domainRequestForm" class="studio-btn studio-btn-primary" id="domainModalSubmit">
-                    <i class="bi bi-send"></i> Envoyer la demande
-                </button>
-            </div>
-        </div>
-        <div id="domainModalSuccess" class="studio-modal-success d-none">
-            <div class="studio-modal-success-icon"><i class="bi bi-check-lg"></i></div>
-            <h4 style="font-size:1rem;font-weight:700;margin-bottom:8px;">Demande envoyée</h4>
-            <p id="domainSuccessMsg" style="font-size:0.85rem;color:#64748b;margin-bottom:16px;"></p>
-            <button type="button" class="studio-btn studio-btn-primary" id="domainModalClose">Fermer</button>
-        </div>
-    </div>
-</div>
-
-<div class="studio-modal-backdrop" id="objectiveModalBackdrop" role="dialog" aria-modal="true" aria-labelledby="objectiveModalTitle">
-    <div class="studio-modal">
-        <div class="studio-modal-head">
-            <h3 id="objectiveModalTitle">Demander un nouvel objectif</h3>
-            <p>Votre suggestion sera examinée par l'équipe Agentia et pourra être ajoutée au catalogue.</p>
-        </div>
-        <div id="objectiveModalFormWrap">
-            <form id="objectiveRequestForm" class="studio-modal-body">
-                <div class="studio-modal-field">
-                    <label for="reqObjectiveName">Nom de l'objectif souhaité *</label>
-                    <input type="text" id="reqObjectiveName" maxlength="120"
-                           placeholder="Ex : Réconcilier des factures, Qualifier un appel entrant…" required />
-                </div>
-                <div class="studio-modal-field">
-                    <label for="reqObjectiveDomain">Domaine concerné</label>
-                    <input type="text" id="reqObjectiveDomain" maxlength="120"
-                           placeholder="Ex : Comptabilité, Support client…" />
-                </div>
-                <div class="studio-modal-field">
-                    <label for="reqObjectiveUseCase">Cas d'usage</label>
-                    <textarea id="reqObjectiveUseCase" maxlength="2000" rows="2"
-                              placeholder="Décrivez ce que l'agent devrait accomplir…"></textarea>
-                </div>
-                <div class="studio-modal-field">
-                    <label for="reqObjectiveDescription">Informations complémentaires</label>
-                    <textarea id="reqObjectiveDescription" maxlength="2000" rows="2"
-                              placeholder="Entrées, sorties, contraintes, exemples…"></textarea>
-                </div>
-                <div class="studio-modal-error" id="objectiveModalError"></div>
-            </form>
-            <div class="studio-modal-foot">
-                <button type="button" class="studio-btn studio-btn-ghost" id="objectiveModalCancel">Annuler</button>
-                <button type="submit" form="objectiveRequestForm" class="studio-btn studio-btn-primary" id="objectiveModalSubmit">
-                    <i class="bi bi-send"></i> Envoyer la demande
-                </button>
-            </div>
-        </div>
-        <div id="objectiveModalSuccess" class="studio-modal-success d-none">
-            <div class="studio-modal-success-icon"><i class="bi bi-check-lg"></i></div>
-            <h4 style="font-size:1rem;font-weight:700;margin-bottom:8px;">Demande envoyée</h4>
-            <p id="objectiveSuccessMsg" style="font-size:0.85rem;color:#64748b;margin-bottom:16px;"></p>
-            <button type="button" class="studio-btn studio-btn-primary" id="objectiveModalClose">Fermer</button>
-        </div>
-    </div>
-</div>
-
-<div class="studio-modal-backdrop" id="sourceConfigModalBackdrop" role="dialog" aria-modal="true" aria-labelledby="sourceConfigModalTitle">
+<div class="studio-modal-backdrop" id="catalogConfigModalBackdrop" role="dialog" aria-modal="true" aria-labelledby="catalogConfigModalTitle">
     <div class="studio-modal studio-config-modal">
         <div class="studio-modal-head studio-config-modal-head">
             <div class="studio-config-modal-title-row">
-                <span class="studio-config-modal-icon" id="sourceConfigModalIcon"><i class="bi bi-plug"></i></span>
+                <span class="studio-config-modal-icon" id="catalogConfigModalIcon"><i class="bi bi-plug"></i></span>
                 <div class="studio-config-modal-title-text">
-                    <h3 id="sourceConfigModalTitle">Paramètres de connexion</h3>
-                    <p>Les identifiants sensibles seront stockés chiffrés dans <strong>Agentia Vault</strong> — jamais en clair dans le blueprint.</p>
+                    <h3 id="catalogConfigModalTitle">Paramètres de connexion</h3>
+                    <p>Les identifiants sensibles seront stockés chiffrés dans <strong>Agentia Vault</strong>.</p>
                 </div>
-                <span class="studio-config-progress" id="sourceConfigModalProgress">0/0 renseigné(s)</span>
+                <span class="studio-config-progress" id="catalogConfigModalProgress">0/0 renseigné(s)</span>
             </div>
-            <select class="studio-config-modal-selector d-none" id="sourceConfigModalSelector" aria-label="Source à configurer"></select>
+            <select class="studio-config-modal-selector d-none" id="catalogConfigModalSelector" aria-label="Élément à configurer"></select>
         </div>
-        <div class="studio-modal-body studio-config-modal-body" id="sourceConfigModalBody"></div>
+        <div class="studio-modal-body studio-config-modal-body" id="catalogConfigModalBody"></div>
         <div class="studio-modal-foot">
-            <button type="button" class="studio-btn studio-btn-ghost" id="sourceConfigModalClose">Fermer</button>
-            <button type="button" class="studio-btn studio-btn-primary" id="sourceConfigModalSave">
-                <i class="bi bi-check-lg"></i> Enregistrer
-            </button>
-        </div>
-    </div>
-</div>
-
-<div class="studio-modal-backdrop" id="actionConfigModalBackdrop" role="dialog" aria-modal="true" aria-labelledby="actionConfigModalTitle">
-    <div class="studio-modal studio-config-modal">
-        <div class="studio-modal-head studio-config-modal-head">
-            <div class="studio-config-modal-title-row">
-                <span class="studio-config-modal-icon" id="actionConfigModalIcon"><i class="bi bi-gear"></i></span>
-                <div class="studio-config-modal-title-text">
-                    <h3 id="actionConfigModalTitle">Paramètres de l'action</h3>
-                    <p>Configurez cette action. Les secrets seront stockés chiffrés dans <strong>Agentia Vault</strong>.</p>
-                </div>
-                <span class="studio-config-progress" id="actionConfigModalProgress">0/0 renseigné(s)</span>
-            </div>
-            <select class="studio-config-modal-selector d-none" id="actionConfigModalSelector" aria-label="Action à configurer"></select>
-        </div>
-        <div class="studio-modal-body studio-config-modal-body" id="actionConfigModalBody"></div>
-        <div class="studio-modal-foot">
-            <button type="button" class="studio-btn studio-btn-ghost" id="actionConfigModalClose">Fermer</button>
-            <button type="button" class="studio-btn studio-btn-primary" id="actionConfigModalSave">
+            <button type="button" class="studio-btn studio-btn-ghost" id="catalogConfigModalClose">Fermer</button>
+            <button type="button" class="studio-btn studio-btn-primary" id="catalogConfigModalSave">
                 <i class="bi bi-check-lg"></i> Enregistrer
             </button>
         </div>
@@ -433,8 +307,12 @@
             name = d.Name, desc = d.Desc, namePrefix = d.NamePrefix, defaultAgent = d.DefaultAgent
         })));
     </script>
-    <script src="~/js/agentia-studio-sources.js" asp-append-version="true"></script>
-    <script src="~/js/agentia-studio-actions.js" asp-append-version="true"></script>
+    <script src="~/js/agentia-studio-sensors.js" asp-append-version="true"></script>
+    <script src="~/js/agentia-studio-skills.js" asp-append-version="true"></script>
+    <script src="~/js/agentia-studio-tools.js" asp-append-version="true"></script>
+    <script src="~/js/agentia-studio-actuators.js" asp-append-version="true"></script>
+    <script src="~/js/agentia-studio-decision.js" asp-append-version="true"></script>
+    <script src="~/js/agentia-studio-memory.js" asp-append-version="true"></script>
     <script src="~/js/agentia-studio-runtime.js" asp-append-version="true"></script>
     <script src="~/js/agentia-studio.js" asp-append-version="true"></script>
 }

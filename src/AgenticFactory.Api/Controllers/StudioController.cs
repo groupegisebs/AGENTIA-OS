@@ -239,7 +239,7 @@ public class StudioController(
     private static decimal GetRuntimeMultiplier(string? runtimeId) => runtimeId switch
     {
         "kubernetes" => 1.35m,
-        "azure" or "aws" => 1.25m,
+        "azure" or "aws" or "ovh" => 1.25m,
         "docker" => 1.15m,
         _ => 1m
     };

@@ -67,7 +67,7 @@ public class AgentsController(ApiClient api) : AuthenticatedController
         var message = BuildCreationMessage(model);
         if (string.IsNullOrWhiteSpace(message))
         {
-            ModelState.AddModelError(string.Empty, "Complétez au minimum le domaine et un objectif, ou ajoutez une description.");
+            ModelState.AddModelError(string.Empty, "Complétez au minimum la mission ou ajoutez une description.");
             return View(model);
         }
 
@@ -171,19 +171,45 @@ public class AgentsController(ApiClient api) : AuthenticatedController
             using var doc = JsonDocument.Parse(model.WizardJson);
             var root = doc.RootElement;
             var sb = new StringBuilder();
-            sb.AppendLine("Créer un agent IA via Agent Factory Studio avec la configuration suivante :");
-            AppendLine(sb, "Domaine métier", root, "domain");
-            AppendArray(sb, "Objectifs", root, "objectives");
-            AppendArray(sb, "Sources de données", root, "sources");
-            AppendSourceDetails(sb, root);
-            AppendArray(sb, "Actions workflow", root, "actions");
-            AppendActionDetails(sb, root);
-            AppendLine(sb, "Configuration d'exécution", root, "trigger");
-            AppendLine(sb, "Runtime", root, "runtime");
-            AppendExecutionDetails(sb, root);
-            AppendLine(sb, "Niveau d'autonomie", root, "autonomy");
-            AppendArray(sb, "Sécurité", root, "security");
-            AppendLine(sb, "Nom proposé", root, "agentName");
+            sb.AppendLine("Créer un agent IA Runtime Agentic via Agent Factory Studio :");
+
+            if (root.TryGetProperty("schemaVersion", out var sv) && sv.GetInt32() >= 2)
+            {
+                AppendLine(sb, "Mission", root, "mission");
+                AppendLine(sb, "Contexte métier", root, "missionContext");
+                AppendLine(sb, "Domaine (tag)", root, "businessDomain");
+                AppendArray(sb, "Capteurs (Observe)", root, "sensors");
+                AppendCatalogDetails(sb, root, "sensorDetails");
+                AppendArray(sb, "Compétences (Understand)", root, "skills");
+                AppendCatalogDetails(sb, root, "skillDetails");
+                AppendArray(sb, "Outils", root, "tools");
+                AppendCatalogDetails(sb, root, "toolDetails");
+                AppendArray(sb, "Actionneurs (Act)", root, "actuators");
+                AppendCatalogDetails(sb, root, "actuatorDetails");
+                AppendDecision(sb, root);
+                AppendMemory(sb, root);
+                AppendLine(sb, "Configuration d'exécution", root, "trigger");
+                AppendLine(sb, "Runtime", root, "runtime");
+                AppendExecutionDetails(sb, root);
+                AppendArray(sb, "Sécurité", root, "security");
+                AppendLine(sb, "Nom proposé", root, "agentName");
+                AppendLine(sb, "Boucle agentique", root, "agenticLoop");
+            }
+            else
+            {
+                AppendLine(sb, "Domaine métier", root, "domain");
+                AppendArray(sb, "Objectifs", root, "objectives");
+                AppendArray(sb, "Sources de données", root, "sources");
+                AppendCatalogDetails(sb, root, "sourceDetails");
+                AppendArray(sb, "Actions workflow", root, "actions");
+                AppendCatalogDetails(sb, root, "actionDetails");
+                AppendLine(sb, "Configuration d'exécution", root, "trigger");
+                AppendLine(sb, "Runtime", root, "runtime");
+                AppendExecutionDetails(sb, root);
+                AppendLine(sb, "Niveau d'autonomie", root, "autonomy");
+                AppendArray(sb, "Sécurité", root, "security");
+                AppendLine(sb, "Nom proposé", root, "agentName");
+            }
             if (root.TryGetProperty("freeText", out var ft) && !string.IsNullOrWhiteSpace(ft.GetString()))
                 sb.AppendLine($"Description complémentaire : {ft.GetString()}");
             return sb.ToString().Trim();
@@ -200,9 +226,31 @@ public class AgentsController(ApiClient api) : AuthenticatedController
             sb.AppendLine($"- {label} : {v.GetString()}");
     }
 
-    private static void AppendSourceDetails(StringBuilder sb, JsonElement root)
+    private static void AppendDecision(StringBuilder sb, JsonElement root)
     {
-        if (!root.TryGetProperty("sourceDetails", out var arr) || arr.ValueKind != JsonValueKind.Array)
+        if (!root.TryGetProperty("decision", out var dec) || dec.ValueKind != JsonValueKind.Object)
+            return;
+        var label = dec.TryGetProperty("label", out var l) ? l.GetString()
+            : dec.TryGetProperty("engine", out var e) ? e.GetString() : null;
+        if (!string.IsNullOrWhiteSpace(label))
+            sb.AppendLine($"- Moteur de décision : {label}");
+    }
+
+    private static void AppendMemory(StringBuilder sb, JsonElement root)
+    {
+        if (!root.TryGetProperty("memory", out var mem) || mem.ValueKind != JsonValueKind.Object)
+            return;
+        if (mem.TryGetProperty("types", out var types) && types.ValueKind == JsonValueKind.Array)
+        {
+            var items = types.EnumerateArray().Select(x => x.GetString()).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
+            if (items.Count > 0)
+                sb.AppendLine($"- Mémoire : {string.Join(", ", items)}");
+        }
+    }
+
+    private static void AppendCatalogDetails(StringBuilder sb, JsonElement root, string prop)
+    {
+        if (!root.TryGetProperty(prop, out var arr) || arr.ValueKind != JsonValueKind.Array)
             return;
         foreach (var item in arr.EnumerateArray())
         {
@@ -221,26 +269,11 @@ public class AgentsController(ApiClient api) : AuthenticatedController
         }
     }
 
-    private static void AppendActionDetails(StringBuilder sb, JsonElement root)
-    {
-        if (!root.TryGetProperty("actionDetails", out var arr) || arr.ValueKind != JsonValueKind.Array)
-            return;
-        foreach (var item in arr.EnumerateArray())
-        {
-            var label = item.TryGetProperty("label", out var l) ? l.GetString() : null;
-            if (string.IsNullOrWhiteSpace(label)) continue;
-            if (!item.TryGetProperty("config", out var cfg) || cfg.ValueKind != JsonValueKind.Object)
-            {
-                sb.AppendLine($"  · {label}");
-                continue;
-            }
-            var parts = cfg.EnumerateObject()
-                .Select(p => $"{p.Name}={p.Value.GetString()}")
-                .Where(x => !string.IsNullOrWhiteSpace(x));
-            var detail = string.Join(", ", parts);
-            sb.AppendLine(string.IsNullOrWhiteSpace(detail) ? $"  · {label}" : $"  · {label} : {detail}");
-        }
-    }
+    private static void AppendSourceDetails(StringBuilder sb, JsonElement root) =>
+        AppendCatalogDetails(sb, root, "sourceDetails");
+
+    private static void AppendActionDetails(StringBuilder sb, JsonElement root) =>
+        AppendCatalogDetails(sb, root, "actionDetails");
 
     private static void AppendExecutionDetails(StringBuilder sb, JsonElement root)
     {

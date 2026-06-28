@@ -98,6 +98,67 @@ body.studio-mode .af-topbar { display: none; }
     margin: 0;
 }
 
+/* Agentic loop bar */
+.studio-agentic-loop-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 6px;
+    margin-top: 14px;
+    padding: 10px 14px;
+    background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%);
+    border: 1px solid #e0e7ff;
+    border-radius: 12px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #64748b;
+}
+.studio-loop-step {
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    color: #475569;
+    transition: all 0.15s;
+}
+.studio-loop-step.active {
+    background: #6366f1;
+    border-color: #6366f1;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
+}
+.studio-loop-arrow {
+    color: #cbd5e1;
+    font-size: 0.65rem;
+    user-select: none;
+}
+.studio-bp-loop-preview {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #6366f1;
+    line-height: 1.45;
+    padding: 8px 10px;
+    background: #f5f3ff;
+    border-radius: 8px;
+    border: 1px solid #e0e7ff;
+}
+.studio-mission-text {
+    min-height: 100px;
+    margin-bottom: 4px;
+}
+.studio-mission-context { margin-top: 16px; }
+.studio-decision-grid {
+    grid-template-columns: repeat(3, 1fr);
+}
+@media (max-width: 900px) {
+    .studio-decision-grid { grid-template-columns: repeat(2, 1fr); }
+}
+.studio-decision-card { min-height: 88px; }
+.studio-chip-muted {
+    border-style: dashed;
+    color: #94a3b8;
+}
+
 /* Layout */
 .studio-layout {
     display: grid;
@@ -124,6 +185,28 @@ body.studio-mode .af-topbar { display: none; }
     display: flex;
     align-items: flex-start;
     min-width: 720px;
+}
+.studio-stepper-10 {
+    min-width: 960px;
+}
+.studio-stepper-10 .studio-stepper-item {
+    min-width: 72px;
+}
+.studio-stepper-10 .studio-stepper-circle {
+    width: 28px;
+    height: 28px;
+    font-size: 0.75rem;
+}
+.studio-stepper-10 .studio-stepper-title {
+    font-size: 0.68rem;
+}
+.studio-stepper-10 .studio-stepper-sub {
+    font-size: 0.62rem;
+}
+.studio-stepper-10 .studio-stepper-item:not(:last-child)::after {
+    top: 14px;
+    left: calc(50% + 16px);
+    width: calc(100% - 32px);
 }
 .studio-stepper-item {
     flex: 1;

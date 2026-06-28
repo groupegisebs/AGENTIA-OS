@@ -2,375 +2,189 @@
     'use strict';
 
     const STORAGE_KEY = 'agentia-studio-draft';
-    const TOTAL_STEPS = 8;
+    const SCHEMA_VERSION = 2;
+    const TOTAL_STEPS = 10;
     const MAX_CHARS = 2000;
 
-    function getDomains() {
-        if (window.STUDIO_DOMAINS?.length) return window.STUDIO_DOMAINS;
-        return [
-            { id: 'email', icon: 'bi-envelope', bg: '#eef2ff', color: '#6366f1', name: 'Email', desc: 'Courrier, tri, réponses automatiques', namePrefix: 'Email', defaultAgent: 'Email Invoice Agent' }
-        ];
-    }
-
-    const OBJECTIVES = [
-        { id: 'lire-analyser', label: 'Lire et analyser', icon: 'bi-search', domains: ['email', 'documents', 'data', 'medias'] },
-        { id: 'lire-emails', label: 'Lire des emails', icon: 'bi-envelope-open', domains: ['email', 'comptabilite', 'support'] },
-        { id: 'extraire', label: 'Extraire des données', icon: 'bi-box-arrow-down', domains: ['documents', 'comptabilite', 'email', 'ecommerce'] },
-        { id: 'classifier', label: 'Classifier', icon: 'bi-tags', domains: ['email', 'documents', 'support', 'juridique'] },
-        { id: 'repondre', label: 'Répondre automatiquement', icon: 'bi-reply', domains: ['email', 'support', 'vente'] },
-        { id: 'rapport', label: 'Générer un rapport', icon: 'bi-file-bar-graph', domains: ['comptabilite', 'data', 'marketing', 'qualite'] },
-        { id: 'notifier', label: 'Notifier une personne', icon: 'bi-bell', domains: ['support', 'rh', 'devops', 'cyber'] },
-        { id: 'tache', label: 'Créer une tâche', icon: 'bi-check2-square', domains: ['rh', 'support', 'vente', 'projet'] },
-        { id: 'maj-db', label: 'Mettre à jour une base', icon: 'bi-database', domains: ['comptabilite', 'vente', 'data', 'ecommerce'] },
-        { id: 'api', label: 'Appeler une API', icon: 'bi-plug', domains: ['devops', 'data', 'custom', 'ecommerce', 'logistique'] },
-        { id: 'surveiller', label: 'Surveiller une situation', icon: 'bi-eye', domains: ['cyber', 'devops', 'email', 'industrie'] },
-        { id: 'traduire', label: 'Traduire', icon: 'bi-translate', domains: ['documents', 'support', 'marketing'] },
-        { id: 'automatiser', label: 'Automatiser un processus', icon: 'bi-arrow-repeat', domains: ['custom', 'rh', 'comptabilite', 'industrie', 'logistique'] },
-        { id: 'resumer', label: 'Résumer un contenu', icon: 'bi-text-paragraph', domains: ['documents', 'email', 'data', 'education'] },
-        { id: 'comparer', label: 'Comparer des documents', icon: 'bi-files', domains: ['documents', 'juridique', 'comptabilite'] },
-        { id: 'valider', label: 'Valider des documents', icon: 'bi-patch-check', domains: ['documents', 'rh', 'qualite', 'juridique'] },
-        { id: 'approuver', label: 'Approuver une demande', icon: 'bi-hand-thumbs-up', domains: ['rh', 'comptabilite', 'juridique'] },
-        { id: 'anomalie', label: 'Détecter une anomalie', icon: 'bi-exclamation-triangle', domains: ['cyber', 'comptabilite', 'industrie', 'data'] },
-        { id: 'enrichir', label: 'Enrichir des données', icon: 'bi-plus-circle', domains: ['vente', 'data', 'marketing', 'ecommerce'] },
-        { id: 'sync', label: 'Synchroniser des systèmes', icon: 'bi-arrow-left-right', domains: ['devops', 'ecommerce', 'logistique', 'vente'] },
-        { id: 'archiver', label: 'Archiver automatiquement', icon: 'bi-archive', domains: ['documents', 'email', 'juridique', 'rh'] },
-        { id: 'planifier', label: 'Planifier une action', icon: 'bi-calendar-event', domains: ['projet', 'rh', 'productivite', 'marketing'] },
-        { id: 'escalader', label: 'Escalader un incident', icon: 'bi-arrow-up-circle', domains: ['support', 'cyber', 'devops'] },
-        { id: 'qualifier-lead', label: 'Qualifier un lead', icon: 'bi-funnel', domains: ['vente', 'marketing', 'ecommerce'] },
-        { id: 'scorer-risque', label: 'Scorer un risque', icon: 'bi-speedometer2', domains: ['banque', 'cyber', 'juridique', 'data'] },
-        { id: 'brouillon', label: 'Générer un brouillon', icon: 'bi-pencil-square', domains: ['marketing', 'juridique', 'support', 'rh'] },
-        { id: 'conformite', label: 'Contrôler la conformité', icon: 'bi-shield-check', domains: ['juridique', 'qualite', 'banque', 'cyber'] },
-        { id: 'reconcilier', label: 'Réconcilier des comptes', icon: 'bi-calculator', domains: ['comptabilite', 'banque', 'ecommerce'] },
-        { id: 'parser', label: 'Parser un formulaire', icon: 'bi-ui-checks', domains: ['documents', 'rh', 'support'] },
-        { id: 'ocr', label: 'Traiter des scans (OCR)', icon: 'bi-file-earmark-image', domains: ['documents', 'comptabilite', 'sante'] },
-        { id: 'router', label: 'Router vers la bonne équipe', icon: 'bi-signpost-split', domains: ['support', 'email', 'rh'] },
-        { id: 'monitorer-kpi', label: 'Monitorer des KPI', icon: 'bi-graph-up-arrow', domains: ['data', 'marketing', 'vente', 'projet'] },
-        { id: 'onboard', label: 'Onboarder un collaborateur', icon: 'bi-person-plus', domains: ['rh', 'education'] },
-        { id: 'veille', label: 'Assurer une veille', icon: 'bi-rss', domains: ['juridique', 'cyber', 'medias', 'marketing'] },
-        { id: 'facturer', label: 'Préparer une facturation', icon: 'bi-receipt', domains: ['comptabilite', 'ecommerce', 'vente'] },
-        { id: 'inventorier', label: 'Inventorier des actifs', icon: 'bi-box-seam', domains: ['logistique', 'industrie', 'immobilier'] }
-    ];
-
-    const SOURCES = window.STUDIO_SOURCE_CATALOG?.items || [];
-    const ACTIONS = window.STUDIO_ACTION_CATALOG?.items || [];
-    const EXEC = () => window.STUDIO_EXECUTION;
-
-    const AUTONOMY_LEVELS = [
-        { id: 0, label: 'Assistant', pct: 25 },
-        { id: 1, label: 'Semi-autonome', pct: 50 },
-        { id: 2, label: 'Autonome', pct: 75 },
-        { id: 3, label: 'Superviseur multi-agent', pct: 100 }
-    ];
+    const AGENTIC_LOOP = ['Observe', 'Understand', 'Decide', 'Act', 'Verify', 'Log', 'Wait'];
 
     const SECURITY = [
-        'Lecture seule', 'Lecture / écriture', 'Validation humaine obligatoire',
-        'Journalisation complète', 'Accès API protégé', 'Secrets chiffrés', 'Quotas activés'
+        'Read', 'Read/Write', 'Delete', 'API Keys', 'Secrets', 'Vault',
+        'Logging', 'Audit', 'Human validation', 'GDPR'
     ];
 
-    let state = {
-        step: 1,
-        domain: 'email',
-        customName: '',
-        objectives: [],
-        sources: [],
-        sourceConfigs: {},
-        actions: [],
-        actionConfigs: {},
-        execution: null,
-        autonomy: 0,
-        security: [],
-        customDomainLabel: '',
-        freeText: ''
+    const CATALOG_STEPS = {
+        sensors: {
+            catalog: () => window.STUDIO_SENSOR_CATALOG,
+            getItem: id => getStudioSensor(id),
+            getLabel: id => getStudioSensorLabel(id),
+            gridId: 'sensorGrid',
+            panelId: 'sensorConfigPanel',
+            modalPrefix: 'sensor',
+            dataAttr: 'data-sensor',
+            configureAttr: 'data-configure-sensor'
+        },
+        skills: {
+            catalog: () => window.STUDIO_SKILL_CATALOG,
+            getItem: id => getStudioSkill(id),
+            getLabel: id => getStudioSkillLabel(id),
+            gridId: 'skillGrid',
+            panelId: 'skillConfigPanel',
+            modalPrefix: 'skill',
+            dataAttr: 'data-skill',
+            configureAttr: 'data-configure-skill',
+            optionalConfig: true
+        },
+        tools: {
+            catalog: () => window.STUDIO_TOOL_CATALOG,
+            getItem: id => getStudioTool(id),
+            getLabel: id => getStudioToolLabel(id),
+            gridId: 'toolGrid',
+            panelId: 'toolConfigPanel',
+            modalPrefix: 'tool',
+            dataAttr: 'data-tool',
+            configureAttr: 'data-configure-tool'
+        },
+        actuators: {
+            catalog: () => window.STUDIO_ACTUATOR_CATALOG,
+            getItem: id => getStudioActuator(id),
+            getLabel: id => getStudioActuatorLabel(id),
+            gridId: 'actuatorGrid',
+            panelId: 'actuatorConfigPanel',
+            modalPrefix: 'actuator',
+            dataAttr: 'data-actuator',
+            configureAttr: 'data-configure-actuator'
+        }
     };
 
+    function defaultState() {
+        return {
+            schemaVersion: SCHEMA_VERSION,
+            step: 1,
+            mission: '',
+            missionContext: '',
+            businessDomain: '',
+            sensors: [],
+            sensorConfigs: {},
+            skills: [],
+            skillConfigs: {},
+            tools: [],
+            toolConfigs: {},
+            actuators: [],
+            actuatorConfigs: {},
+            decision: { engine: 'gpt', config: {} },
+            memory: { types: [], config: {} },
+            execution: null,
+            security: [],
+            customName: '',
+            freeText: ''
+        };
+    }
+
+    let state = defaultState();
     let latestEstimate = null;
     let estimateTimer = null;
+    let activeConfigModal = null;
 
     const $ = (sel, ctx) => (ctx || document).querySelector(sel);
     const $$ = (sel, ctx) => [...(ctx || document).querySelectorAll(sel)];
     const UNDEF = '— Non défini —';
+    const EXEC = () => window.STUDIO_EXECUTION;
 
     function init() {
         if (!$('.studio-page')) return;
         try { loadDraft(); } catch (e) { console.error('Agentia Studio — loadDraft', e); }
-        try { renderDomainGrid(); } catch (e) { console.error('Agentia Studio — renderDomainGrid', e); }
-        try { renderObjectives(); } catch (e) { console.error('Agentia Studio — renderObjectives', e); }
-        try { renderSources(); } catch (e) { console.error('Agentia Studio — renderSources', e); }
-        try { renderActions(); } catch (e) { console.error('Agentia Studio — renderActions', e); }
-        try { renderExecution(); } catch (e) { console.error('Agentia Studio — renderExecution', e); }
-        try { renderSecurity(); } catch (e) { console.error('Agentia Studio — renderSecurity', e); }
-        bindAutonomySlider();
-        bindFreeText();
+        renderAgenticLoop();
+        renderMissionStep();
+        Object.keys(CATALOG_STEPS).forEach(k => renderCatalogStep(k));
+        renderDecisionStep();
+        renderMemoryStep();
+        renderExecution();
+        renderSecurity();
+        bindMissionInputs();
         bindNavigation();
         bindFormSubmit();
         bindNameEdit();
-        bindDomainRequestModal();
-        bindObjectiveRequestModal();
-        bindSourceConfigModal();
-        bindActionConfigModal();
+        bindGenericConfigModal();
         goToStep(state.step, false);
         updateBlueprint();
     }
 
-    function renderDomainGrid() {
-        const grid = $('#domainGrid');
-        if (!grid) return;
-        const domains = getDomains();
+    function renderAgenticLoop() {
+        const el = $('#agenticLoop');
+        if (!el) return;
+        el.innerHTML = AGENTIC_LOOP.map((step, i) =>
+            `<span class="studio-loop-step${state.step === i + 1 || (state.step > 1 && i === 0) ? ' active' : ''}">${step}</span>`
+        ).join('<span class="studio-loop-arrow">→</span>');
+    }
 
-        if (!grid.querySelector('[data-domain]')) {
-            if (!domains.length) {
-                grid.innerHTML = '<p class="studio-exec-hint">Catalogue de domaines indisponible.</p>';
-                return;
-            }
-            const cards = domains.map(d => `
-                <button type="button" class="studio-domain-card${state.domain === d.id ? ' selected' : ''}" data-domain="${d.id}">
-                    <span class="studio-domain-check"><i class="bi bi-check"></i></span>
-                    <div class="studio-domain-icon-wrap" style="background:${d.bg};color:${d.color}">
-                        <i class="bi ${d.icon}"></i>
-                    </div>
-                    <div class="studio-domain-name">${d.name}</div>
-                    <div class="studio-domain-desc">${d.desc}</div>
-                </button>
-            `).join('');
-            const requestCard = `
-                <button type="button" class="studio-domain-card studio-domain-request" data-action="request-domain">
-                    <div class="studio-domain-request-icon"><i class="bi bi-plus-lg"></i></div>
-                    <div class="studio-domain-name">Demander un domaine</div>
-                    <div class="studio-domain-desc">Proposez un nouveau domaine métier à l'équipe Agentia</div>
-                </button>`;
-            grid.innerHTML = cards + requestCard;
+    function getDomains() {
+        return window.STUDIO_DOMAINS?.length ? window.STUDIO_DOMAINS : [];
+    }
+
+    function renderMissionStep() {
+        const tags = $('#domainTags');
+        if (tags) {
+            const domains = getDomains();
+            tags.innerHTML = domains.slice(0, 12).map(d =>
+                `<button type="button" class="studio-chip${state.businessDomain === d.id ? ' selected' : ''}" data-domain-tag="${d.id}">${d.name}</button>`
+            ).join('') + `<button type="button" class="studio-chip studio-chip-muted" data-domain-tag="">Aucun / Autre</button>`;
+            $$('[data-domain-tag]', tags).forEach(btn => {
+                btn.addEventListener('click', () => {
+                    state.businessDomain = btn.dataset.domainTag;
+                    $$('[data-domain-tag]', tags).forEach(b => b.classList.toggle('selected', b === btn));
+                    updateBlueprint();
+                });
+            });
         }
+        const mission = $('#missionText');
+        if (mission) mission.value = state.mission;
+        const ctx = $('#missionContext');
+        if (ctx) ctx.value = state.missionContext;
+    }
 
-        $$('.studio-domain-card[data-domain]', grid).forEach(card => {
-            card.classList.toggle('selected', card.dataset.domain === state.domain);
+    function bindMissionInputs() {
+        const mission = $('#missionText');
+        const ctx = $('#missionContext');
+        const free = $('#freeText');
+        const counter = $('#charCount');
+        mission?.addEventListener('input', () => {
+            state.mission = mission.value.slice(0, MAX_CHARS);
+            updateBlueprint();
         });
-
-        $$('.studio-domain-card[data-domain]', grid).forEach(card => {
-            if (card.dataset.bound === '1') return;
-            card.dataset.bound = '1';
-            card.addEventListener('click', () => {
-                state.domain = card.dataset.domain;
-                state.customName = '';
-                if (state.domain === 'custom') {
-                    const label = prompt('Nom du domaine personnalisé :', state.customDomainLabel || '');
-                    if (label === null) return;
-                    state.customDomainLabel = label.trim();
-                } else {
-                    state.customDomainLabel = '';
-                }
-                $$('.studio-domain-card[data-domain]', grid).forEach(c =>
-                    c.classList.toggle('selected', c === card));
-                renderObjectives();
+        ctx?.addEventListener('input', () => {
+            state.missionContext = ctx.value.slice(0, MAX_CHARS);
+            updateBlueprint();
+        });
+        if (free) {
+            free.value = state.freeText;
+            const sync = () => {
+                state.freeText = free.value.slice(0, MAX_CHARS);
+                if (counter) counter.textContent = state.freeText.length;
                 updateBlueprint();
-            });
-        });
-
-        $$('[data-action="request-domain"]', grid).forEach(btn => {
-            if (btn.dataset.bound === '1') return;
-            btn.dataset.bound = '1';
-            btn.addEventListener('click', e => {
-                e.stopPropagation();
-                openDomainRequestModal();
-            });
-        });
-    }
-
-    function bindDomainRequestModal() {
-        $('#btnRequestDomain')?.addEventListener('click', openDomainRequestModal);
-        $('#domainModalClose')?.addEventListener('click', closeDomainRequestModal);
-        $('#domainModalCancel')?.addEventListener('click', closeDomainRequestModal);
-        $('#domainModalBackdrop')?.addEventListener('click', e => {
-            if (e.target.id === 'domainModalBackdrop') closeDomainRequestModal();
-        });
-        $('#domainRequestForm')?.addEventListener('submit', submitDomainRequest);
-    }
-
-    function openDomainRequestModal() {
-        const backdrop = $('#domainModalBackdrop');
-        const formWrap = $('#domainModalFormWrap');
-        const successWrap = $('#domainModalSuccess');
-        if (!backdrop) return;
-        backdrop.classList.add('open');
-        formWrap?.classList.remove('d-none');
-        successWrap?.classList.add('d-none');
-        $('#domainModalError')?.classList.remove('show');
-        document.body.style.overflow = 'hidden';
-    }
-
-    function closeDomainRequestModal() {
-        $('#domainModalBackdrop')?.classList.remove('open');
-        document.body.style.overflow = '';
-    }
-
-    async function submitDomainRequest(e) {
-        e.preventDefault();
-        const errEl = $('#domainModalError');
-        const name = $('#reqDomainName')?.value?.trim();
-        if (!name) {
-            if (errEl) { errEl.textContent = 'Indiquez le nom du domaine souhaité.'; errEl.classList.add('show'); }
-            return;
-        }
-        const payload = {
-            domainName: name,
-            industry: $('#reqIndustry')?.value?.trim() || null,
-            useCase: $('#reqUseCase')?.value?.trim() || null,
-            description: $('#reqDescription')?.value?.trim() || null
-        };
-        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
-        const btn = $('#domainModalSubmit');
-        if (btn) { btn.disabled = true; btn.textContent = 'Envoi…'; }
-        try {
-            const res = await fetch('/Agents/RequestDomain', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'RequestVerificationToken': token
-                },
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(data.message || 'Erreur lors de l\'envoi.');
-            $('#domainModalFormWrap')?.classList.add('d-none');
-            const successWrap = $('#domainModalSuccess');
-            successWrap?.classList.remove('d-none');
-            if ($('#domainSuccessMsg')) $('#domainSuccessMsg').textContent = data.message;
-            $('#domainRequestForm')?.reset();
-            showToast(data.message || 'Demande envoyée.', true);
-        } catch (err) {
-            if (errEl) { errEl.textContent = err.message; errEl.classList.add('show'); }
-        } finally {
-            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-send"></i> Envoyer la demande'; }
+            };
+            free.addEventListener('input', sync);
+            sync();
         }
     }
 
-    function showToast(msg, success) {
-        const toast = $('#draftToast');
-        if (!toast) return;
-        toast.textContent = msg;
-        toast.classList.toggle('studio-toast-success', !!success);
-        toast.classList.add('show');
-        setTimeout(() => {
-            toast.classList.remove('show');
-            toast.classList.remove('studio-toast-success');
-        }, 3500);
-    }
+    function renderCatalogStep(key) {
+        const cfg = CATALOG_STEPS[key];
+        const grid = $(`#${cfg.gridId}`);
+        const catalog = cfg.catalog();
+        if (!grid || !catalog) return;
 
-    function renderObjectives() {
-        const grid = $('#objectiveGrid');
-        if (!grid) return;
-        const sorted = [...OBJECTIVES].sort((a, b) => {
-            const aRec = state.domain && a.domains.includes(state.domain) ? 0 : 1;
-            const bRec = state.domain && b.domains.includes(state.domain) ? 0 : 1;
-            return aRec - bRec || a.label.localeCompare(b.label, 'fr');
-        });
-        const cards = sorted.map(o => {
-            const checked = state.objectives.includes(o.id);
-            const rec = state.domain && o.domains.includes(state.domain);
-            return `
-                <label class="studio-objective-card${checked ? ' checked' : ''}" data-id="${o.id}">
-                    <input type="checkbox" ${checked ? 'checked' : ''}>
-                    <span class="studio-objective-icon"><i class="bi ${o.icon}"></i></span>
-                    <span class="studio-objective-body">
-                        <span class="studio-objective-name">${o.label}</span>
-                        ${rec ? '<span class="studio-badge">Recommandé</span>' : ''}
-                    </span>
-                </label>`;
-        }).join('');
-        const requestCard = `
-            <button type="button" class="studio-objective-card studio-domain-request" data-action="request-objective">
-                <span class="studio-objective-icon"><i class="bi bi-plus-lg"></i></span>
-                <span class="studio-objective-body">
-                    <span class="studio-objective-name">Demander un objectif</span>
-                    <span class="studio-domain-desc" style="margin-top:2px;display:block">Proposer un nouvel objectif au catalogue</span>
-                </span>
-            </button>`;
-        grid.innerHTML = cards + requestCard;
-        bindCheckGrid(grid, 'objectives', '.studio-objective-card[data-id]');
-        $$('[data-action="request-objective"]', grid).forEach(btn => {
-            btn.addEventListener('click', e => {
-                e.preventDefault();
-                openObjectiveRequestModal();
-            });
-        });
-    }
+        const selected = state[key] || [];
+        const cats = catalog.categories;
+        const items = catalog.items;
 
-    function bindObjectiveRequestModal() {
-        $('#btnRequestObjective')?.addEventListener('click', openObjectiveRequestModal);
-        $('#objectiveModalClose')?.addEventListener('click', closeObjectiveRequestModal);
-        $('#objectiveModalCancel')?.addEventListener('click', closeObjectiveRequestModal);
-        $('#objectiveModalBackdrop')?.addEventListener('click', e => {
-            if (e.target.id === 'objectiveModalBackdrop') closeObjectiveRequestModal();
-        });
-        $('#objectiveRequestForm')?.addEventListener('submit', submitObjectiveRequest);
-    }
-
-    function openObjectiveRequestModal() {
-        const backdrop = $('#objectiveModalBackdrop');
-        if (!backdrop) return;
-        backdrop.classList.add('open');
-        $('#objectiveModalFormWrap')?.classList.remove('d-none');
-        $('#objectiveModalSuccess')?.classList.add('d-none');
-        $('#objectiveModalError')?.classList.remove('show');
-        const domain = getDomain();
-        const domainField = $('#reqObjectiveDomain');
-        if (domainField) domainField.value = domain?.name || '';
-        document.body.style.overflow = 'hidden';
-    }
-
-    function closeObjectiveRequestModal() {
-        $('#objectiveModalBackdrop')?.classList.remove('open');
-        document.body.style.overflow = '';
-    }
-
-    async function submitObjectiveRequest(e) {
-        e.preventDefault();
-        const errEl = $('#objectiveModalError');
-        const name = $('#reqObjectiveName')?.value?.trim();
-        if (!name) {
-            if (errEl) { errEl.textContent = 'Indiquez le nom de l\'objectif souhaité.'; errEl.classList.add('show'); }
-            return;
-        }
-        const payload = {
-            objectiveName: name,
-            relatedDomain: $('#reqObjectiveDomain')?.value?.trim() || null,
-            useCase: $('#reqObjectiveUseCase')?.value?.trim() || null,
-            description: $('#reqObjectiveDescription')?.value?.trim() || null
-        };
-        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
-        const btn = $('#objectiveModalSubmit');
-        if (btn) { btn.disabled = true; btn.textContent = 'Envoi…'; }
-        try {
-            const res = await fetch('/Agents/RequestObjective', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(data.message || 'Erreur lors de l\'envoi.');
-            $('#objectiveModalFormWrap')?.classList.add('d-none');
-            $('#objectiveModalSuccess')?.classList.remove('d-none');
-            if ($('#objectiveSuccessMsg')) $('#objectiveSuccessMsg').textContent = data.message;
-            $('#objectiveRequestForm')?.reset();
-            showToast(data.message || 'Demande envoyée.', true);
-        } catch (err) {
-            if (errEl) { errEl.textContent = err.message; errEl.classList.add('show'); }
-        } finally {
-            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-send"></i> Envoyer la demande'; }
-        }
-    }
-
-    function renderSources() {
-        const grid = $('#sourceGrid');
-        if (!grid || !window.STUDIO_SOURCE_CATALOG) return;
-
-        const cats = STUDIO_SOURCE_CATALOG.categories;
         grid.innerHTML = cats.map(cat => {
-            const items = SOURCES.filter(s => s.category === cat.id);
-            if (!items.length) return '';
-            const cards = items.map(s => {
-                const checked = state.sources.includes(s.id);
+            const catItems = items.filter(s => s.category === cat.id);
+            if (!catItems.length) return '';
+            const cards = catItems.map(s => {
+                const checked = selected.includes(s.id);
                 return `
-                    <label class="studio-source-card${checked ? ' checked' : ''}" data-id="${s.id}">
+                    <label class="studio-source-card${checked ? ' checked' : ''}" data-catalog="${key}" data-id="${s.id}">
                         <input type="checkbox" ${checked ? 'checked' : ''}>
                         <span class="studio-source-icon"><i class="bi ${s.icon}"></i></span>
                         <span class="studio-source-name">${s.label}</span>
@@ -383,83 +197,189 @@
                 </div>`;
         }).join('');
 
-        bindSourceSelection(grid);
-        renderSourceConfigs();
+        bindCatalogSelection(key, grid);
+        renderCatalogConfigs(key);
     }
 
-    function bindSourceSelection(grid) {
-        $$('.studio-source-card[data-id]', grid).forEach(item => {
+    function bindCatalogSelection(key, grid) {
+        const cfg = CATALOG_STEPS[key];
+        const configsKey = `${key.slice(0, -1)}Configs`.replace('sensorConfigs', 'sensorConfigs')
+            .replace('skillConfigs', 'skillConfigs');
+        const configMap = {
+            sensors: 'sensorConfigs', skills: 'skillConfigs',
+            tools: 'toolConfigs', actuators: 'actuatorConfigs'
+        };
+        const configs = configMap[key];
+
+        $$(`.studio-source-card[data-catalog="${key}"]`, grid).forEach(item => {
             item.addEventListener('click', e => {
                 e.preventDefault();
                 const id = item.dataset.id;
-                const idx = state.sources.indexOf(id);
+                const arr = state[key];
+                const idx = arr.indexOf(id);
                 if (idx >= 0) {
-                    state.sources.splice(idx, 1);
-                    delete state.sourceConfigs[id];
+                    arr.splice(idx, 1);
+                    delete state[configs][id];
                     item.classList.remove('checked');
                     $('input', item).checked = false;
-                    if ($('#sourceConfigModalBackdrop')?.classList.contains('open')) {
-                        if (state.sources.length) openSourceConfigModal(state.sources[0]);
-                        else closeSourceConfigModal();
+                    if (activeConfigModal?.key === key && $('#catalogConfigModalBackdrop')?.classList.contains('open')) {
+                        if (arr.length) openCatalogConfigModal(key, arr[0]);
+                        else closeCatalogConfigModal();
                     }
                 } else {
-                    state.sources.push(id);
-                    if (!state.sourceConfigs[id]) state.sourceConfigs[id] = {};
+                    arr.push(id);
+                    if (!state[configs][id]) state[configs][id] = {};
                     item.classList.add('checked');
                     $('input', item).checked = true;
-                    openSourceConfigModal(id);
+                    const itemDef = cfg.getItem(id);
+                    if (itemDef?.fields?.length) openCatalogConfigModal(key, id);
                 }
-                renderSourceConfigs();
+                renderCatalogConfigs(key);
                 updateBlueprint();
             });
         });
     }
 
-    function renderSourceConfigs() {
-        const panel = $('#sourceConfigPanel');
+    function renderCatalogConfigs(key) {
+        const cfg = CATALOG_STEPS[key];
+        const panel = $(`#${cfg.panelId}`);
         if (!panel) return;
+        const configMap = { sensors: 'sensorConfigs', skills: 'skillConfigs', tools: 'toolConfigs', actuators: 'actuatorConfigs' };
+        const configs = configMap[key];
+        const selected = state[key];
 
-        if (!state.sources.length) {
+        if (!selected.length) {
             panel.innerHTML = `
                 <div class="studio-source-config-empty">
-                    <i class="bi bi-shield-lock"></i>
-                    <p>Sélectionnez une ou plusieurs sources pour configurer les paramètres de connexion.</p>
+                    <i class="bi bi-sliders"></i>
+                    <p>Sélectionnez un ou plusieurs éléments pour configurer leurs paramètres.</p>
                 </div>`;
             return;
         }
 
         panel.innerHTML = `
             <div class="studio-source-config-head">
-                <h4><i class="bi bi-key"></i> Paramètres de connexion</h4>
-                <p>Configurez chaque source sélectionnée via le bouton « Configurer ». Les identifiants sensibles seront stockés chiffrés dans <strong>Agentia Vault</strong>.</p>
+                <h4><i class="bi bi-gear"></i> Paramètres de connexion</h4>
+                <p>Configurez chaque sélection via « Configurer ». Les secrets seront stockés dans <strong>Agentia Vault</strong>.</p>
             </div>
             <div class="studio-config-summary-list">
-                ${state.sources.map(id => renderSourceConfigSummaryRow(id)).join('')}
+                ${selected.map(id => renderConfigSummaryRow(key, id, configs)).join('')}
             </div>`;
 
-        $$('[data-configure-source]', panel).forEach(btn => {
+        $$('[data-configure-item]', panel).forEach(btn => {
             btn.addEventListener('click', e => {
                 e.preventDefault();
-                e.stopPropagation();
-                openSourceConfigModal(btn.dataset.configureSource);
+                openCatalogConfigModal(key, btn.dataset.configureItem);
             });
         });
     }
 
-    function renderSourceConfigSummaryRow(sourceId) {
-        const src = getStudioSource(sourceId);
-        if (!src) return '';
-        const cfg = state.sourceConfigs[sourceId] || {};
-        const configured = countConfiguredFields(src, cfg);
-        const total = (src.fields || []).length;
+    function renderConfigSummaryRow(key, itemId, configsKey) {
+        const cfg = CATALOG_STEPS[key];
+        const item = cfg.getItem(itemId);
+        if (!item) return '';
+        const c = state[configsKey][itemId] || {};
+        const configured = countConfiguredFields(item, c);
+        const total = (item.fields || []).length;
+        const attr = `data-configure-item="${itemId}" data-configure-${key.slice(0, -1)}="${itemId}"`;
         return `
             <div class="studio-config-summary-row">
-                <span class="studio-config-summary-name"><i class="bi ${src.icon}"></i> ${src.label}</span>
+                <span class="studio-config-summary-name"><i class="bi ${item.icon}"></i> ${item.label}</span>
                 <span class="studio-config-progress">${configured}/${total} renseigné(s)</span>
-                <button type="button" class="studio-btn studio-btn-outline studio-btn-sm" data-configure-source="${sourceId}">
+                <button type="button" class="studio-btn studio-btn-outline studio-btn-sm" ${attr}>
                     <i class="bi bi-gear"></i> Configurer
                 </button>
             </div>`;
+    }
+
+    function bindGenericConfigModal() {
+        $('#catalogConfigModalClose')?.addEventListener('click', closeCatalogConfigModal);
+        $('#catalogConfigModalSave')?.addEventListener('click', closeCatalogConfigModal);
+        $('#catalogConfigModalBackdrop')?.addEventListener('click', e => {
+            if (e.target.id === 'catalogConfigModalBackdrop') closeCatalogConfigModal();
+        });
+        $('#catalogConfigModalSelector')?.addEventListener('change', e => {
+            if (activeConfigModal) populateCatalogConfigModal(activeConfigModal.key, e.target.value);
+        });
+    }
+
+    function openCatalogConfigModal(key, itemId) {
+        const arr = state[key];
+        if (!itemId || !arr.includes(itemId)) return;
+        activeConfigModal = { key, itemId };
+        $('#catalogConfigModalBackdrop')?.classList.add('open');
+        document.body.style.overflow = 'hidden';
+        populateCatalogConfigModal(key, itemId);
+    }
+
+    function closeCatalogConfigModal() {
+        $('#catalogConfigModalBackdrop')?.classList.remove('open');
+        document.body.style.overflow = '';
+        if (activeConfigModal) renderCatalogConfigs(activeConfigModal.key);
+        activeConfigModal = null;
+        updateBlueprint();
+    }
+
+    function populateCatalogConfigModal(key, itemId) {
+        const cfg = CATALOG_STEPS[key];
+        const item = cfg.getItem(itemId);
+        if (!item) return;
+        const configMap = { sensors: 'sensorConfigs', skills: 'skillConfigs', tools: 'toolConfigs', actuators: 'actuatorConfigs' };
+        const configs = configMap[key];
+        const dataAttr = cfg.dataAttr.replace('data-', '');
+
+        $('#catalogConfigModalTitle').textContent = item.label;
+        $('#catalogConfigModalIcon').innerHTML = `<i class="bi ${item.icon}"></i>`;
+
+        const selector = $('#catalogConfigModalSelector');
+        const arr = state[key];
+        if (selector) {
+            if (arr.length > 1) {
+                selector.classList.remove('d-none');
+                selector.innerHTML = arr.map(id => {
+                    const s = cfg.getItem(id);
+                    return `<option value="${id}"${id === itemId ? ' selected' : ''}>${s?.label || id}</option>`;
+                }).join('');
+            } else {
+                selector.classList.add('d-none');
+            }
+        }
+
+        const c = state[configs][itemId] || {};
+        const body = $('#catalogConfigModalBody');
+        if (body) {
+            body.innerHTML = `<div class="studio-source-config-fields">${renderConfigFields(item.fields, c, cfg.dataAttr, itemId)}</div>`;
+            bindConfigInputs(body, configs, cfg.dataAttr, itemId, key);
+        }
+        updateCatalogConfigProgress(key, itemId);
+    }
+
+    function bindConfigInputs(container, configsKey, dataAttr, itemId, catalogKey) {
+        const attrName = dataAttr.replace('data-', '');
+        $$(`[${dataAttr}][data-key]`, container).forEach(el => {
+            const evt = el.tagName === 'SELECT' ? 'change' : 'input';
+            el.addEventListener(evt, () => {
+                const id = el.getAttribute(dataAttr) || itemId;
+                const k = el.dataset.key;
+                if (!state[configsKey][id]) state[configsKey][id] = {};
+                state[configsKey][id][k] = el.value;
+                updateCatalogConfigProgress(catalogKey, id);
+                updateBlueprint();
+            });
+        });
+    }
+
+    function updateCatalogConfigProgress(key, itemId) {
+        const cfg = CATALOG_STEPS[key];
+        const item = cfg.getItem(itemId);
+        if (!item) return;
+        const configMap = { sensors: 'sensorConfigs', skills: 'skillConfigs', tools: 'toolConfigs', actuators: 'actuatorConfigs' };
+        const c = state[configMap[key]][itemId] || {};
+        const configured = countConfiguredFields(item, c);
+        const total = (item.fields || []).length;
+        const text = `${configured}/${total} renseigné(s)`;
+        const modalProgress = $('#catalogConfigModalProgress');
+        if (modalProgress) modalProgress.textContent = text;
     }
 
     function renderConfigFields(fields, cfg, idAttr, idValue) {
@@ -469,339 +389,139 @@
                 const opts = (f.options || []).map(o =>
                     `<option value="${escapeAttr(o)}"${val === o ? ' selected' : ''}>${o}</option>`
                 ).join('');
-                return `
-                    <div class="studio-config-field">
-                        <label>${f.label}${f.secret ? ' <span class="studio-config-secret">🔒 Vault</span>' : ''}</label>
-                        <select ${idAttr}="${idValue}" data-key="${f.key}">${opts}</select>
-                    </div>`;
+                return `<div class="studio-config-field"><label>${f.label}${f.secret ? ' <span class="studio-config-secret">🔒 Vault</span>' : ''}</label>
+                    <select ${idAttr}="${idValue}" data-key="${f.key}">${opts}</select></div>`;
             }
             if (f.type === 'textarea') {
-                return `
-                    <div class="studio-config-field">
-                        <label>${f.label}${f.secret ? ' <span class="studio-config-secret">🔒 Vault</span>' : ''}</label>
-                        <textarea ${idAttr}="${idValue}" data-key="${f.key}" rows="2"
-                            placeholder="${escapeAttr(f.placeholder)}">${escapeHtml(val)}</textarea>
-                    </div>`;
+                return `<div class="studio-config-field"><label>${f.label}${f.secret ? ' <span class="studio-config-secret">🔒 Vault</span>' : ''}</label>
+                    <textarea ${idAttr}="${idValue}" data-key="${f.key}" rows="2" placeholder="${escapeAttr(f.placeholder)}">${escapeHtml(val)}</textarea></div>`;
             }
-            return `
-                <div class="studio-config-field">
-                    <label>${f.label}${f.secret ? ' <span class="studio-config-secret">🔒 Vault</span>' : ''}</label>
-                    <input type="${f.type === 'password' ? 'password' : f.type === 'number' ? 'number' : 'text'}"
-                        ${idAttr}="${idValue}" data-key="${f.key}"
-                        value="${escapeAttr(val)}"
-                        placeholder="${escapeAttr(f.placeholder)}" autocomplete="off" />
-                </div>`;
+            return `<div class="studio-config-field"><label>${f.label}${f.secret ? ' <span class="studio-config-secret">🔒 Vault</span>' : ''}</label>
+                <input type="${f.type === 'password' ? 'password' : f.type === 'number' ? 'number' : 'text'}"
+                    ${idAttr}="${idValue}" data-key="${f.key}" value="${escapeAttr(val)}"
+                    placeholder="${escapeAttr(f.placeholder)}" autocomplete="off" /></div>`;
         }).join('');
     }
 
-    function updateConfigProgress(kind, id) {
-        const isSource = kind === 'source';
-        const item = isSource ? getStudioSource(id) : getStudioAction(id);
-        if (!item) return;
-        const cfg = isSource ? (state.sourceConfigs[id] || {}) : (state.actionConfigs[id] || {});
-        const configured = countConfiguredFields(item, cfg);
-        const total = (item.fields || []).length;
-        const text = `${configured}/${total} renseigné(s)`;
-        const modalProgress = $(isSource ? '#sourceConfigModalProgress' : '#actionConfigModalProgress');
-        if (modalProgress) modalProgress.textContent = text;
-        const panel = $(isSource ? '#sourceConfigPanel' : '#actionConfigPanel');
-        const row = panel?.querySelector(
-            isSource ? `[data-configure-source="${id}"]` : `[data-configure-action="${id}"]`
-        );
-        const badge = row?.closest('.studio-config-summary-row')?.querySelector('.studio-config-progress');
-        if (badge) badge.textContent = text;
+    function countConfiguredFields(item, cfg) {
+        return (item.fields || []).filter(f => (cfg[f.key] || '').toString().trim()).length;
     }
 
-    function bindSourceConfigModal() {
-        $('#sourceConfigModalClose')?.addEventListener('click', closeSourceConfigModal);
-        $('#sourceConfigModalSave')?.addEventListener('click', closeSourceConfigModal);
-        $('#sourceConfigModalBackdrop')?.addEventListener('click', e => {
-            if (e.target.id === 'sourceConfigModalBackdrop') closeSourceConfigModal();
-        });
-        $('#sourceConfigModalSelector')?.addEventListener('change', e => {
-            populateSourceConfigModal(e.target.value);
-        });
-    }
+    function renderDecisionStep() {
+        const grid = $('#decisionGrid');
+        if (!grid || !window.STUDIO_DECISION_CATALOG) return;
+        const engines = STUDIO_DECISION_CATALOG.engines;
+        grid.innerHTML = engines.map(e => `
+            <label class="studio-exec-trigger-card studio-decision-card${state.decision.engine === e.id ? ' selected' : ''}" data-decision="${e.id}">
+                <input type="radio" name="decisionEngine"${state.decision.engine === e.id ? ' checked' : ''}>
+                <span class="studio-exec-trigger-icon"><i class="bi ${e.icon}"></i></span>
+                <span class="studio-exec-trigger-label">${e.label}</span>
+                <span class="studio-exec-trigger-desc">${e.desc}</span>
+            </label>`).join('');
 
-    function openSourceConfigModal(sourceId) {
-        if (!sourceId || !state.sources.includes(sourceId)) return;
-        const backdrop = $('#sourceConfigModalBackdrop');
-        if (!backdrop) return;
-        backdrop.classList.add('open');
-        document.body.style.overflow = 'hidden';
-        populateSourceConfigModal(sourceId);
-    }
-
-    function closeSourceConfigModal() {
-        $('#sourceConfigModalBackdrop')?.classList.remove('open');
-        document.body.style.overflow = '';
-        renderSourceConfigs();
-        updateBlueprint();
-    }
-
-    function populateSourceConfigModal(sourceId) {
-        const src = getStudioSource(sourceId);
-        if (!src) return;
-
-        const title = $('#sourceConfigModalTitle');
-        const icon = $('#sourceConfigModalIcon');
-        const selector = $('#sourceConfigModalSelector');
-        const body = $('#sourceConfigModalBody');
-        if (title) title.textContent = src.label;
-        if (icon) icon.innerHTML = `<i class="bi ${src.icon}"></i>`;
-
-        if (selector) {
-            if (state.sources.length > 1) {
-                selector.classList.remove('d-none');
-                selector.innerHTML = state.sources.map(id => {
-                    const s = getStudioSource(id);
-                    return `<option value="${id}"${id === sourceId ? ' selected' : ''}>${s?.label || id}</option>`;
-                }).join('');
-            } else {
-                selector.classList.add('d-none');
-                selector.innerHTML = '';
-            }
-        }
-
-        const cfg = state.sourceConfigs[sourceId] || {};
-        if (body) {
-            body.innerHTML = `<div class="studio-source-config-fields">${renderConfigFields(src.fields, cfg, 'data-source', sourceId)}</div>`;
-            bindSourceConfigInputs(body, sourceId);
-        }
-        updateConfigProgress('source', sourceId);
-    }
-
-    function bindSourceConfigInputs(container, sourceId) {
-        $$('[data-source][data-key]', container).forEach(el => {
-            const evt = el.tagName === 'SELECT' ? 'change' : 'input';
-            el.addEventListener(evt, () => {
-                const sid = el.dataset.source || sourceId;
-                const key = el.dataset.key;
-                if (!state.sourceConfigs[sid]) state.sourceConfigs[sid] = {};
-                state.sourceConfigs[sid][key] = el.value;
-                updateConfigProgress('source', sid);
-                updateBlueprint();
-            });
-        });
-    }
-
-    function countConfiguredFields(src, cfg) {
-        return (src.fields || []).filter(f => (cfg[f.key] || '').toString().trim()).length;
-    }
-
-    function escapeAttr(s) {
-        return String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-    }
-
-    function getSourceLabels() {
-        return state.sources.map(id => getStudioSourceLabel(id));
-    }
-
-    function buildSourceDetailsForPayload() {
-        return state.sources.map(id => {
-            const src = getStudioSource(id);
-            const cfg = state.sourceConfigs[id] || {};
-            const configSummary = {};
-            (src?.fields || []).forEach(f => {
-                const v = (cfg[f.key] || '').toString().trim();
-                if (!v) return;
-                configSummary[f.key] = f.secret ? '[VAULT]' : v;
-            });
-            return { id, label: src?.label || id, config: configSummary };
-        });
-    }
-
-    function renderActions() {
-        const grid = $('#actionGrid');
-        if (!grid || !window.STUDIO_ACTION_CATALOG) return;
-
-        const cats = STUDIO_ACTION_CATALOG.categories;
-        grid.innerHTML = cats.map(cat => {
-            const items = ACTIONS.filter(a => a.category === cat.id);
-            if (!items.length) return '';
-            const cards = items.map(a => {
-                const checked = state.actions.includes(a.id);
-                return `
-                    <label class="studio-source-card studio-action-card${checked ? ' checked' : ''}" data-id="${a.id}">
-                        <input type="checkbox" ${checked ? 'checked' : ''}>
-                        <span class="studio-source-icon"><i class="bi ${a.icon}"></i></span>
-                        <span class="studio-source-name">${a.label}</span>
-                    </label>`;
-            }).join('');
-            return `
-                <div class="studio-source-category">
-                    <h4 class="studio-source-cat-title"><i class="bi ${cat.icon}"></i> ${cat.label}</h4>
-                    <div class="studio-source-grid">${cards}</div>
-                </div>`;
-        }).join('');
-
-        bindActionSelection(grid);
-        renderActionConfigs();
-    }
-
-    function bindActionSelection(grid) {
-        $$('.studio-action-card[data-id]', grid).forEach(item => {
-            item.addEventListener('click', e => {
+        $$('[data-decision]', grid).forEach(card => {
+            card.addEventListener('click', e => {
                 e.preventDefault();
-                const id = item.dataset.id;
-                const idx = state.actions.indexOf(id);
-                if (idx >= 0) {
-                    state.actions.splice(idx, 1);
-                    delete state.actionConfigs[id];
-                    item.classList.remove('checked');
-                    $('input', item).checked = false;
-                    if ($('#actionConfigModalBackdrop')?.classList.contains('open')) {
-                        if (state.actions.length) openActionConfigModal(state.actions[0]);
-                        else closeActionConfigModal();
-                    }
-                } else {
-                    state.actions.push(id);
-                    if (!state.actionConfigs[id]) state.actionConfigs[id] = {};
-                    item.classList.add('checked');
-                    $('input', item).checked = true;
-                    openActionConfigModal(id);
-                }
-                renderActionConfigs();
+                state.decision.engine = card.dataset.decision;
+                if (!state.decision.config) state.decision.config = {};
+                $$('[data-decision]', grid).forEach(c => c.classList.toggle('selected', c === card));
+                renderDecisionConfig();
                 updateBlueprint();
             });
         });
+        renderDecisionConfig();
     }
 
-    function renderActionConfigs() {
-        const panel = $('#actionConfigPanel');
+    function renderDecisionConfig() {
+        const panel = $('#decisionConfigPanel');
         if (!panel) return;
-
-        if (!state.actions.length) {
-            panel.innerHTML = `
-                <div class="studio-source-config-empty">
-                    <i class="bi bi-sliders"></i>
-                    <p>Sélectionnez une ou plusieurs actions pour renseigner leurs paramètres (destinataires, templates, règles…).</p>
-                </div>`;
+        const fields = getStudioDecisionFields(state.decision.engine);
+        if (!fields.length) {
+            panel.innerHTML = '';
             return;
         }
-
+        const cfg = state.decision.config || {};
         panel.innerHTML = `
-            <div class="studio-source-config-head">
-                <h4><i class="bi bi-gear"></i> Paramètres des actions</h4>
-                <p>Configurez chaque action sélectionnée via le bouton « Configurer ». Les secrets seront stockés dans <strong>Agentia Vault</strong>.</p>
-            </div>
-            <div class="studio-config-summary-list">
-                ${state.actions.map(id => renderActionConfigSummaryRow(id)).join('')}
+            <div class="studio-exec-config-box">
+                <div class="studio-source-config-fields">${renderConfigFields(fields, cfg, 'data-decision-cfg', state.decision.engine)}</div>
             </div>`;
-
-        $$('[data-configure-action]', panel).forEach(btn => {
-            btn.addEventListener('click', e => {
-                e.preventDefault();
-                e.stopPropagation();
-                openActionConfigModal(btn.dataset.configureAction);
+        $$('[data-decision-cfg][data-key]', panel).forEach(el => {
+            el.addEventListener('input', () => {
+                if (!state.decision.config) state.decision.config = {};
+                state.decision.config[el.dataset.key] = el.value;
+                updateBlueprint();
             });
-        });
-    }
-
-    function renderActionConfigSummaryRow(actionId) {
-        const act = getStudioAction(actionId);
-        if (!act) return '';
-        const cfg = state.actionConfigs[actionId] || {};
-        const configured = countConfiguredFields(act, cfg);
-        const total = (act.fields || []).length;
-        return `
-            <div class="studio-config-summary-row">
-                <span class="studio-config-summary-name"><i class="bi ${act.icon}"></i> ${act.label}</span>
-                <span class="studio-config-progress">${configured}/${total} renseigné(s)</span>
-                <button type="button" class="studio-btn studio-btn-outline studio-btn-sm" data-configure-action="${actionId}">
-                    <i class="bi bi-gear"></i> Configurer
-                </button>
-            </div>`;
-    }
-
-    function bindActionConfigModal() {
-        $('#actionConfigModalClose')?.addEventListener('click', closeActionConfigModal);
-        $('#actionConfigModalSave')?.addEventListener('click', closeActionConfigModal);
-        $('#actionConfigModalBackdrop')?.addEventListener('click', e => {
-            if (e.target.id === 'actionConfigModalBackdrop') closeActionConfigModal();
-        });
-        $('#actionConfigModalSelector')?.addEventListener('change', e => {
-            populateActionConfigModal(e.target.value);
-        });
-    }
-
-    function openActionConfigModal(actionId) {
-        if (!actionId || !state.actions.includes(actionId)) return;
-        const backdrop = $('#actionConfigModalBackdrop');
-        if (!backdrop) return;
-        backdrop.classList.add('open');
-        document.body.style.overflow = 'hidden';
-        populateActionConfigModal(actionId);
-    }
-
-    function closeActionConfigModal() {
-        $('#actionConfigModalBackdrop')?.classList.remove('open');
-        document.body.style.overflow = '';
-        renderActionConfigs();
-        updateBlueprint();
-    }
-
-    function populateActionConfigModal(actionId) {
-        const act = getStudioAction(actionId);
-        if (!act) return;
-
-        const title = $('#actionConfigModalTitle');
-        const icon = $('#actionConfigModalIcon');
-        const selector = $('#actionConfigModalSelector');
-        const body = $('#actionConfigModalBody');
-        if (title) title.textContent = act.label;
-        if (icon) icon.innerHTML = `<i class="bi ${act.icon}"></i>`;
-
-        if (selector) {
-            if (state.actions.length > 1) {
-                selector.classList.remove('d-none');
-                selector.innerHTML = state.actions.map(id => {
-                    const a = getStudioAction(id);
-                    return `<option value="${id}"${id === actionId ? ' selected' : ''}>${a?.label || id}</option>`;
-                }).join('');
-            } else {
-                selector.classList.add('d-none');
-                selector.innerHTML = '';
-            }
-        }
-
-        const cfg = state.actionConfigs[actionId] || {};
-        if (body) {
-            body.innerHTML = `<div class="studio-source-config-fields">${renderConfigFields(act.fields, cfg, 'data-action', actionId)}</div>`;
-            bindActionConfigInputs(body, actionId);
-        }
-        updateConfigProgress('action', actionId);
-    }
-
-    function bindActionConfigInputs(container, actionId) {
-        $$('[data-action][data-key]', container).forEach(el => {
-            const evt = el.tagName === 'SELECT' ? 'change' : 'input';
-            el.addEventListener(evt, () => {
-                const aid = el.dataset.action || actionId;
-                const key = el.dataset.key;
-                if (!state.actionConfigs[aid]) state.actionConfigs[aid] = {};
-                state.actionConfigs[aid][key] = el.value;
-                updateConfigProgress('action', aid);
+            el.addEventListener('change', () => {
+                if (!state.decision.config) state.decision.config = {};
+                state.decision.config[el.dataset.key] = el.value;
                 updateBlueprint();
             });
         });
     }
 
-    function getActionLabels() {
-        return state.actions.map(id => getStudioActionLabel(id));
+    function renderMemoryStep() {
+        const grid = $('#memoryGrid');
+        if (!grid || !window.STUDIO_MEMORY_CATALOG) return;
+        grid.innerHTML = STUDIO_MEMORY_CATALOG.types.map(t => {
+            const checked = state.memory.types.includes(t.id);
+            return `
+                <label class="studio-objective-card${checked ? ' checked' : ''}" data-memory="${t.id}">
+                    <input type="checkbox" ${checked ? 'checked' : ''}>
+                    <span class="studio-objective-icon"><i class="bi ${t.icon}"></i></span>
+                    <span class="studio-objective-body">
+                        <span class="studio-objective-name">${t.label}</span>
+                        <span class="studio-domain-desc">${t.desc}</span>
+                    </span>
+                </label>`;
+        }).join('');
+
+        $$('[data-memory]', grid).forEach(item => {
+            item.addEventListener('click', e => {
+                e.preventDefault();
+                const id = item.dataset.memory;
+                const idx = state.memory.types.indexOf(id);
+                if (idx >= 0) {
+                    state.memory.types.splice(idx, 1);
+                    item.classList.remove('checked');
+                    $('input', item).checked = false;
+                } else {
+                    state.memory.types.push(id);
+                    item.classList.add('checked');
+                    $('input', item).checked = true;
+                }
+                renderMemoryConfig();
+                updateBlueprint();
+            });
+        });
+        renderMemoryConfig();
     }
 
-    function buildActionDetailsForPayload() {
-        return state.actions.map(id => {
-            const act = getStudioAction(id);
-            const cfg = state.actionConfigs[id] || {};
-            const configSummary = {};
-            (act?.fields || []).forEach(f => {
-                const v = (cfg[f.key] || '').toString().trim();
-                if (!v) return;
-                configSummary[f.key] = f.secret ? '[VAULT]' : v;
+    function renderMemoryConfig() {
+        const panel = $('#memoryConfigPanel');
+        if (!panel || !state.memory.types.length) {
+            if (panel) panel.innerHTML = '';
+            return;
+        }
+        panel.innerHTML = state.memory.types.map(typeId => {
+            const t = getStudioMemoryType(typeId);
+            const fields = getStudioMemoryFields(typeId);
+            const cfg = state.memory.config[typeId] || {};
+            if (!fields.length) return '';
+            return `
+                <div class="studio-source-config-card">
+                    <div class="studio-source-config-card-head"><i class="bi ${t?.icon || 'bi-database'}"></i> ${t?.label || typeId}</div>
+                    <div class="studio-source-config-fields">${renderConfigFields(fields, cfg, 'data-memory-cfg', typeId)}</div>
+                </div>`;
+        }).join('');
+
+        $$('[data-memory-cfg][data-key]', panel).forEach(el => {
+            const evt = el.tagName === 'SELECT' ? 'change' : 'input';
+            el.addEventListener(evt, () => {
+                const typeId = el.getAttribute('data-memory-cfg');
+                if (!state.memory.config[typeId]) state.memory.config[typeId] = {};
+                state.memory.config[typeId][el.dataset.key] = el.value;
+                updateBlueprint();
             });
-            return { id, label: act?.label || id, config: configSummary };
         });
     }
 
@@ -826,9 +546,6 @@
         EXEC().renderRuntimePreviewPanel(exec, suggestAgentName());
     }
 
-    function renderTriggers() { renderExecution(); }
-    function renderRuntimes() { /* merged into renderExecution */ }
-
     function renderSecurity() {
         const grid = $('#securityGrid');
         if (!grid) return;
@@ -840,9 +557,8 @@
         bindCheckGrid(grid, 'security');
     }
 
-    function bindCheckGrid(grid, key, itemSelector) {
-        const selector = itemSelector || '.studio-check-item[data-id]';
-        $$(selector, grid).forEach(item => {
+    function bindCheckGrid(grid, key) {
+        $$('.studio-check-item[data-id]', grid).forEach(item => {
             item.addEventListener('click', e => {
                 e.preventDefault();
                 const val = item.dataset.id;
@@ -862,87 +578,12 @@
         });
     }
 
-    function bindRadioGrid(grid, key) {
-        $$('.studio-radio-item', grid).forEach(item => {
-            item.addEventListener('click', () => {
-                state[key] = item.dataset.id;
-                $$('.studio-radio-item', grid).forEach(i => i.classList.toggle('selected', i === item));
-                updateBlueprint();
-            });
-        });
-    }
-
-    function bindAutonomySlider() {
-        const slider = $('#autonomySlider');
-        if (!slider) return;
-        slider.value = state.autonomy;
-        slider.addEventListener('input', () => {
-            state.autonomy = parseInt(slider.value, 10);
-            updateAutonomyDisplay();
-            updateBlueprint();
-        });
-        updateAutonomyDisplay();
-    }
-
-    function updateAutonomyDisplay() {
-        const level = AUTONOMY_LEVELS[state.autonomy];
-        const label = $('#autonomyLabel');
-        const fill = $('#autonomyFill');
-        if (label) label.textContent = level.label;
-        if (fill) fill.style.width = level.pct + '%';
-    }
-
-    function bindFreeText() {
-        const ta = $('#freeText');
-        const counter = $('#charCount');
-        if (!ta) return;
-        ta.value = state.freeText;
-        const sync = () => {
-            state.freeText = ta.value.slice(0, MAX_CHARS);
-            if (counter) counter.textContent = state.freeText.length;
-            updateBlueprint();
-        };
-        ta.addEventListener('input', sync);
-        sync();
-    }
-
-    function bindNameEdit() {
-        $('#bpEditName')?.addEventListener('click', () => {
-            const current = suggestAgentName();
-            const name = prompt('Nom de l\'agent :', state.customName || current);
-            if (name !== null) {
-                state.customName = name.trim();
-                updateBlueprint();
-            }
-        });
-    }
-
     function bindNavigation() {
         $('#btnPrev')?.addEventListener('click', () => goToStep(state.step - 1));
         $('#btnNext')?.addEventListener('click', () => {
             if (validateStep(state.step)) goToStep(state.step + 1);
         });
         $('#btnDraft')?.addEventListener('click', saveDraft);
-    }
-
-    function normalizeWizardState() {
-        if (!Array.isArray(state.objectives)) state.objectives = [];
-        if (!Array.isArray(state.sources)) state.sources = [];
-        if (!Array.isArray(state.actions)) state.actions = [];
-        if (!Array.isArray(state.security)) state.security = [];
-        if (!state.sourceConfigs || typeof state.sourceConfigs !== 'object') state.sourceConfigs = {};
-        if (!state.actionConfigs || typeof state.actionConfigs !== 'object') state.actionConfigs = {};
-        if (state.step < 1 || state.step > TOTAL_STEPS) state.step = 1;
-    }
-
-    function populateHiddenFields() {
-        const msgEl = document.getElementById('hiddenMessage');
-        const jsonEl = document.getElementById('hiddenWizardJson');
-        if (!msgEl || !jsonEl) throw new Error('Missing hidden form fields');
-        normalizeWizardState();
-        const payload = buildPayload();
-        msgEl.value = compileMessage(payload);
-        jsonEl.value = JSON.stringify(payload);
     }
 
     function bindFormSubmit() {
@@ -960,15 +601,22 @@
         });
     }
 
+    function bindNameEdit() {
+        $('#bpEditName')?.addEventListener('click', () => {
+            const name = prompt('Nom de l\'agent :', state.customName || suggestAgentName());
+            if (name !== null) {
+                state.customName = name.trim();
+                updateBlueprint();
+            }
+        });
+    }
+
     function validateStep(step) {
         const msg = $('#validationMsg');
         let ok = true, text = '';
-        if (step === 1 && !state.domain) {
+        if (step === 1 && !state.mission.trim() && !state.freeText.trim()) {
             ok = false;
-            text = 'Sélectionnez un domaine métier pour continuer.';
-        } else if (step === 2 && state.objectives.length === 0) {
-            ok = false;
-            text = 'Choisissez au moins un objectif.';
+            text = 'Décrivez la mission de votre agent (rôle et objectif).';
         }
         if (msg) {
             msg.textContent = text;
@@ -978,8 +626,8 @@
     }
 
     function validateForSubmit() {
-        if (!state.domain && !state.freeText.trim()) {
-            alert('Complétez au minimum le domaine ou la description libre.');
+        if (!state.mission.trim() && !state.freeText.trim()) {
+            alert('Complétez au minimum la mission ou la description libre.');
             goToStep(1);
             return false;
         }
@@ -1001,40 +649,256 @@
             else if (s < n) item.classList.add('done');
         });
 
-        const prev = $('#btnPrev');
-        if (prev) prev.style.display = n > 1 ? '' : 'none';
-
-        const onFinalStep = n === TOTAL_STEPS;
+        $('#btnPrev').style.display = n > 1 ? '' : 'none';
+        const onFinal = n === TOTAL_STEPS;
         const next = $('#btnNext');
         const gen = $('#btnGenerate');
-        if (next) {
-            next.hidden = onFinalStep;
-            next.style.display = onFinalStep ? 'none' : '';
-        }
-        if (gen) {
-            gen.hidden = !onFinalStep;
-            gen.style.display = onFinalStep ? '' : 'none';
-        }
+        if (next) { next.hidden = onFinal; next.style.display = onFinal ? 'none' : ''; }
+        if (gen) { gen.hidden = !onFinal; gen.style.display = onFinal ? '' : 'none'; }
 
         if (n === TOTAL_STEPS) renderFinalReview();
-        if (n === 1) renderDomainGrid();
-        if (n === 3) renderSourceConfigs();
-        if (n === 4) renderActionConfigs();
-        if (n === 5) renderExecution();
+        if (n === 8) renderExecution();
+        renderAgenticLoop();
         updateBlueprint();
     }
 
-    function getDomain() {
-        const d = getDomains().find(x => x.id === state.domain);
-        if (!d) return null;
-        if (state.domain === 'custom' && state.customDomainLabel) {
-            return { ...d, name: state.customDomainLabel, namePrefix: state.customDomainLabel.split(' ')[0] };
-        }
-        return d;
+    function getBusinessDomainLabel() {
+        if (!state.businessDomain) return '';
+        const d = getDomains().find(x => x.id === state.businessDomain);
+        return d?.name || state.businessDomain;
     }
 
-    function getObjectiveLabels() {
-        return state.objectives.map(id => OBJECTIVES.find(o => o.id === id)?.label).filter(Boolean);
+    function suggestAgentName() {
+        if (state.customName) return state.customName;
+        const mission = state.mission.trim();
+        if (mission) {
+            const words = mission.split(/\s+/).slice(0, 3).join(' ');
+            return words.length > 40 ? words.slice(0, 40) + ' Agent' : words + ' Agent';
+        }
+        const domain = getBusinessDomainLabel();
+        if (domain) return `${domain.split(' ')[0]} Agent`;
+        return 'Runtime Agent';
+    }
+
+    function getLabels(key) {
+        const cfg = CATALOG_STEPS[key];
+        return (state[key] || []).map(id => cfg.getLabel(id));
+    }
+
+    function buildCatalogDetails(key) {
+        const cfg = CATALOG_STEPS[key];
+        const configMap = { sensors: 'sensorConfigs', skills: 'skillConfigs', tools: 'toolConfigs', actuators: 'actuatorConfigs' };
+        const configs = configMap[key];
+        return (state[key] || []).map(id => {
+            const item = cfg.getItem(id);
+            const c = state[configs][id] || {};
+            const configSummary = {};
+            (item?.fields || []).forEach(f => {
+                const v = (c[f.key] || '').toString().trim();
+                if (v) configSummary[f.key] = f.secret ? '[VAULT]' : v;
+            });
+            return { id, label: cfg.getLabel(id), config: configSummary };
+        });
+    }
+
+    function computeComplexity() {
+        let score = state.mission.trim() ? 1.5 : 0;
+        score += state.sensors.length * 0.25;
+        score += state.skills.length * 0.2;
+        score += state.tools.length * 0.15;
+        score += state.actuators.length * 0.3;
+        score += state.memory.types.length * 0.15;
+        score += state.decision.engine === 'hybrid' ? 0.5 : 0.2;
+        return Math.min(5, Math.max(0, Math.round(score)));
+    }
+
+    function computeCost() {
+        if (!state.mission.trim() && !state.sensors.length && !state.actuators.length) return 0;
+        if (latestEstimate?.estimatedMonthlyCostUsd != null) return latestEstimate.estimatedMonthlyCostUsd;
+        const base = 0.5;
+        const perSensor = state.sensors.length * 0.18;
+        const perSkill = state.skills.length * 0.08;
+        const perActuator = state.actuators.length * 0.14;
+        const exec = ensureExecution();
+        const mult = exec && EXEC() ? EXEC().getCostMultiplier(exec) : 1;
+        const decisionMult = { 'business-rules': 0.5, ollama: 0.3, hybrid: 1.4 }[state.decision.engine] || 1;
+        return (base + perSensor + perSkill + perActuator) * mult * decisionMult;
+    }
+
+    function scheduleEstimate() {
+        clearTimeout(estimateTimer);
+        estimateTimer = setTimeout(fetchEstimate, 350);
+    }
+
+    async function fetchEstimate() {
+        if (!state.mission.trim() && !state.sensors.length && !state.actuators.length) {
+            latestEstimate = null;
+            return;
+        }
+        const exec = ensureExecution();
+        const autonomyMap = { 'business-rules': 0, 'human-validation': 0, workflow: 1, gpt: 2, claude: 2, hybrid: 3 };
+        const payload = {
+            hasDomain: !!state.mission.trim(),
+            objectiveCount: state.skills.length,
+            sourceCount: state.sensors.length,
+            actionCount: state.actuators.length,
+            autonomyLevel: autonomyMap[state.decision.engine] ?? 1,
+            triggerId: exec?.trigger || 'manual',
+            triggerFrequency: exec?.triggerConfig?.frequency || null,
+            runtimeId: exec?.runtime || 'windows-service',
+            heartbeatEnabled: !!exec?.supervision?.heartbeat
+        };
+        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+        try {
+            const res = await fetch('/Agents/EstimateBlueprint', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) return;
+            latestEstimate = await res.json();
+            applyEstimateToPanel();
+        } catch (_) { /* fallback */ }
+    }
+
+    function applyEstimateToPanel() {
+        if (!latestEstimate) return;
+        const compEl = $('#bp-complexity');
+        if (compEl) compEl.innerHTML = renderStars(latestEstimate.complexity);
+        const costEl = $('#bp-cost');
+        if (costEl) {
+            costEl.textContent = `$${Number(latestEstimate.estimatedMonthlyCostUsd).toFixed(2)} / mois`;
+            if (latestEstimate.costLabel) costEl.title = latestEstimate.costLabel;
+        }
+        const aiEl = $('#bp-ai-model');
+        if (aiEl && latestEstimate.aiModel) aiEl.textContent = latestEstimate.aiModel;
+    }
+
+    function estimateCreationTime() {
+        const mins = 5 + state.sensors.length * 2 + state.skills.length + state.tools.length * 2
+            + state.actuators.length * 2 + (state.decision.engine === 'hybrid' ? 10 : 3);
+        if (mins < 60) return `~${mins} min`;
+        return `~${Math.round(mins / 60 * 10) / 10} h`;
+    }
+
+    function buildPayload() {
+        const exec = ensureExecution();
+        const decisionLabel = getStudioDecisionLabel(state.decision.engine);
+        return {
+            schemaVersion: SCHEMA_VERSION,
+            mission: state.mission.trim(),
+            missionContext: state.missionContext.trim(),
+            businessDomain: getBusinessDomainLabel(),
+            businessDomainId: state.businessDomain,
+            sensors: getLabels('sensors'),
+            sensorIds: [...state.sensors],
+            sensorDetails: buildCatalogDetails('sensors'),
+            skills: getLabels('skills'),
+            skillIds: [...state.skills],
+            skillDetails: buildCatalogDetails('skills'),
+            tools: getLabels('tools'),
+            toolIds: [...state.tools],
+            toolDetails: buildCatalogDetails('tools'),
+            actuators: getLabels('actuators'),
+            actuatorIds: [...state.actuators],
+            actuatorDetails: buildCatalogDetails('actuators'),
+            decision: { engine: state.decision.engine, label: decisionLabel, config: { ...state.decision.config } },
+            memory: { types: state.memory.types.map(getStudioMemoryLabel), typeIds: [...state.memory.types], config: { ...state.memory.config } },
+            trigger: getTriggerLabel(),
+            triggerId: exec?.trigger || 'manual',
+            runtime: getRuntimeLabel(),
+            runtimeId: exec?.runtime || 'windows-service',
+            execution: exec && EXEC() ? EXEC().buildExecutionPayload(exec) : {},
+            security: [...state.security],
+            freeText: state.freeText.trim(),
+            agentName: suggestAgentName(),
+            complexity: latestEstimate?.complexity ?? computeComplexity(),
+            estimatedCost: computeCost().toFixed(2),
+            creationTimeEstimate: estimateCreationTime(),
+            aiModel: latestEstimate?.aiModel ?? (state.decision.config?.model || decisionLabel),
+            agenticLoop: AGENTIC_LOOP.join(' → ')
+        };
+    }
+
+    function compileMessage(p) {
+        const lines = [
+            'Créer un agent IA Runtime Agentic via Agent Factory Studio :',
+            `- Mission : ${p.mission || 'À définir'}`,
+        ];
+        if (p.missionContext) lines.push(`- Contexte métier : ${p.missionContext}`);
+        if (p.businessDomain) lines.push(`- Domaine (tag) : ${p.businessDomain}`);
+        lines.push(`- Capteurs (Observe) : ${p.sensors.join(', ') || 'Aucun'}`);
+        appendDetails(lines, p.sensorDetails);
+        lines.push(`- Compétences (Understand) : ${p.skills.join(', ') || 'Aucune'}`);
+        appendDetails(lines, p.skillDetails);
+        lines.push(`- Outils : ${p.tools.join(', ') || 'Aucun'}`);
+        appendDetails(lines, p.toolDetails);
+        lines.push(`- Actionneurs (Act) : ${p.actuators.join(', ') || 'Aucun'}`);
+        appendDetails(lines, p.actuatorDetails);
+        lines.push(`- Moteur de décision : ${p.decision?.label || p.decision?.engine || '—'}`);
+        lines.push(`- Mémoire : ${p.memory?.types?.join(', ') || 'Aucune'}`);
+        lines.push(`- Exécution : ${p.runtime} — ${p.trigger}`);
+        if (p.execution?.resilience) {
+            const r = p.execution.resilience;
+            lines.push(`  · Résilience : retry=${r.retryOnError ? r.maxAttempts + 'x' : 'non'}`);
+        }
+        if (p.execution?.logging) {
+            lines.push(`  · Logs : ${p.execution.logging.level}, rétention ${p.execution.logging.retentionDays}j`);
+        }
+        lines.push(`- Sécurité : ${p.security.join(', ') || 'Non définie'}`);
+        lines.push(`- Nom : ${p.agentName}`);
+        lines.push(`- Boucle agentique : ${p.agenticLoop}`);
+        if (p.freeText) lines.push(`Description complémentaire : ${p.freeText}`);
+        return lines.join('\n');
+    }
+
+    function appendDetails(lines, details) {
+        (details || []).forEach(sd => {
+            const keys = Object.keys(sd.config || {});
+            if (keys.length) lines.push(`  · ${sd.label} : ${keys.map(k => `${k}=${sd.config[k]}`).join(', ')}`);
+        });
+    }
+
+    function populateHiddenFields() {
+        normalizeWizardState();
+        const payload = buildPayload();
+        $('#hiddenMessage').value = compileMessage(payload);
+        $('#hiddenWizardJson').value = JSON.stringify(payload);
+    }
+
+    function normalizeWizardState() {
+        const d = defaultState();
+        if (!Array.isArray(state.sensors)) state.sensors = [];
+        if (!Array.isArray(state.skills)) state.skills = [];
+        if (!Array.isArray(state.tools)) state.tools = [];
+        if (!Array.isArray(state.actuators)) state.actuators = [];
+        if (!Array.isArray(state.security)) state.security = [];
+        ['sensorConfigs', 'skillConfigs', 'toolConfigs', 'actuatorConfigs'].forEach(k => {
+            if (!state[k] || typeof state[k] !== 'object') state[k] = {};
+        });
+        if (!state.decision) state.decision = d.decision;
+        if (!state.memory) state.memory = d.memory;
+        if (!state.memory.types) state.memory.types = [];
+        if (!state.memory.config) state.memory.config = {};
+        if (state.step < 1 || state.step > TOTAL_STEPS) state.step = 1;
+    }
+
+    function renderStars(n) {
+        return [1, 2, 3, 4, 5].map(i => `<span class="${i <= n ? 'filled' : ''}">★</span>`).join('');
+    }
+
+    function setBpText(id, text, undefined) {
+        const el = $(`#bp-${id}`);
+        if (!el) return;
+        el.textContent = text;
+        el.classList.toggle('undefined', !!undefined);
+    }
+
+    function setBpHtml(id, html, undefined) {
+        const el = $(`#bp-${id}`);
+        if (!el) return;
+        el.innerHTML = html;
+        el.classList.toggle('undefined', !!undefined);
     }
 
     function getTriggerLabel() {
@@ -1047,239 +911,25 @@
         return exec && EXEC() ? EXEC().getRuntimeSummary(exec) : 'Windows Service';
     }
 
-    function suggestAgentName() {
-        if (state.customName) return state.customName;
-        const domain = getDomain();
-        if (!domain) return 'Nouvel Agent IA';
-        if (domain.defaultAgent && !getObjectiveLabels().length) return domain.defaultAgent;
-        const objs = getObjectiveLabels();
-        const suffix = objs[0] ? objs[0].split(' ').slice(-1)[0] : 'Assistant';
-        return `${domain.namePrefix} ${suffix} Agent`;
-    }
-
-    function computeComplexity() {
-        let score = state.domain ? 2 : 0;
-        score += state.objectives.length * 0.5;
-        score += state.sources.length * 0.25;
-        score += state.actions.length * 0.3;
-        score += state.autonomy * 0.35;
-        return Math.min(5, Math.max(0, Math.round(score)));
-    }
-
-    function computeCost() {
-        if (!state.objectives.length && !state.sources.length && !state.actions.length) return 0;
-        if (latestEstimate?.estimatedMonthlyCostUsd != null)
-            return latestEstimate.estimatedMonthlyCostUsd;
-        const base = 0.5;
-        const perSource = state.sources.length * 0.18;
-        const perAction = state.actions.length * 0.14;
-        const exec = ensureExecution();
-        const mult = exec && EXEC() ? EXEC().getCostMultiplier(exec) : 1;
-        return (base + perSource + perAction) * mult * (1 + state.autonomy * 0.2);
-    }
-
-    function scheduleEstimate() {
-        clearTimeout(estimateTimer);
-        estimateTimer = setTimeout(fetchEstimate, 350);
-    }
-
-    async function fetchEstimate() {
-        if (!state.objectives.length && !state.sources.length && !state.actions.length) {
-            latestEstimate = null;
-            return;
-        }
-        const exec = ensureExecution();
-        const payload = {
-            hasDomain: !!state.domain,
-            objectiveCount: state.objectives.length,
-            sourceCount: state.sources.length,
-            actionCount: state.actions.length,
-            autonomyLevel: state.autonomy,
-            triggerId: exec?.trigger || 'manual',
-            triggerFrequency: exec?.triggerConfig?.frequency || null,
-            runtimeId: exec?.runtime || 'windows-service',
-            heartbeatEnabled: !!exec?.supervision?.heartbeat
-        };
-        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
-        try {
-            const res = await fetch('/Agents/EstimateBlueprint', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'RequestVerificationToken': token
-                },
-                body: JSON.stringify(payload)
-            });
-            if (!res.ok) return;
-            latestEstimate = await res.json();
-            applyEstimateToPanel();
-        } catch (_) { /* fallback to local compute */ }
-    }
-
-    function applyEstimateToPanel() {
-        if (!latestEstimate) return;
-        const compEl = $('#bp-complexity');
-        if (compEl) compEl.innerHTML = renderStars(latestEstimate.complexity);
-        const costEl = $('#bp-cost');
-        if (costEl) {
-            costEl.textContent = `$${Number(latestEstimate.estimatedMonthlyCostUsd).toFixed(2)} / mois`;
-            if (latestEstimate.costLabel) costEl.title = latestEstimate.costLabel;
-        }
-    }
-
-    function buildWorkflowText() {
-        const parts = [];
-        if (state.sources.length) parts.push(`1. Collecter : ${getSourceLabels().join(', ')}`);
-        if (state.actions.length) parts.push(`2. Traiter : ${getActionLabels().join(' → ')}`);
-        parts.push(`3. Runtime : ${getRuntimeLabel()} — ${getTriggerLabel()}`);
-        parts.push(`4. Autonomie : ${AUTONOMY_LEVELS[state.autonomy].label}`);
-        return parts.join('\n');
-    }
-
-    function buildPayload() {
-        const exec = ensureExecution();
-        return {
-            domain: getDomain()?.name || '',
-            domainId: state.domain,
-            objectives: getObjectiveLabels(),
-            sources: getSourceLabels(),
-            sourceIds: [...state.sources],
-            sourceDetails: buildSourceDetailsForPayload(),
-            actions: getActionLabels(),
-            actionIds: [...state.actions],
-            actionDetails: buildActionDetailsForPayload(),
-            trigger: getTriggerLabel(),
-            triggerId: exec?.trigger || 'manual',
-            runtime: getRuntimeLabel(),
-            runtimeId: exec?.runtime || 'windows-service',
-            execution: exec && EXEC() ? EXEC().buildExecutionPayload(exec) : {},
-            autonomy: AUTONOMY_LEVELS[state.autonomy].label,
-            autonomyLevel: state.autonomy,
-            security: [...state.security],
-            freeText: state.freeText.trim(),
-            agentName: suggestAgentName(),
-            complexity: latestEstimate?.complexity ?? computeComplexity(),
-            estimatedCost: computeCost().toFixed(2),
-            aiModel: latestEstimate?.aiModel ?? 'gpt-4o-mini'
-        };
-    }
-
-    function compileMessage(p) {
-        const lines = [
-            'Créer un agent IA via Agent Factory Studio :',
-            `- Domaine : ${p.domain}`,
-            `- Objectifs : ${p.objectives.join(', ') || 'À définir'}`,
-            `- Sources : ${p.sources.join(', ') || 'Aucune'}`,
-        ];
-        if (p.sourceDetails?.length) {
-            p.sourceDetails.forEach(sd => {
-                const keys = Object.keys(sd.config || {});
-                if (keys.length)
-                    lines.push(`  · ${sd.label} : ${keys.map(k => `${k}=${sd.config[k]}`).join(', ')}`);
-            });
-        }
-        lines.push(`- Actions : ${p.actions.join(', ') || 'Aucune'}`);
-        if (p.actionDetails?.length) {
-            p.actionDetails.forEach(ad => {
-                const keys = Object.keys(ad.config || {});
-                if (keys.length)
-                    lines.push(`  · ${ad.label} : ${keys.map(k => `${k}=${ad.config[k]}`).join(', ')}`);
-            });
-        }
-        lines.push(
-            `- Configuration d'exécution : ${p.runtime} — ${p.trigger}`,
-        );
-        if (p.execution?.resilience) {
-            const r = p.execution.resilience;
-            lines.push(`  · Résilience : retry=${r.retryOnError ? r.maxAttempts + 'x' : 'non'}, notify=${(r.notify || []).join('/')}`);
-        }
-        if (p.execution?.logging) {
-            lines.push(`  · Logs : ${p.execution.logging.level}, rétention ${p.execution.logging.retentionDays}j`);
-        }
-        lines.push(
-            `- Autonomie : ${p.autonomy}`,
-            `- Sécurité : ${p.security.join(', ')}`,
-            `- Nom : ${p.agentName}`
-        );
-        if (p.freeText) lines.push(`Description : ${p.freeText}`);
-        return lines.join('\n');
-    }
-
-    function renderStars(n) {
-        return [1, 2, 3, 4, 5].map(i =>
-            `<span class="${i <= n ? 'filled' : ''}">★</span>`
-        ).join('');
-    }
-
-    function setText(id, text, undefined) {
-        const el = $(`#bp-${id}`);
-        if (!el) return;
-        el.textContent = text;
-        el.classList.toggle('undefined', !!undefined);
-    }
-
     function updateBlueprint() {
         const p = buildPayload();
-        const domain = getDomain();
-        const objs = getObjectiveLabels();
 
-        const nameEl = $('#bp-name');
-        if (nameEl) nameEl.textContent = suggestAgentName();
+        if ($('#bp-name')) $('#bp-name').textContent = suggestAgentName();
 
-        const catEl = $('#bp-category');
-        if (catEl && domain) {
-            catEl.innerHTML = `<span class="studio-bp-pill">${domain.name}</span>`;
-        }
-
-        setText('objective', objs.length ? objs.join(', ') : UNDEF, !objs.length);
-
-        const srcEl = $('#bp-sources');
-        if (srcEl) {
-            if (state.sources.length) {
-                const labels = getSourceLabels();
-                const configured = state.sources.filter(id => {
-                    const src = getStudioSource(id);
-                    return src && countConfiguredFields(src, state.sourceConfigs[id] || {}) > 0;
-                }).length;
-                srcEl.innerHTML = labels.join(', ') +
-                    (configured ? ` <span class="studio-badge green">${configured} connectée(s)</span>` : '');
-                srcEl.classList.remove('undefined');
-            } else {
-                srcEl.textContent = UNDEF;
-                srcEl.classList.add('undefined');
-            }
-        }
-
-        const actEl = $('#bp-actions');
-        if (actEl) {
-            if (state.actions.length) {
-                const labels = getActionLabels();
-                const configured = state.actions.filter(id => {
-                    const act = getStudioAction(id);
-                    return act && countConfiguredFields(act, state.actionConfigs[id] || {}) > 0;
-                }).length;
-                actEl.innerHTML = labels.join(', ') +
-                    (configured ? ` <span class="studio-badge green">${configured} configurée(s)</span>` : '');
-                actEl.classList.remove('undefined');
-            } else {
-                actEl.textContent = UNDEF;
-                actEl.classList.add('undefined');
-            }
-        }
+        setBpText('mission', p.mission || UNDEF, !p.mission);
+        setBpHtml('sensors', p.sensors.length ? p.sensors.join(', ') : UNDEF, !p.sensors.length);
+        setBpHtml('skills', p.skills.length ? p.skills.join(', ') : UNDEF, !p.skills.length);
+        setBpHtml('tools', p.tools.length ? p.tools.join(', ') : UNDEF, !p.tools.length);
+        setBpHtml('actuators', p.actuators.length ? p.actuators.join(', ') : UNDEF, !p.actuators.length);
+        setBpHtml('memory', p.memory.types.length ? p.memory.types.join(', ') : UNDEF, !p.memory.types.length);
+        setBpText('decision', p.decision.label || UNDEF, !p.decision.engine);
 
         const trigEl = $('#bp-trigger');
         if (trigEl) {
             const exec = ensureExecution();
-            const configured = state.step >= 5 && exec;
-            trigEl.textContent = configured ? `${getRuntimeLabel()} — ${getTriggerLabel()}` : UNDEF;
-            trigEl.classList.toggle('undefined', !configured);
+            trigEl.textContent = exec ? `${getRuntimeLabel()} — ${getTriggerLabel()}` : UNDEF;
+            trigEl.classList.toggle('undefined', !exec);
         }
-
-        const autoFill = $('#bp-autonomy-fill');
-        const autoLabel = $('#bp-autonomy');
-        const level = AUTONOMY_LEVELS[state.autonomy];
-        if (autoFill) autoFill.style.width = level.pct + '%';
-        if (autoLabel) autoLabel.textContent = level.label;
 
         const compEl = $('#bp-complexity');
         if (compEl && !latestEstimate) compEl.innerHTML = renderStars(p.complexity);
@@ -1290,22 +940,31 @@
             costEl.removeAttribute('title');
         }
 
+        const timeEl = $('#bp-creation-time');
+        if (timeEl) timeEl.textContent = p.creationTimeEstimate;
+
+        const aiEl = $('#bp-ai-model');
+        if (aiEl && !latestEstimate) aiEl.textContent = p.aiModel;
+
+        const loopEl = $('#bp-agentic-loop');
+        if (loopEl) loopEl.textContent = p.agenticLoop;
+
         scheduleEstimate();
 
-        const rtEl = $('#bp-runtime');
-        if (rtEl) rtEl.innerHTML = `<span class="studio-bp-pill blue">${getRuntimeLabel()}</span>`;
+        if ($('#bp-runtime')) {
+            $('#bp-runtime').innerHTML = `<span class="studio-bp-pill blue">${getRuntimeLabel()}</span>`;
+        }
 
         if (EXEC()) {
             const exec = ensureExecution();
             EXEC().renderRuntimePreviewPanel(exec, suggestAgentName());
         }
 
-        const previewWrap = $('#runtimePreviewCard');
-        if (previewWrap) previewWrap.classList.toggle('highlight', state.step === 5);
+        $('#runtimePreviewCard')?.classList.toggle('highlight', state.step === 8);
 
+        const progress = (p.mission ? 1 : 0) + p.sensors.length + p.skills.length + p.actuators.length;
         const empty = $('#bp-empty');
-        const progress = (state.domain ? 1 : 0) + state.objectives.length + state.sources.length + state.actions.length;
-        if (empty) empty.style.display = progress <= 1 ? '' : 'none';
+        if (empty) empty.style.display = progress <= 0 ? '' : 'none';
     }
 
     function renderFinalReview() {
@@ -1314,24 +973,42 @@
         if (!review) return;
         review.innerHTML = `
             <div class="studio-review-grid">
-                <div class="studio-review-row">
-                    <span class="studio-review-label">Nom</span>
-                    <span class="studio-review-value"><strong>${escapeHtml(p.agentName)}</strong></span>
-                </div>
-                <div class="studio-review-row">
-                    <span class="studio-review-label">Modèle IA</span>
-                    <span class="studio-review-value">${p.aiModel}</span>
-                </div>
-                <div class="studio-review-row">
-                    <span class="studio-review-label">Permissions</span>
-                    <span class="studio-review-value">${p.security.map(s => `<span class="studio-badge green">${s}</span>`).join('')}</span>
-                </div>
+                <div class="studio-review-row"><span class="studio-review-label">Nom</span>
+                    <span class="studio-review-value"><strong>${escapeHtml(p.agentName)}</strong></span></div>
+                <div class="studio-review-row"><span class="studio-review-label">Mission</span>
+                    <span class="studio-review-value">${escapeHtml(p.mission || '—')}</span></div>
+                <div class="studio-review-row"><span class="studio-review-label">Moteur IA</span>
+                    <span class="studio-review-value">${escapeHtml(p.decision.label)}</span></div>
+                <div class="studio-review-row"><span class="studio-review-label">Runtime</span>
+                    <span class="studio-review-value">${escapeHtml(p.runtime)} — ${escapeHtml(p.trigger)}</span></div>
+                <div class="studio-review-row"><span class="studio-review-label">Complexité</span>
+                    <span class="studio-review-value studio-bp-stars">${renderStars(p.complexity)}</span></div>
+                <div class="studio-review-row"><span class="studio-review-label">Coût estimé</span>
+                    <span class="studio-review-value">$${p.estimatedCost} / mois</span></div>
+                <div class="studio-review-row"><span class="studio-review-label">Temps création</span>
+                    <span class="studio-review-value">${p.creationTimeEstimate}</span></div>
+                <div class="studio-review-row"><span class="studio-review-label">Sécurité</span>
+                    <span class="studio-review-value">${p.security.map(s => `<span class="studio-badge green">${escapeHtml(s)}</span>`).join('') || '—'}</span></div>
             </div>
             <div class="studio-subsection">
-                <h4>Workflow généré</h4>
-                <div class="studio-workflow-preview">${buildWorkflowText().replace(/\n/g, '<br>')}</div>
+                <h4>Boucle agentique</h4>
+                <div class="studio-workflow-preview">${p.agenticLoop}</div>
             </div>
-            ${p.freeText ? `<div class="studio-subsection"><h4>Description</h4><p>${escapeHtml(p.freeText)}</p></div>` : ''}`;
+            <div class="studio-subsection">
+                <h4>Capacités</h4>
+                <div class="studio-workflow-preview">
+                    Observe: ${p.sensors.join(', ') || '—'}<br>
+                    Understand: ${p.skills.join(', ') || '—'}<br>
+                    Tools: ${p.tools.join(', ') || '—'}<br>
+                    Act: ${p.actuators.join(', ') || '—'}<br>
+                    Memory: ${p.memory.types.join(', ') || '—'}
+                </div>
+            </div>
+            ${p.freeText ? `<div class="studio-subsection"><h4>Notes</h4><p>${escapeHtml(p.freeText)}</p></div>` : ''}`;
+    }
+
+    function escapeAttr(s) {
+        return String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
     }
 
     function escapeHtml(s) {
@@ -1343,29 +1020,73 @@
     function saveDraft() {
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-            $('#draftToast')?.classList.add('show');
-            setTimeout(() => $('#draftToast')?.classList.remove('show'), 2500);
+            showToast('Brouillon enregistré localement');
         } catch (_) { /* ignore */ }
+    }
+
+    function showToast(msg) {
+        const toast = $('#draftToast');
+        if (!toast) return;
+        toast.textContent = msg;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    function migrateLegacyDraft(saved) {
+        if (saved.schemaVersion >= SCHEMA_VERSION) return saved;
+        const migrated = { ...defaultState(), ...saved, schemaVersion: SCHEMA_VERSION };
+
+        if (saved.domain && !saved.businessDomain) migrated.businessDomain = saved.domain;
+        if (saved.customDomainLabel) migrated.missionContext = saved.customDomainLabel;
+        if (saved.objectives?.length && !saved.mission) {
+            migrated.mission = Array.isArray(saved.objectives)
+                ? saved.objectives.join(', ')
+                : String(saved.objectives);
+        }
+        if (saved.freeText && !saved.mission) migrated.mission = saved.freeText;
+
+        if (saved.sources?.length && !saved.sensors?.length) {
+            migrated.sensors = saved.sources.map(id => migrateSensorId ? migrateSensorId(id) : id);
+            migrated.sensorConfigs = saved.sourceConfigs || {};
+        }
+        if (saved.actions?.length && !saved.actuators?.length) {
+            migrated.actuators = saved.actions.map(id => migrateActuatorId ? migrateActuatorId(id) : id);
+            migrated.actuatorConfigs = saved.actionConfigs || {};
+        }
+        if (saved.autonomy != null && saved.decision?.engine == null) {
+            const map = ['business-rules', 'workflow', 'gpt', 'hybrid'];
+            migrated.decision = { engine: map[saved.autonomy] || 'gpt', config: {} };
+        }
+        if (saved.security?.length) {
+            migrated.security = saved.security.map(s => {
+                if (s === 'Lecture seule') return 'Read';
+                if (s === 'Lecture / écriture') return 'Read/Write';
+                if (s === 'Validation humaine obligatoire') return 'Human validation';
+                if (s === 'Journalisation complète') return 'Logging';
+                if (s === 'Secrets chiffrés') return 'Secrets';
+                return s;
+            });
+        }
+        delete migrated.domain;
+        delete migrated.objectives;
+        delete migrated.sources;
+        delete migrated.actions;
+        delete migrated.sourceConfigs;
+        delete migrated.actionConfigs;
+        delete migrated.autonomy;
+        delete migrated.trigger;
+        delete migrated.runtime;
+        return migrated;
     }
 
     function loadDraft() {
         try {
             const raw = localStorage.getItem(STORAGE_KEY);
             if (!raw) return;
-            const saved = JSON.parse(raw);
-            if (saved.sources?.length && typeof saved.sources[0] === 'string' && window.migrateSourceId) {
-                saved.sources = saved.sources.map(migrateSourceId);
-            }
-            if (!saved.sourceConfigs) saved.sourceConfigs = {};
-            if (saved.actions?.length && typeof saved.actions[0] === 'string' && window.migrateActionId) {
-                saved.actions = saved.actions.map(migrateActionId);
-            }
-            if (!saved.actionConfigs) saved.actionConfigs = {};
+            const saved = migrateLegacyDraft(JSON.parse(raw));
             if (!saved.execution && EXEC()) {
                 saved.execution = EXEC().migrateExecutionFromLegacy(saved, saved.customName || 'Agent');
             }
-            delete saved.trigger;
-            delete saved.runtime;
             Object.assign(state, saved);
             normalizeWizardState();
         } catch (_) { /* ignore */ }

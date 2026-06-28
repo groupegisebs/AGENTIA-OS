@@ -32,7 +32,8 @@
         { id: 'kubernetes', label: 'Kubernetes', icon: 'bi-diagram-3', desc: 'Orchestration K8s / AKS / EKS' },
         { id: 'linux-service', label: 'Linux Service', icon: 'bi-terminal', desc: 'systemd / service Linux' },
         { id: 'azure', label: 'Azure Functions', icon: 'bi-cloud', desc: 'Serverless Azure' },
-        { id: 'aws', label: 'AWS Lambda', icon: 'bi-cloud-arrow-up', desc: 'Serverless AWS' }
+        { id: 'aws', label: 'AWS Lambda', icon: 'bi-cloud-arrow-up', desc: 'Serverless AWS' },
+        { id: 'ovh', label: 'OVH Cloud', icon: 'bi-cloud-haze2', desc: 'Instances / containers OVH — hébergement EU' }
     ];
 
     const LOG_LEVELS = ['Debug', 'Info', 'Warning', 'Erreur', 'Critique'];
@@ -93,6 +94,11 @@
             },
             aws: {
                 functionName: `${name}-lambda`, memoryMb: 2048, timeoutSec: 300, region: 'eu-west-1'
+            },
+            ovh: {
+                projectId: 'ovh-project-id', region: 'GRA', instanceType: 'b2-7',
+                containerName: `${name.toLowerCase()}-ovh`, replicas: 1,
+                timeoutSec: 300, maxMemoryGb: 2, maxCpuPercent: 50
             }
         };
         return { ...(map[runtimeId] || {}) };
@@ -412,6 +418,15 @@
                     fieldInput('Mémoire (Mo)', 'runtimeConfig.memoryMb', c.memoryMb, 'number', '2048') +
                     fieldInput('Timeout', 'runtimeConfig.timeoutSec', c.timeoutSec, 'number', '300') +
                     fieldInput('Région', 'runtimeConfig.region', c.region, 'text', 'eu-west-1');
+            case 'ovh':
+                return fieldInput('Project ID', 'runtimeConfig.projectId', c.projectId, 'text', 'ovh-project-id') +
+                    fieldInput('Région', 'runtimeConfig.region', c.region, 'text', 'GRA') +
+                    fieldInput('Type instance', 'runtimeConfig.instanceType', c.instanceType, 'text', 'b2-7') +
+                    fieldInput('Conteneur', 'runtimeConfig.containerName', c.containerName, 'text', '') +
+                    fieldInput('Replicas', 'runtimeConfig.replicas', c.replicas, 'number', '1') +
+                    fieldInput('Timeout', 'runtimeConfig.timeoutSec', c.timeoutSec, 'number', '300') +
+                    fieldInput('Mémoire max (Go)', 'runtimeConfig.maxMemoryGb', c.maxMemoryGb, 'number', '2') +
+                    fieldInput('CPU max (%)', 'runtimeConfig.maxCpuPercent', c.maxCpuPercent, 'number', '50');
             default:
                 return '';
         }
