@@ -1,44 +1,46 @@
-__pycache__/
-*.py[cod]
-*$py.class
-*.egg-info/
-.eggs/
-dist/
-build/
-.venv/
-venv/
+# Secrets & env
 .env
 .env.*
 !.env.example
-data/
-*.db
-*.sqlite
-*.sqlite3
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-*.log
-.idea/
-.vscode/
+secrets.json
+**/appsettings.Production.json
+**/appsettings.*.local.json
 
-# .NET build artifacts
+# .NET build output
 **/bin/
 **/obj/
-
-# Visual Studio / Rider
-.vs/
-*.user
-*.suo
-*.cache
-
-# Test output
+publish/
+artifacts/
 TestResults/
+test-results/
 *.trx
 *.coverage
 *.coveragexml
 
-# Logs and temporary package artifacts
-*.tmp
-*.temp
+# NuGet / packages
 *.nupkg
 *.snupkg
+project.lock.json
+project.fragment.lock.json
+
+# Logs & temp
+*.log
+logs/
+*.tmp
+*.temp
+
+# LibMan — Bootstrap/jQuery servis via CDN ; ne versionner que les LICENSE
+src/AgenticFactory.Web/wwwroot/lib/**/dist/
+
+# IDE — Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.cache
+*.DotSettings.user
+
+# OS
+.DS_Store
+Thumbs.db
