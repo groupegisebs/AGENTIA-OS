@@ -1,15 +1,46 @@
 @model AgenticFactory.Web.Models.RegisterViewModel
-@{
-    ViewData["Title"] = "Register";
-}
-<div class="container py-5" style="max-width:520px;">
-    <h3>Create tenant admin</h3>
-    <form method="post">
-        <div class="mb-3"><label asp-for="OrganizationName" class="form-label"></label><input asp-for="OrganizationName" class="form-control" /></div>
-        <div class="mb-3"><label asp-for="DisplayName" class="form-label"></label><input asp-for="DisplayName" class="form-control" /></div>
-        <div class="mb-3"><label asp-for="Email" class="form-label"></label><input asp-for="Email" class="form-control" /></div>
-        <div class="mb-3"><label asp-for="Password" class="form-label"></label><input asp-for="Password" type="password" class="form-control" /></div>
-        <button class="btn btn-success" type="submit">Register</button>
-        <a class="btn btn-link" asp-action="Login">Back to login</a>
-    </form>
+@{ ViewData["Title"] = "Créer un compte"; Layout = "_Layout"; }
+
+<div class="af-auth-wrapper">
+    <div class="af-auth-card">
+        <div class="af-auth-logo">A</div>
+        <h4 class="text-center mb-1" style="font-weight:700;">Créer votre espace</h4>
+        <p class="text-center text-muted mb-4" style="font-size:.875rem;">Construisez des agents IA sans coder</p>
+
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <div class="alert alert-danger py-2 mb-3" style="font-size:.85rem;">
+                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    <div>@error.ErrorMessage</div>
+                }
+            </div>
+        }
+
+        <form asp-action="Register" method="post">
+            <div class="mb-3">
+                <label class="form-label" style="font-size:.875rem;font-weight:500;">Organisation</label>
+                <input asp-for="OrganizationName" class="form-control" placeholder="Mon Entreprise" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label" style="font-size:.875rem;font-weight:500;">Votre nom</label>
+                <input asp-for="DisplayName" class="form-control" placeholder="Jean Dupont" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label" style="font-size:.875rem;font-weight:500;">Email</label>
+                <input asp-for="Email" class="form-control" placeholder="admin@entreprise.com" autocomplete="email" />
+            </div>
+            <div class="mb-4">
+                <label class="form-label" style="font-size:.875rem;font-weight:500;">Mot de passe</label>
+                <input asp-for="Password" type="password" class="form-control" placeholder="••••••••" autocomplete="new-password" />
+            </div>
+            <button type="submit" class="btn btn-af-primary mb-3">
+                Créer mon compte <i class="bi bi-arrow-right ms-1"></i>
+            </button>
+            <p class="text-center text-muted mb-0" style="font-size:.85rem;">
+                Déjà un compte ?
+                <a asp-action="Login" style="color:#6366f1;font-weight:600;">Se connecter</a>
+            </p>
+        </form>
+    </div>
 </div>
