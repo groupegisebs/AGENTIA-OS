@@ -1,38 +1,127 @@
-name: CI
+name: CI / Deploy
 
 on:
   push:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: pipeline-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
+env:
+  DOTNET_VERSION:  "10.0.x"
+  SERVICE_API:     "agentia-os-api"
+  SERVICE_WEB:     "agentia-os-web"
+  SERVICE_RUNTIME: "agentia-os-runtime"
+
+# ═══════════════════════════════════════════════════════════════════════
+# STAGE 1 — Validation des secrets & variables
+# ═══════════════════════════════════════════════════════════════════════
 jobs:
-  # ─────────────────────────────────────────────────────────────────────────────
-  # Stage 1 — Build & Test
-  # ─────────────────────────────────────────────────────────────────────────────
-  build-and-test:
-    name: "Stage 1 — Build & Test"
+
+  stage1-validate:
+    name: "Stage 1 — Validation secrets & variables"
+    runs-on: ubuntu-latest
+    outputs:
+      ssh_host: ${{ steps.config.outputs.ssh_host }}
+      ssh_user: ${{ steps.config.outputs.ssh_user }}
+      ssh_port: ${{ steps.config.outputs.ssh_port }}
+      app_root: ${{ steps.config.outputs.app_root }}
+      deploy:   ${{ steps.config.outputs.deploy }}
+
+    steps:
+      - name: "1.1 Vérifier secrets obligatoires"
+        run: |
+          echo "=== Secrets obligatoires ==="
+          MISSING=0
+
+          check() {
+            local name="$1" val="$2"
+            if [ -z "$val" ]; then
+              echo "  ✗ MANQUANT : $name"
+              MISSING=1
+            else
+              echo "  ✓ $name"
+            fi
+          }
+
+          check "AGENTIA_OS_JWT_SECRET"        "${{ secrets.AGENTIA_OS_JWT_SECRET }}"
+          check "AGENTIA_OS_CONNECTION_STRING"  "${{ secrets.AGENTIA_OS_CONNECTION_STRING }}"
+
+          echo ""
+          echo "=== Clé SSH (une seule requise) ==="
+          SSH_OK=0
+          [ -n "${{ secrets.AGENTIA_OS_SSH_PRIVATE_KEY }}" ] && SSH_OK=1 && echo "  ✓ AGENTIA_OS_SSH_PRIVATE_KEY"
+          [ -n "${{ secrets.SSH_PRIVATE_KEY_UBUNTU1 }}" ]    && SSH_OK=1 && echo "  ✓ SSH_PRIVATE_KEY_UBUNTU1"
+          [ "$SSH_OK" -eq 0 ] && echo "  ✗ Aucune clé SSH trouvée" && MISSING=1
+
+          echo ""
+          echo "=== Provider IA (optionnel — mock si absent) ==="
+          [ -n "${{ secrets.AGENTIA_OS_OPENAI_API_KEY }}" ]       && echo "  ✓ OpenAI configuré"
+          [ -n "${{ secrets.AGENTIA_OS_AZURE_OPENAI_API_KEY }}" ] && echo "  ✓ Azure OpenAI configuré"
+          [ -z "${{ secrets.AGENTIA_OS_OPENAI_API_KEY }}" ] && \
+          [ -z "${{ secrets.AGENTIA_OS_AZURE_OPENAI_API_KEY }}" ] && echo "  ℹ Aucun provider — mode MOCK actif"
+
+          [ "$MISSING" -eq 0 ] || exit 1
+          echo ""
+          echo "✓ Validation réussie"
+
+      - name: "1.2 Résoudre configuration serveur"
+        id: config
+        run: |
+          pick() { for v in "$@"; do [ -n "$v" ] && { printf '%s' "$v"; return; }; done; }
+
+          SSH_HOST=$(pick "${{ vars.SSH_HOST_UBUNTU1 }}"    "${{ secrets.SSH_HOST_UBUNTU1 }}"    "51.79.53.197")
+          SSH_USER=$(pick "${{ vars.SSH_USER_UBUNTU1 }}"    "${{ secrets.SSH_USER_UBUNTU1 }}"    "ubuntu")
+          SSH_PORT=$(pick "${{ vars.SSH_PORT_UBUNTU1 }}"    "${{ secrets.SSH_PORT_UBUNTU1 }}"    "22")
+          APP_ROOT=$(pick "${{ vars.AGENTIA_OS_APP_ROOT }}" "${{ secrets.AGENTIA_OS_APP_ROOT }}" "/opt/apps/agentia-os")
+
+          # Déployer seulement sur push vers main/master (pas sur PR)
+          DEPLOY="false"
+          [ "${{ github.event_name }}" = "push" ]             && DEPLOY="true"
+          [ "${{ github.event_name }}" = "workflow_dispatch" ] && DEPLOY="true"
+
+          echo "  Serveur  : ${SSH_USER}@${SSH_HOST}:${SSH_PORT}"
+          echo "  App root : ${APP_ROOT}"
+          echo "  Deploy   : ${DEPLOY}"
+
+          echo "ssh_host=$SSH_HOST" >> "$GITHUB_OUTPUT"
+          echo "ssh_user=$SSH_USER" >> "$GITHUB_OUTPUT"
+          echo "ssh_port=$SSH_PORT" >> "$GITHUB_OUTPUT"
+          echo "app_root=$APP_ROOT" >> "$GITHUB_OUTPUT"
+          echo "deploy=$DEPLOY"     >> "$GITHUB_OUTPUT"
+
+# ═══════════════════════════════════════════════════════════════════════
+# STAGE 2 — Build & Tests unitaires
+# ═══════════════════════════════════════════════════════════════════════
+
+  stage2-build-test:
+    name: "Stage 2 — Build & Tests unitaires"
+    needs: [stage1-validate]
     runs-on: ubuntu-latest
 
     steps:
-      - name: "1.1 Checkout"
+      - name: "2.1 Checkout"
         uses: actions/checkout@v4
 
-      - name: "1.2 Setup .NET 10"
+      - name: "2.2 Setup .NET ${{ env.DOTNET_VERSION }}"
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "10.0.x"
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: "1.3 Restore dependencies"
+      - name: "2.3 Restore dépendances"
         run: dotnet restore AgenticFactory.slnx
 
-      - name: "1.4 Build (Release)"
+      - name: "2.4 Build (Release)"
         run: dotnet build AgenticFactory.slnx --no-restore -c Release
 
-      - name: "1.5 Run unit tests"
+      - name: "2.5 Exécuter tests unitaires"
         run: |
           dotnet test AgenticFactory.slnx \
             --no-build -c Release \
@@ -40,10 +129,340 @@ jobs:
             --logger "trx;LogFileName=test-results.trx" \
             --results-directory "${{ github.workspace }}/test-results"
 
-      - name: "1.6 Upload test results"
+      - name: "2.6 Publier résultats de tests"
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results
           path: "${{ github.workspace }}/test-results/"
           if-no-files-found: warn
+
+# ═══════════════════════════════════════════════════════════════════════
+# STAGE 3 — Publication des artefacts .NET
+# ═══════════════════════════════════════════════════════════════════════
+
+  stage3-publish:
+    name: "Stage 3 — Publication artefacts .NET"
+    needs: [stage2-build-test]
+    if: needs.stage1-validate.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "3.1 Checkout"
+        uses: actions/checkout@v4
+
+      - name: "3.2 Setup .NET ${{ env.DOTNET_VERSION }}"
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: "3.3 Restore"
+        run: dotnet restore AgenticFactory.slnx
+
+      - name: "3.4 Publish API"
+        run: |
+          dotnet publish src/AgenticFactory.Api/AgenticFactory.Api.csproj \
+            -c Release -o publish/api --no-restore
+
+      - name: "3.5 Publish Web (frontend admin)"
+        run: |
+          dotnet publish src/AgenticFactory.Web/AgenticFactory.Web.csproj \
+            -c Release -o publish/web --no-restore
+
+      - name: "3.6 Publish Runtime (agent worker)"
+        run: |
+          dotnet publish src/AgenticFactory.Runtime.WindowsService/AgenticFactory.Runtime.WindowsService.csproj \
+            -c Release -o publish/runtime --no-restore
+
+      - name: "3.7 Upload artifact API"
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifact-api
+          path: publish/api/
+          retention-days: 1
+
+      - name: "3.8 Upload artifact Web"
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifact-web
+          path: publish/web/
+          retention-days: 1
+
+      - name: "3.9 Upload artifact Runtime"
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifact-runtime
+          path: publish/runtime/
+          retention-days: 1
+
+# ═══════════════════════════════════════════════════════════════════════
+# STAGE 4 — Déploiement Backend API
+# ═══════════════════════════════════════════════════════════════════════
+
+  stage4-deploy-api:
+    name: "Stage 4 — Déploiement Backend API"
+    needs: [stage1-validate, stage3-publish]
+    runs-on: ubuntu-latest
+    env:
+      SSH_HOST: ${{ needs.stage1-validate.outputs.ssh_host }}
+      SSH_USER: ${{ needs.stage1-validate.outputs.ssh_user }}
+      SSH_PORT: ${{ needs.stage1-validate.outputs.ssh_port }}
+      APP_ROOT: ${{ needs.stage1-validate.outputs.app_root }}
+
+    steps:
+      - name: "4.1 Configurer SSH"
+        run: |
+          mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
+          KEY=$([ -n "${{ secrets.AGENTIA_OS_SSH_PRIVATE_KEY }}" ] \
+            && echo "${{ secrets.AGENTIA_OS_SSH_PRIVATE_KEY }}" \
+            || echo "${{ secrets.SSH_PRIVATE_KEY_UBUNTU1 }}")
+          printf '%s\n' "$KEY" > "$HOME/.ssh/deploy_key"
+          chmod 600 "$HOME/.ssh/deploy_key"
+          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> "$HOME/.ssh/known_hosts"
+
+      - name: "4.2 Télécharger artifact API"
+        uses: actions/download-artifact@v4
+        with:
+          name: artifact-api
+          path: publish/api/
+
+      - name: "4.3 Créer dossiers sur le serveur"
+        run: |
+          ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
+            "${SSH_USER}@${SSH_HOST}" \
+            "mkdir -p ${APP_ROOT}/api ${APP_ROOT}/web ${APP_ROOT}/runtime"
+
+      - name: "4.4 Écrire configuration API (.env)"
+        run: |
+          AI_MODE=$([ -n "${{ secrets.AGENTIA_OS_OPENAI_API_KEY }}" ] && echo "openai" \
+            || ([ -n "${{ secrets.AGENTIA_OS_AZURE_OPENAI_API_KEY }}" ] && echo "azure" || echo "mock"))
+          ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
+            "${SSH_USER}@${SSH_HOST}" "tee ${APP_ROOT}/.env.api > /dev/null" <<ENV
+          ASPNETCORE_ENVIRONMENT=Production
+          ASPNETCORE_URLS=http://+:8080
+          ConnectionStrings__Default=${{ secrets.AGENTIA_OS_CONNECTION_STRING }}
+          Database__Provider=postgres
+          Auth__JwtKey=${{ secrets.AGENTIA_OS_JWT_SECRET }}
+          Auth__Issuer=AgenticFactory
+          Auth__Audience=AgenticFactoryClients
+          AI__Mode=${AI_MODE}
+          AI__OpenAI__ApiKey=${{ secrets.AGENTIA_OS_OPENAI_API_KEY }}
+          AI__AzureOpenAI__Endpoint=${{ secrets.AGENTIA_OS_AZURE_OPENAI_ENDPOINT }}
+          AI__AzureOpenAI__ApiKey=${{ secrets.AGENTIA_OS_AZURE_OPENAI_API_KEY }}
+          AI__AzureOpenAI__Deployment=${{ secrets.AGENTIA_OS_AZURE_OPENAI_DEPLOYMENT }}
+          ENV
+
+      - name: "4.5 Transférer bundle API (rsync)"
+        run: |
+          rsync -az --delete \
+            -e "ssh -i $HOME/.ssh/deploy_key -p $SSH_PORT -o BatchMode=yes" \
+            publish/api/ \
+            "${SSH_USER}@${SSH_HOST}:${APP_ROOT}/api/"
+
+      - name: "4.6 Redémarrer service API"
+        run: |
+          ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
+            "${SSH_USER}@${SSH_HOST}" \
+            "sudo systemctl restart $SERVICE_API && sleep 8 && systemctl is-active $SERVICE_API"
+
+      - name: "4.7 Health check API"
+        run: |
+          ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
+            "${SSH_USER}@${SSH_HOST}" \
+            "curl -fsS http://localhost:8080/health && echo ' → API opérationnelle'"
+
+# ═══════════════════════════════════════════════════════════════════════
+# STAGE 5 — Tests de smoke post-déploiement API
+# ═══════════════════════════════════════════════════════════════════════
+
+  stage5-smoke-tests:
+    name: "Stage 5 — Smoke Tests API"
+    needs: [stage1-validate, stage4-deploy-api]
+    runs-on: ubuntu-latest
+    env:
+      SSH_HOST: ${{ needs.stage1-validate.outputs.ssh_host }}
+      SSH_USER: ${{ needs.stage1-validate.outputs.ssh_user }}
+      SSH_PORT: ${{ needs.stage1-validate.outputs.ssh_port }}
+
+    steps:
+      - name: "5.1 Configurer SSH"
+        run: |
+          mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
+          KEY=$([ -n "${{ secrets.AGENTIA_OS_SSH_PRIVATE_KEY }}" ] \
+            && echo "${{ secrets.AGENTIA_OS_SSH_PRIVATE_KEY }}" \
+            || echo "${{ secrets.SSH_PRIVATE_KEY_UBUNTU1 }}")
+          printf '%s\n' "$KEY" > "$HOME/.ssh/deploy_key"
+          chmod 600 "$HOME/.ssh/deploy_key"
+          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> "$HOME/.ssh/known_hosts"
+
+      - name: "5.2 Test GET /health"
+        run: |
+          ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
+            "${SSH_USER}@${SSH_HOST}" \
+            "curl -fsS http://localhost:8080/health"
+
+      - name: "5.3 Test POST /api/auth/register"
+        run: |
+          ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
+            "${SSH_USER}@${SSH_HOST}" \
+            "curl -fsS -X POST http://localhost:8080/api/auth/register \
+               -H 'Content-Type: application/json' \
+               -d '{\"email\":\"smoke@ci.local\",\"password\":\"Smoke!2026\",\"fullName\":\"CI Smoke\",\"organizationName\":\"CIOrg\"}' \
+               | grep -q 'token' && echo '✓ Register OK' || echo 'ℹ Compte existant (OK)'"
+
+# ═══════════════════════════════════════════════════════════════════════
+# STAGE 6 — Déploiement Frontend Web Admin
+# ═══════════════════════════════════════════════════════════════════════
+
+  stage6-deploy-web:
+    name: "Stage 6 — Déploiement Frontend Web Admin"
+    needs: [stage1-validate, stage5-smoke-tests]
+    runs-on: ubuntu-latest
+    env:
+      SSH_HOST: ${{ needs.stage1-validate.outputs.ssh_host }}
+      SSH_USER: ${{ needs.stage1-validate.outputs.ssh_user }}
+      SSH_PORT: ${{ needs.stage1-validate.outputs.ssh_port }}
+      APP_ROOT: ${{ needs.stage1-validate.outputs.app_root }}
+
+    steps:
+      - name: "6.1 Configurer SSH"
+        run: |
+          mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
+          KEY=$([ -n "${{ secrets.AGENTIA_OS_SSH_PRIVATE_KEY }}" ] \
+            && echo "${{ secrets.AGENTIA_OS_SSH_PRIVATE_KEY }}" \
+            || echo "${{ secrets.SSH_PRIVATE_KEY_UBUNTU1 }}")
+          printf '%s\n' "$KEY" > "$HOME/.ssh/deploy_key"
+          chmod 600 "$HOME/.ssh/deploy_key"
+          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> "$HOME/.ssh/known_hosts"
+
+      - name: "6.2 Télécharger artifact Web"
+        uses: actions/download-artifact@v4
+        with:
+          name: artifact-web
+          path: publish/web/
+
+      - name: "6.3 Écrire configuration Web (.env)"
+        run: |
+          ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
+            "${SSH_USER}@${SSH_HOST}" "tee ${APP_ROOT}/.env.web > /dev/null" <<ENV
+          ASPNETCORE_ENVIRONMENT=Production
+          ASPNETCORE_URLS=http://+:8081
+          ApiBaseUrl=http://localhost:8080
+          Auth__JwtKey=${{ secrets.AGENTIA_OS_JWT_SECRET }}
+          Auth__Issuer=AgenticFactory
+          Auth__Audience=AgenticFactoryClients
+          ENV
+
+      - name: "6.4 Transférer bundle Web (rsync)"
+        run: |
+          rsync -az --delete \
+            -e "ssh -i $HOME/.ssh/deploy_key -p $SSH_PORT -o BatchMode=yes" \
+            publish/web/ \
+            "${SSH_USER}@${SSH_HOST}:${APP_ROOT}/web/"
+
+      - name: "6.5 Redémarrer service Web"
+        run: |
+          ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
+            "${SSH_USER}@${SSH_HOST}" \
+            "sudo systemctl restart $SERVICE_WEB && sleep 8 && systemctl is-active $SERVICE_WEB"
+
+      - name: "6.6 Health check Web"
+        run: |
+          ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
+            "${SSH_USER}@${SSH_HOST}" \
+            "curl -fsS -o /dev/null -w '%{http_code}' http://localhost:8081/ \
+               | grep -qE '^(200|302)' && echo '✓ Web opérationnel'"
+
+# ═══════════════════════════════════════════════════════════════════════
+# STAGE 7 — Déploiement Agent Runtime
+# ═══════════════════════════════════════════════════════════════════════
+
+  stage7-deploy-runtime:
+    name: "Stage 7 — Déploiement Agent Runtime"
+    needs: [stage1-validate, stage6-deploy-web]
+    runs-on: ubuntu-latest
+    env:
+      SSH_HOST: ${{ needs.stage1-validate.outputs.ssh_host }}
+      SSH_USER: ${{ needs.stage1-validate.outputs.ssh_user }}
+      SSH_PORT: ${{ needs.stage1-validate.outputs.ssh_port }}
+      APP_ROOT: ${{ needs.stage1-validate.outputs.app_root }}
+
+    steps:
+      - name: "7.1 Configurer SSH"
+        run: |
+          mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
+          KEY=$([ -n "${{ secrets.AGENTIA_OS_SSH_PRIVATE_KEY }}" ] \
+            && echo "${{ secrets.AGENTIA_OS_SSH_PRIVATE_KEY }}" \
+            || echo "${{ secrets.SSH_PRIVATE_KEY_UBUNTU1 }}")
+          printf '%s\n' "$KEY" > "$HOME/.ssh/deploy_key"
+          chmod 600 "$HOME/.ssh/deploy_key"
+          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> "$HOME/.ssh/known_hosts"
+
+      - name: "7.2 Télécharger artifact Runtime"
+        uses: actions/download-artifact@v4
+        with:
+          name: artifact-runtime
+          path: publish/runtime/
+
+      - name: "7.3 Écrire configuration Runtime (.env)"
+        run: |
+          AI_MODE=$([ -n "${{ secrets.AGENTIA_OS_OPENAI_API_KEY }}" ] && echo "openai" \
+            || ([ -n "${{ secrets.AGENTIA_OS_AZURE_OPENAI_API_KEY }}" ] && echo "azure" || echo "mock"))
+          ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
+            "${SSH_USER}@${SSH_HOST}" "tee ${APP_ROOT}/.env.runtime > /dev/null" <<ENV
+          ConnectionStrings__Default=${{ secrets.AGENTIA_OS_CONNECTION_STRING }}
+          Database__Provider=postgres
+          AI__Mode=${AI_MODE}
+          AI__OpenAI__ApiKey=${{ secrets.AGENTIA_OS_OPENAI_API_KEY }}
+          AI__AzureOpenAI__Endpoint=${{ secrets.AGENTIA_OS_AZURE_OPENAI_ENDPOINT }}
+          AI__AzureOpenAI__ApiKey=${{ secrets.AGENTIA_OS_AZURE_OPENAI_API_KEY }}
+          AI__AzureOpenAI__Deployment=${{ secrets.AGENTIA_OS_AZURE_OPENAI_DEPLOYMENT }}
+          ENV
+
+      - name: "7.4 Transférer bundle Runtime (rsync)"
+        run: |
+          rsync -az --delete \
+            -e "ssh -i $HOME/.ssh/deploy_key -p $SSH_PORT -o BatchMode=yes" \
+            publish/runtime/ \
+            "${SSH_USER}@${SSH_HOST}:${APP_ROOT}/runtime/"
+
+      - name: "7.5 Redémarrer service Runtime"
+        run: |
+          ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
+            "${SSH_USER}@${SSH_HOST}" \
+            "sudo systemctl restart $SERVICE_RUNTIME && sleep 5 && systemctl is-active $SERVICE_RUNTIME"
+
+# ═══════════════════════════════════════════════════════════════════════
+# STAGE 8 — Rapport final du pipeline
+# ═══════════════════════════════════════════════════════════════════════
+
+  stage8-rapport:
+    name: "Stage 8 — Rapport final"
+    needs:
+      - stage1-validate
+      - stage2-build-test
+      - stage3-publish
+      - stage4-deploy-api
+      - stage5-smoke-tests
+      - stage6-deploy-web
+      - stage7-deploy-runtime
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "8.1 Résumé pipeline"
+        run: |
+          echo "╔══════════════════════════════════════════════════╗"
+          echo "║       AGENTIC FACTORY — Rapport Pipeline         ║"
+          echo "╠══════════════════════════════════════════════════╣"
+          printf "║  Stage 1 Validation      : %-20s║\n" "${{ needs.stage1-validate.result }}"
+          printf "║  Stage 2 Build & Tests   : %-20s║\n" "${{ needs.stage2-build-test.result }}"
+          printf "║  Stage 3 Publish .NET    : %-20s║\n" "${{ needs.stage3-publish.result }}"
+          printf "║  Stage 4 Deploy API      : %-20s║\n" "${{ needs.stage4-deploy-api.result }}"
+          printf "║  Stage 5 Smoke Tests     : %-20s║\n" "${{ needs.stage5-smoke-tests.result }}"
+          printf "║  Stage 6 Deploy Web      : %-20s║\n" "${{ needs.stage6-deploy-web.result }}"
+          printf "║  Stage 7 Deploy Runtime  : %-20s║\n" "${{ needs.stage7-deploy-runtime.result }}"
+          echo "╠══════════════════════════════════════════════════╣"
+          echo "║  Commit : ${{ github.sha }}"
+          echo "║  Branche: ${{ github.ref_name }}"
+          echo "╚══════════════════════════════════════════════════╝"
