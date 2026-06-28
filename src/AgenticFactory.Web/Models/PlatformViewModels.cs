@@ -38,8 +38,43 @@ public sealed class CreateAgentViewModel
 
 public sealed class DeploymentsIndexViewModel
 {
-    public List<DeploymentListItem> Deployments { get; set; } = [];
+    public List<DeploymentAgentGroup> AgentGroups { get; set; } = [];
 }
+
+public sealed record DeploymentAgentGroup(
+    Guid AgentId,
+    string AgentName,
+    string EndpointSlug,
+    string CurrentVersion,
+    string Environment,
+    string Status,
+    DateTime? LastDeployedAt,
+    int DeploymentCount);
+
+public sealed class DeploymentDetailViewModel
+{
+    public Guid AgentId { get; set; }
+    public string AgentName { get; set; } = "";
+    public string Description { get; set; } = "";
+    public string EndpointSlug { get; set; } = "";
+    public string InvokeUrl { get; set; } = "";
+    public string VersionLabel { get; set; } = "—";
+    public string AgentStatus { get; set; } = "";
+    public Guid? LatestBlueprintId { get; set; }
+    public List<PipelineStageItem> Pipeline { get; set; } = [];
+    public List<VersionRowItem> Versions { get; set; } = [];
+    public ProductionDetailItem? Production { get; set; }
+    public UsageDetailItem Usage { get; set; } = new(0, 0, 0, 0, []);
+    public List<TimelineItem> RecentTimeline { get; set; } = [];
+    public List<OperationLogItem> OperationLogs { get; set; } = [];
+}
+
+public sealed record PipelineStageItem(string Stage, string Label, string Status, DateTime? DeployedAt, string? VersionLabel);
+public sealed record VersionRowItem(Guid Id, string Label, string Description, DateTime CreatedAt, string CreatedBy, bool IsCurrent, string Status);
+public sealed record ProductionDetailItem(string Environment, string Status, DateTime? ActivatedAt, string ApiKeyMasked, string RuntimeNode, string RuntimeStatus, int UptimeDays, int UptimeHours, List<string> TriggerTypes);
+public sealed record UsageDetailItem(int Runs, long Tokens, decimal Cost, int Errors, List<int> TokenSeries);
+public sealed record TimelineItem(string Environment, string VersionLabel, DateTime At, string Outcome);
+public sealed record OperationLogItem(DateTime At, string Level, string Message);
 
 public sealed record DeploymentListItem(
     Guid Id,

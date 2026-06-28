@@ -128,6 +128,193 @@ public class AgentsController(
         return Ok(deployments);
     }
 
+    [HttpGet("{agentId:guid}/deployments/detail")]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Policy = "CanViewDashboard")]
+    public async Task<IActionResult> DeploymentDetail(Guid agentId, CancellationToken cancellationToken)
+    {
+        var organizationId = tenantService.OrganizationId;
+        if (organizationId == Guid.Empty)
+            return BadRequest("Missing organization context.");
+
+        var agent = await dbContext.Agents
+            .FirstOrDefaultAsync(x => x.Id == agentId && x.OrganizationId == organizationId, cancellationToken);
+        if (agent is null)
+            return NotFound();
+
+        var thirtyDaysAgo = DateTime.UtcNow.Date.AddDays(-29);
+        var deployments = await dbContext.AgentDeployments
+            .Include(x => x.AgentVersion)
+            .Where(x => x.AgentId == agentId && x.OrganizationId == organizationId)
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+
+        var versions = await dbContext.AgentVersions
+            .Where(x => x.AgentId == agentId && x.OrganizationId == organizationId)
+            .OrderByDescending(x => x.VersionNumber)
+            .ToListAsync(cancellationToken);
+
+        var blueprints = await dbContext.AgentBlueprints
+            .Where(x => x.AgentId == agentId && x.OrganizationId == organizationId)
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+
+        var runs = await dbContext.AgentRuns
+            .Where(x => x.AgentId == agentId && x.OrganizationId == organizationId)
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .Take(50)
+            .ToListAsync(cancellationToken);
+
+        var runs30d = runs.Where(x => x.CreatedAtUtc >= thirtyDaysAgo).ToList();
+        var triggers = await dbContext.AgentTriggers
+            .Where(x => x.AgentId == agentId && x.OrganizationId == organizationId)
+            .ToListAsync(cancellationToken);
+
+        var runtime = await dbContext.RuntimeHeartbeats
+            .OrderByDescending(x => x.LastSeenUtc)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var activeDeployment = deployments
+            .FirstOrDefault(x => x.Status == Domain.DeploymentStatus.Active
+                && x.Environment.Equals("production", StringComparison.OrdinalIgnoreCase))
+            ?? deployments.FirstOrDefault(x => x.Status == Domain.DeploymentStatus.Active);
+
+        var currentVersion = activeDeployment?.AgentVersion
+            ?? versions.FirstOrDefault(v => v.Id == agent.ActiveVersionId)
+            ?? versions.FirstOrDefault();
+
+        var deployedVersionIds = deployments
+            .Where(x => x.Status == Domain.DeploymentStatus.Active)
+            .Select(x => x.AgentVersionId)
+            .ToHashSet();
+
+        var versionRows = versions.Select(v =>
+        {
+            var dep = deployments.FirstOrDefault(d => d.AgentVersionId == v.Id && d.Status == Domain.DeploymentStatus.Active);
+            var bp = blueprints.FirstOrDefault();
+            return new
+            {
+                v.Id,
+                versionNumber = v.VersionNumber,
+                label = $"v1.{v.VersionNumber}.0",
+                description = bp?.PromptSummary ?? agent.Description,
+                v.CreatedAtUtc,
+                createdBy = "Admin",
+                isCurrent = currentVersion?.Id == v.Id,
+                status = dep is not null ? "Deployed" : "Ready"
+            };
+        }).ToList();
+
+        var pipelineStages = new[] { "development", "staging", "production" };
+        var pipeline = pipelineStages.Select(stage =>
+        {
+            var dep = deployments
+                .Where(d => d.Environment.Equals(stage, StringComparison.OrdinalIgnoreCase)
+                    || (stage == "development" && d.Environment.Equals("dev", StringComparison.OrdinalIgnoreCase)))
+                .OrderByDescending(d => d.ActivatedAtUtc)
+                .FirstOrDefault();
+            return new
+            {
+                stage,
+                label = stage switch { "development" => "Développement", "staging" => "Staging", _ => "Production" },
+                status = dep?.Status == Domain.DeploymentStatus.Active ? "Active" : "Inactive",
+                deployedAt = dep?.ActivatedAtUtc,
+                versionNumber = dep?.AgentVersion?.VersionNumber,
+                versionLabel = dep?.AgentVersion is not null ? $"v1.{dep.AgentVersion.VersionNumber}.0" : null
+            };
+        }).ToList();
+
+        var logEntries = new List<(DateTime At, string Level, string Message)>();
+        foreach (var dep in deployments.Take(8))
+        {
+            logEntries.Add((
+                dep.ActivatedAtUtc ?? dep.CreatedAtUtc,
+                dep.Status == Domain.DeploymentStatus.Failed ? "ERROR" : "INFO",
+                dep.Status == Domain.DeploymentStatus.Active
+                    ? $"Déploiement {dep.Environment} v1.{dep.AgentVersion?.VersionNumber}.0 terminé avec succès"
+                    : $"Déploiement {dep.Environment} — {dep.Status}"));
+        }
+        foreach (var run in runs.Take(5))
+        {
+            logEntries.Add((
+                run.CreatedAtUtc,
+                run.Status == Domain.RunStatus.Failed ? "ERROR" : "DEBUG",
+                run.Status == Domain.RunStatus.Failed
+                    ? $"Exécution échouée : {run.ErrorMessage}"
+                    : $"Exécution {run.Status} — {run.PromptTokens + run.CompletionTokens} tokens"));
+        }
+        var operationLogs = logEntries
+            .OrderByDescending(x => x.At)
+            .Take(12)
+            .Select(x => new { at = x.At, level = x.Level, message = x.Message })
+            .ToList();
+
+        var recentTimeline = deployments.Take(6).Select(d => new
+        {
+            d.Environment,
+            versionLabel = d.AgentVersion is not null ? $"v1.{d.AgentVersion.VersionNumber}.0" : "—",
+            at = d.ActivatedAtUtc ?? d.CreatedAtUtc,
+            outcome = d.Status switch
+            {
+                Domain.DeploymentStatus.Active => "Succès",
+                Domain.DeploymentStatus.Failed => "Échec",
+                _ => "En attente"
+            }
+        }).ToList();
+
+        var uptimeSince = activeDeployment?.ActivatedAtUtc ?? agent.CreatedAtUtc;
+        var uptime = DateTime.UtcNow - uptimeSince;
+
+        return Ok(new
+        {
+            agent = new
+            {
+                agent.Id,
+                agent.Name,
+                agent.Description,
+                agent.EndpointSlug,
+                status = agent.Status.ToString(),
+                invokeUrl = $"/api/agents/{agent.EndpointSlug}/invoke"
+            },
+            currentVersion = currentVersion is null ? null : new
+            {
+                currentVersion.Id,
+                currentVersion.VersionNumber,
+                label = $"v1.{currentVersion.VersionNumber}.0"
+            },
+            pipeline,
+            versions = versionRows,
+            production = activeDeployment is null ? null : new
+            {
+                activeDeployment.Environment,
+                status = activeDeployment.Status.ToString(),
+                activeDeployment.ActivatedAtUtc,
+                apiKeyMasked = MaskApiKey(activeDeployment.ApiKeyHash),
+                runtimeNode = runtime?.NodeName ?? "—",
+                runtimeStatus = runtime?.Status ?? "Unknown",
+                uptimeHours = (int)uptime.TotalHours,
+                uptimeDays = (int)uptime.TotalDays,
+                triggers = triggers.Select(t => new { type = t.Type.ToString(), t.IsEnabled }).ToList()
+            },
+            usage = new
+            {
+                runs = runs30d.Count,
+                tokens = runs30d.Sum(r => r.PromptTokens + r.CompletionTokens),
+                cost = runs30d.Sum(r => r.EstimatedCostUsd),
+                errors = runs30d.Count(r => r.Status == Domain.RunStatus.Failed),
+                tokenSeries = Enumerable.Range(0, 30)
+                    .Select(i => thirtyDaysAgo.AddDays(i))
+                    .Select(day => runs30d.Where(r => r.CreatedAtUtc.Date == day.Date).Sum(r => r.PromptTokens + r.CompletionTokens))
+                    .ToList()
+            },
+            recentTimeline,
+            operationLogs,
+            latestBlueprintId = blueprints.FirstOrDefault()?.Id
+        });
+    }
+
+    private static string MaskApiKey(string hash) =>
+        hash.Length >= 8 ? $"{hash[..4]}****{hash[^4..]}" : "****";
+
     [HttpPost("deploy")]
     [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Policy = "CanCreateAgent")]
     public async Task<IActionResult> Deploy(DeployAgentRequest request, CancellationToken cancellationToken)

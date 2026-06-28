@@ -91,6 +91,27 @@ public record RunListItemResponse(
     int CompletionTokens,
     string ErrorMessage);
 
+public record DeploymentDetailResponse(
+    DeploymentAgentInfo Agent,
+    DeploymentVersionInfo? CurrentVersion,
+    List<PipelineStageResponse> Pipeline,
+    List<VersionRowResponse> Versions,
+    ProductionDetailResponse? Production,
+    UsageDetailResponse Usage,
+    List<TimelineResponse> RecentTimeline,
+    List<OperationLogResponse> OperationLogs,
+    Guid? LatestBlueprintId);
+
+public record DeploymentAgentInfo(Guid Id, string Name, string Description, string EndpointSlug, string Status, string InvokeUrl);
+public record DeploymentVersionInfo(Guid Id, int VersionNumber, string Label);
+public record PipelineStageResponse(string Stage, string Label, string Status, DateTime? DeployedAt, int? VersionNumber, string? VersionLabel);
+public record VersionRowResponse(Guid Id, int VersionNumber, string Label, string Description, DateTime CreatedAtUtc, string CreatedBy, bool IsCurrent, string Status);
+public record ProductionDetailResponse(string Environment, string Status, DateTime? ActivatedAtUtc, string ApiKeyMasked, string RuntimeNode, string RuntimeStatus, int UptimeHours, int UptimeDays, List<TriggerResponse> Triggers);
+public record TriggerResponse(string Type, bool IsEnabled);
+public record UsageDetailResponse(int Runs, long Tokens, decimal Cost, int Errors, List<int> TokenSeries);
+public record TimelineResponse(string Environment, string VersionLabel, DateTime At, string Outcome);
+public record OperationLogResponse(DateTime At, string Level, string Message);
+
 public class ApiClient(HttpClient http)
 {
     private static readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
@@ -149,6 +170,14 @@ public class ApiClient(HttpClient http)
         if (!response.IsSuccessStatusCode) return null;
         var content = await response.Content.ReadAsStringAsync();
         return JsonSerializer.Deserialize<List<DeploymentListItemResponse>>(content, _json);
+    }
+
+    public async Task<DeploymentDetailResponse?> GetDeploymentDetailAsync(Guid agentId)
+    {
+        var response = await http.GetAsync($"/api/agents/{agentId}/deployments/detail");
+        if (!response.IsSuccessStatusCode) return null;
+        var content = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<DeploymentDetailResponse>(content, _json);
     }
 
     public async Task<List<RunListItemResponse>?> GetRunsAsync(int limit = 50)
