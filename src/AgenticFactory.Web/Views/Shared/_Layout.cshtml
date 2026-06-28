@@ -2,6 +2,7 @@
     var activeNav = ViewData["ActiveNav"]?.ToString() ?? "";
     var dashMode = ViewData["DashboardMode"] as bool? == true;
     var agentsMode = ViewData["AgentsMode"] as bool? == true;
+    var deploymentsMode = ViewData["DeploymentsMode"] as bool? == true;
 }
 <!DOCTYPE html>
 <html lang="fr">
@@ -15,6 +16,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="~/css/agentia-dashboard.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/agentia-agents.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/agentia-deployments.css" asp-append-version="true" />
     <style>
         :root {
             --af-primary: #6366f1;
@@ -69,7 +71,7 @@
         .af-stat-value { font-size: 2rem; font-weight: 700; color: #0f172a; }
     </style>
 </head>
-<body class="@(dashMode ? "dash-mode" : agentsMode ? "agents-mode" : "")">
+<body class="@(dashMode ? "dash-mode" : agentsMode ? "agents-mode" : deploymentsMode ? "deployments-mode" : "")">
     <aside class="af-sidebar">
         <div class="af-sidebar-brand">
             <div class="brand-icon">A</div>

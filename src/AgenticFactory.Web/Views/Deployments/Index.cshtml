@@ -3,48 +3,52 @@
     ViewData["Title"] = "Déploiements";
 }
 
-<div class="mb-4">
-    <h2 class="mb-1">Déploiements</h2>
-    <p class="text-muted mb-0">Versions actives et historique des déploiements.</p>
-</div>
+<div class="deploy-page">
+    <nav class="deploy-breadcrumb">
+        <a asp-controller="Dashboard" asp-action="Index">Accueil</a>
+        <span class="sep">›</span>
+        <span>Déploiements</span>
+    </nav>
 
-@if (!Model.Deployments.Any())
-{
-    <div class="af-card text-center py-5">
-        <i class="bi bi-lightning display-4 text-muted"></i>
-        <p class="mt-3 mb-3 text-muted">Aucun déploiement. Créez et déployez un agent depuis la section Agents.</p>
-        <a asp-controller="Agents" asp-action="Index" class="btn btn-primary">Aller aux agents</a>
+    <div class="deploy-head">
+        <div>
+            <h1>Déploiements</h1>
+            <p class="text-muted mb-0 mt-1">Pipeline, versions et environnements de vos agents.</p>
+        </div>
+        <div class="deploy-head-actions">
+            <span class="deploy-online">En ligne</span>
+            <a asp-controller="Agents" asp-action="Create" class="deploy-btn-primary">
+                <i class="bi bi-plus-lg"></i> Nouveau déploiement
+            </a>
+        </div>
     </div>
-}
-else
-{
-    <div class="table-responsive af-card p-0">
-        <table class="table table-hover mb-0">
-            <thead class="table-light">
-                <tr>
-                    <th>Agent</th>
-                    <th>Version</th>
-                    <th>Environnement</th>
-                    <th>Statut</th>
-                    <th>Activé le</th>
-                </tr>
-            </thead>
-            <tbody>
-            @foreach (var d in Model.Deployments)
+
+    @if (!Model.AgentGroups.Any())
+    {
+        <div class="deploy-panel text-center py-5">
+            <i class="bi bi-lightning display-4 text-muted opacity-50"></i>
+            <p class="mt-3 mb-3 text-muted">Aucun déploiement. Créez et déployez un agent d'abord.</p>
+            <a asp-controller="Agents" asp-action="Index" class="deploy-btn-primary">Aller aux agents</a>
+        </div>
+    }
+    else
+    {
+        <div class="deploy-agent-cards">
+            @foreach (var g in Model.AgentGroups)
             {
-                var isActive = d.Status.Equals("Active", StringComparison.OrdinalIgnoreCase);
-                <tr>
-                    <td>
-                        <strong>@d.AgentName</strong>
-                        <div class="small"><code>@d.EndpointSlug</code></div>
-                    </td>
-                    <td>v@d.VersionNumber</td>
-                    <td>@d.Environment</td>
-                    <td><span class="badge @(isActive ? "text-bg-success" : "text-bg-secondary")">@d.Status</span></td>
-                    <td>@(d.ActivatedAtUtc?.ToLocalTime().ToString("g") ?? "—")</td>
-                </tr>
+                <a asp-action="Detail" asp-route-id="@g.AgentId" class="deploy-agent-card">
+                    <h3>@g.AgentName</h3>
+                    <div class="slug mb-2">@g.EndpointSlug</div>
+                    <div class="d-flex flex-wrap gap-2 mb-2">
+                        <span class="deploy-badge deployed">@g.Status</span>
+                        <span class="deploy-version-tag">@g.CurrentVersion</span>
+                        <span class="deploy-badge ready">@g.Environment</span>
+                    </div>
+                    <div class="small text-muted">
+                        @g.DeploymentCount déploiement(s) · Dernier : @(g.LastDeployedAt?.ToLocalTime().ToString("g") ?? "—")
+                    </div>
+                </a>
             }
-            </tbody>
-        </table>
-    </div>
-}
+        </div>
+    }
+</div>

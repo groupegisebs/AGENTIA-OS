@@ -182,11 +182,6 @@ public class AgentsController(
             ?? versions.FirstOrDefault(v => v.Id == agent.ActiveVersionId)
             ?? versions.FirstOrDefault();
 
-        var deployedVersionIds = deployments
-            .Where(x => x.Status == Domain.DeploymentStatus.Active)
-            .Select(x => x.AgentVersionId)
-            .ToHashSet();
-
         var versionRows = versions.Select(v =>
         {
             var dep = deployments.FirstOrDefault(d => d.AgentVersionId == v.Id && d.Status == Domain.DeploymentStatus.Active);

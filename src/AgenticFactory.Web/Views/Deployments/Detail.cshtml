@@ -1,0 +1,320 @@
+@model AgenticFactory.Web.Models.DeploymentDetailViewModel
+@{
+    ViewData["Title"] = "Déploiement";
+    var prod = Model.Production;
+    string TriggerIcon(string type) => type switch
+    {
+        "Scheduled" => "bi-calendar-event",
+        "Webhook" => "bi-link-45deg",
+        _ => "bi-clock"
+    };
+    string FormatUptime(int days, int hours)
+    {
+        var h = hours % 24;
+        return days > 0 ? $"{days} jour{(days > 1 ? "s" : "")}, {h} heure{(h > 1 ? "s" : "")}" : $"{hours} heure{(hours > 1 ? "s" : "")}";
+    }
+}
+
+<div class="deploy-page">
+    <nav class="deploy-breadcrumb">
+        <a asp-controller="Dashboard" asp-action="Index">Accueil</a>
+        <span class="sep">›</span>
+        <a asp-controller="Agents" asp-action="Index">Agents</a>
+        <span class="sep">›</span>
+        <span>@Model.AgentName</span>
+        <span class="sep">›</span>
+        <span>Déploiements</span>
+    </nav>
+
+    @if (TempData["Success"] is string success)
+    {
+        <div class="deploy-alert alert alert-success">@success</div>
+    }
+    @if (TempData["Error"] is string error)
+    {
+        <div class="deploy-alert alert alert-danger">@error</div>
+    }
+    @if (TempData["ApiKey"] is string apiKey)
+    {
+        <div class="deploy-alert alert alert-warning">
+            <strong>Clé API :</strong> <code class="user-select-all">@apiKey</code>
+        </div>
+    }
+
+    <div class="deploy-head">
+        <div>
+            <h1>
+                Déploiement
+                <span class="deploy-version-tag">@Model.VersionLabel</span>
+            </h1>
+            <p class="text-muted mb-0 mt-1">@Model.AgentName — @Model.Description</p>
+        </div>
+        <div class="deploy-head-actions">
+            <span class="deploy-online">En ligne</span>
+            @if (Model.LatestBlueprintId.HasValue)
+            {
+                <form asp-action="Redeploy" method="post" class="d-inline">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="agentId" value="@Model.AgentId" />
+                    <input type="hidden" name="blueprintId" value="@Model.LatestBlueprintId" />
+                    <button type="submit" class="deploy-btn-primary border-0">
+                        <i class="bi bi-plus-lg"></i> Nouveau déploiement
+                    </button>
+                </form>
+            }
+            else
+            {
+                <a asp-controller="Agents" asp-action="Create" class="deploy-btn-primary">
+                    <i class="bi bi-plus-lg"></i> Nouveau déploiement
+                </a>
+            }
+        </div>
+    </div>
+
+    <div class="deploy-grid">
+        <div class="deploy-main">
+            <!-- Pipeline -->
+            <div class="deploy-panel">
+                <div class="deploy-panel-head">
+                    <h2 class="deploy-panel-title">Pipeline de déploiement</h2>
+                    <button type="button" class="deploy-btn-outline btn-sm" disabled title="Bientôt disponible">Configurer le pipeline</button>
+                </div>
+                <div class="deploy-pipeline">
+                    @foreach (var step in Model.Pipeline)
+                    {
+                        var isActive = step.Status.Equals("Active", StringComparison.OrdinalIgnoreCase);
+                        <div class="deploy-pipe-step @(isActive ? "active" : "")">
+                            <div class="deploy-pipe-label">@step.Label</div>
+                            <div class="deploy-pipe-name">@(step.VersionLabel ?? "—")</div>
+                            <div class="deploy-pipe-status @(isActive ? "ok" : "off")">@(isActive ? "Actif" : "Inactif")</div>
+                            <div class="deploy-pipe-meta">
+                                @(step.DeployedAt?.ToLocalTime().ToString("d MMM yyyy") ?? "Non déployé")
+                            </div>
+                        </div>
+                    }
+                    <div class="deploy-pipe-step">
+                        <div class="deploy-pipe-label">Prochain</div>
+                        <div class="deploy-pipe-name">—</div>
+                        <div class="deploy-pipe-status off">Aucun planifié</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Versions -->
+            <div class="deploy-panel">
+                <h2 class="deploy-panel-title mb-3">Versions disponibles</h2>
+                @if (!Model.Versions.Any())
+                {
+                    <p class="text-muted mb-0">Aucune version.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="deploy-table">
+                            <thead>
+                                <tr>
+                                    <th>Version</th>
+                                    <th>Description</th>
+                                    <th>Créée le</th>
+                                    <th>Créée par</th>
+                                    <th>Statut</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var v in Model.Versions)
+                            {
+                                <tr>
+                                    <td>
+                                        <strong>@v.Label</strong>
+                                        @if (v.IsCurrent) { <span class="deploy-badge current">Actuelle</span> }
+                                    </td>
+                                    <td class="text-muted small">@v.Description</td>
+                                    <td>@v.CreatedAt.ToLocalTime().ToString("d MMM yyyy")</td>
+                                    <td>@v.CreatedBy</td>
+                                    <td>
+                                        <span class="deploy-badge @(v.Status == "Déployée" ? "deployed" : "ready")">@v.Status</span>
+                                    </td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+
+            <!-- Production -->
+            @if (prod is not null)
+            {
+                <div class="deploy-panel">
+                    <h2 class="deploy-panel-title mb-3">Détails du déploiement (@Capitalize(prod.Environment))</h2>
+                    <div class="deploy-prod-grid">
+                        <div>
+                            <div class="deploy-field-label">Statut</div>
+                            <div class="deploy-field-value"><span class="deploy-badge deployed">Actif</span></div>
+                        </div>
+                        <div>
+                            <div class="deploy-field-label">URL de l'agent</div>
+                            <div class="deploy-field-value mono">@Model.InvokeUrl</div>
+                        </div>
+                        <div>
+                            <div class="deploy-field-label">Clé API</div>
+                            <div class="deploy-field-value mono">@prod.ApiKeyMasked</div>
+                        </div>
+                        <div>
+                            <div class="deploy-field-label">Nœud d'exécution</div>
+                            <div class="deploy-field-value">
+                                @prod.RuntimeNode
+                                <span class="deploy-badge deployed ms-1">@prod.RuntimeStatus</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="deploy-field-label">Uptime</div>
+                            <div class="deploy-field-value">@FormatUptime(prod.UptimeDays, prod.UptimeHours)</div>
+                        </div>
+                        <div>
+                            <div class="deploy-field-label">Triggers actifs</div>
+                            <div class="deploy-triggers">
+                                @if (!prod.TriggerTypes.Any())
+                                {
+                                    <span class="text-muted small">Aucun</span>
+                                }
+                                @foreach (var t in prod.TriggerTypes)
+                                {
+                                    <span class="deploy-trigger-icon" title="@t"><i class="bi @TriggerIcon(t)"></i></span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                    <div class="deploy-actions-row">
+                        @if (Model.LatestBlueprintId.HasValue)
+                        {
+                            <form asp-action="Redeploy" method="post">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="agentId" value="@Model.AgentId" />
+                                <input type="hidden" name="blueprintId" value="@Model.LatestBlueprintId" />
+                                <button type="submit" class="deploy-btn-primary border-0">Redéployer</button>
+                            </form>
+                        }
+                        <button type="button" class="deploy-btn-outline" disabled title="Bientôt disponible">Rollback</button>
+                        <button type="button" class="deploy-btn-outline" disabled title="Bientôt disponible">Suspendre</button>
+                        <button type="button" class="deploy-btn-outline deploy-btn-danger" disabled title="Bientôt disponible">Supprimer</button>
+                    </div>
+                </div>
+            }
+
+            <!-- Logs -->
+            <div class="deploy-panel">
+                <h2 class="deploy-panel-title mb-3">Journal des opérations</h2>
+                @if (!Model.OperationLogs.Any())
+                {
+                    <p class="text-muted mb-0">Aucune opération enregistrée.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="deploy-table">
+                            <thead>
+                                <tr><th>Date</th><th>Niveau</th><th>Message</th></tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var log in Model.OperationLogs)
+                            {
+                                var lvl = log.Level.ToLowerInvariant();
+                                <tr>
+                                    <td class="text-nowrap">@log.At.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</td>
+                                    <td><span class="deploy-log-level @lvl">@log.Level</span></td>
+                                    <td>@log.Message</td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="deploy-side">
+            <div class="deploy-panel">
+                <h2 class="deploy-panel-title mb-3">Déploiements récents</h2>
+                @if (!Model.RecentTimeline.Any())
+                {
+                    <p class="text-muted small mb-0">Aucun historique.</p>
+                }
+                else
+                {
+                    <ul class="deploy-timeline">
+                        @foreach (var t in Model.RecentTimeline)
+                        {
+                            var cls = t.Outcome.Contains("chec") ? "fail" : t.Outcome.Contains("Succ") ? "ok" : "";
+                            <li class="@cls">
+                                <div class="deploy-tl-title">@t.Environment @t.VersionLabel</div>
+                                <div class="deploy-tl-meta">@t.At.ToLocalTime().ToString("g") · @t.Outcome</div>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+
+            <div class="deploy-panel">
+                <h2 class="deploy-panel-title mb-3">Utilisation (Production)</h2>
+                <p class="small text-muted mb-3">30 derniers jours</p>
+                <div class="deploy-usage-stat">
+                    <div class="label">Exécutions</div>
+                    <div class="value">@Model.Usage.Runs.ToString("N0")</div>
+                </div>
+                <div class="deploy-usage-stat">
+                    <div class="label">Tokens consommés</div>
+                    <div class="value">@(Model.Usage.Tokens >= 1_000_000 ? $"{Model.Usage.Tokens / 1_000_000.0:0.##}M" : Model.Usage.Tokens.ToString("N0"))</div>
+                </div>
+                <div class="deploy-usage-stat">
+                    <div class="label">Coût total</div>
+                    <div class="value">$@Model.Usage.Cost.ToString("0.00")</div>
+                </div>
+                <div class="deploy-usage-stat">
+                    <div class="label">Erreurs</div>
+                    <div class="value">@Model.Usage.Errors</div>
+                </div>
+                <div class="deploy-chart-sm">
+                    <canvas id="deployUsageChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@functions {
+    string Capitalize(string s) =>
+        string.IsNullOrEmpty(s) ? s : char.ToUpper(s[0]) + s[1..].ToLowerInvariant();
+}
+
+@section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(() => {
+    const data = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Usage.TokenSeries));
+    const el = document.getElementById('deployUsageChart');
+    if (!el) return;
+    new Chart(el, {
+        type: 'line',
+        data: {
+            labels: data.map(() => ''),
+            datasets: [{
+                data,
+                borderColor: '#6366f1',
+                backgroundColor: 'rgba(99,102,241,.15)',
+                fill: true,
+                tension: 0.35,
+                pointRadius: 0,
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { x: { display: false }, y: { display: false, beginAtZero: true } }
+        }
+    });
+})();
+</script>
+}
