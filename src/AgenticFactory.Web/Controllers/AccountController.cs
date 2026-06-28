@@ -10,18 +10,24 @@ namespace AgenticFactory.Web.Controllers;
 public class AccountController(ApiClient api) : Controller
 {
     [HttpGet]
-    public IActionResult Login() => View(new LoginViewModel());
+    public IActionResult Login()
+    {
+        if (User.Identity?.IsAuthenticated == true)
+            return RedirectToAction("Index", "Dashboard");
+        return RedirectToAction("Index", "Home");
+    }
 
     [HttpPost]
     public async Task<IActionResult> Login(LoginViewModel model)
     {
-        if (!ModelState.IsValid) return View(model);
+        if (!ModelState.IsValid)
+            return View("~/Views/Home/Index.cshtml", model);
 
         var result = await api.LoginAsync(model.Email, model.Password);
         if (result is null)
         {
             ModelState.AddModelError(string.Empty, "Email ou mot de passe incorrect.");
-            return View(model);
+            return View("~/Views/Home/Index.cshtml", model);
         }
 
         await SignInWithCookieAsync(result);
@@ -53,7 +59,7 @@ public class AccountController(ApiClient api) : Controller
     public async Task<IActionResult> Logout()
     {
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-        return RedirectToAction(nameof(Login));
+        return RedirectToAction("Index", "Home");
     }
 
     private async Task SignInWithCookieAsync(AuthResponse auth)

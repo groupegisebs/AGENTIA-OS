@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] — Agentia</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="~/css/agentia-landing.css" asp-append-version="true" />
+</head>
+<body class="landing-page">
+<div class="landing-shell">
+    <aside class="landing-sidebar">
+        <a asp-controller="Home" asp-action="Index" class="landing-brand">
+            <span class="landing-brand-mark">A</span>
+            <span>Agentia</span>
+        </a>
+        <nav class="landing-nav" aria-label="Navigation principale">
+            <a asp-controller="Home" asp-action="Index" class="landing-nav-item active">
+                <i class="bi bi-house-door"></i> Accueil
+            </a>
+            <a href="#" class="landing-nav-item"><i class="bi bi-robot"></i> Agents</a>
+            <a href="#" class="landing-nav-item"><i class="bi bi-shop"></i> Marketplace</a>
+            <a href="#" class="landing-nav-item"><i class="bi bi-credit-card"></i> Plans &amp; Tarifs</a>
+            <a href="#" class="landing-nav-item"><i class="bi bi-book"></i> Documentation</a>
+            <a href="#" class="landing-nav-item"><i class="bi bi-braces"></i> API</a>
+            <a href="#" class="landing-nav-item"><i class="bi bi-folder2-open"></i> Ressources</a>
+            <a href="#" class="landing-nav-item"><i class="bi bi-info-circle"></i> À propos</a>
+        </nav>
+        <div class="landing-sidebar-cta">
+            <strong>Nouveau ici ?</strong>
+            <p>Découvrez comment créer votre premier agent IA en quelques minutes.</p>
+            <a href="#" class="landing-guide-link">Voir le guide →</a>
+        </div>
+        <p class="landing-sidebar-copy">© 2025 Agentia<br/>Tous droits réservés.</p>
+    </aside>
+
+    <div class="landing-main">
+        @RenderBody()
+    </div>
+</div>
+<script src="~/js/agentia-auth.js" asp-append-version="true"></script>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

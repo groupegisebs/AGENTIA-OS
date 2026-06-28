@@ -1,0 +1,160 @@
+@model AgenticFactory.Web.Models.LoginViewModel
+@{
+    Layout = "_LandingLayout";
+    ViewData["Title"] = "Accueil";
+}
+
+<header class="landing-topbar">
+    <span class="landing-badge">✦ Plateforme Agentic AI</span>
+    <div class="landing-topbar-actions">
+        <button type="button" class="landing-theme-btn" aria-label="Thème"><i class="bi bi-sun"></i></button>
+        <a asp-controller="Account" asp-action="Register" class="landing-btn-outline">Créer un compte</a>
+    </div>
+</header>
+
+<section class="landing-hero">
+    <div class="landing-hero-copy">
+        <h1 class="landing-hero-title">Construisez des agents IA <em>sans coder.</em></h1>
+        <p class="landing-hero-sub">Créez, entraînez, déployez et monétisez vos agents intelligents sur une seule plateforme.</p>
+
+        <ul class="landing-features">
+            <li>
+                <span class="landing-feat-icon purple"><i class="bi bi-grid-1x2"></i></span>
+                <div class="landing-feat-text">
+                    <strong>Création No-Code</strong>
+                    <span>Interface visuelle intuitive, aucun développement requis</span>
+                </div>
+            </li>
+            <li>
+                <span class="landing-feat-icon green"><i class="bi bi-diagram-3"></i></span>
+                <div class="landing-feat-text">
+                    <strong>Orchestration Multi-Agents</strong>
+                    <span>Composez des workflows IA complexes en quelques clics</span>
+                </div>
+            </li>
+            <li>
+                <span class="landing-feat-icon amber"><i class="bi bi-shop"></i></span>
+                <div class="landing-feat-text">
+                    <strong>Marketplace d'agents</strong>
+                    <span>Publiez et partagez vos agents avec la communauté</span>
+                </div>
+            </li>
+            <li>
+                <span class="landing-feat-icon blue"><i class="bi bi-rocket-takeoff"></i></span>
+                <div class="landing-feat-text">
+                    <strong>Déploiement Instantané</strong>
+                    <span>De l'idée à la production en quelques minutes</span>
+                </div>
+            </li>
+        </ul>
+
+        <div class="landing-hero-actions">
+            <a href="#connexion" class="landing-btn-primary">Explorer la plateforme →</a>
+            <a href="#" class="landing-btn-secondary">Voir la marketplace</a>
+        </div>
+    </div>
+
+    <div class="landing-hero-visual">
+        <div class="landing-visual-glow" aria-hidden="true"></div>
+
+        <div class="landing-dashboard-mock" aria-hidden="true">
+            <div class="landing-mock-header"><span></span><span></span><span></span></div>
+            <div class="landing-mock-chart"></div>
+            <div class="landing-mock-grid">
+                <div class="landing-mock-cell"></div>
+                <div class="landing-mock-cell"></div>
+                <div class="landing-mock-cell"></div>
+            </div>
+        </div>
+
+        <span class="landing-orbit o1" aria-hidden="true"><i class="bi bi-robot"></i></span>
+        <span class="landing-orbit o2" aria-hidden="true"><i class="bi bi-cloud"></i></span>
+        <span class="landing-orbit o3" aria-hidden="true"><i class="bi bi-envelope"></i></span>
+        <span class="landing-orbit o4" aria-hidden="true"><i class="bi bi-database"></i></span>
+        <span class="landing-orbit o5" aria-hidden="true"><i class="bi bi-graph-up"></i></span>
+
+        <div class="landing-login-card" id="connexion">
+            <h2>Connexion</h2>
+            <p class="subtitle">Accédez à votre espace architecte</p>
+
+            @if (!ViewData.ModelState.IsValid)
+            {
+                <div class="landing-alert">
+                    @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                    {
+                        <div>@error.ErrorMessage</div>
+                    }
+                </div>
+            }
+
+            <form asp-controller="Account" asp-action="Login" method="post" class="landing-form">
+                <label>
+                    Email
+                    <input asp-for="Email" type="email" placeholder="vous@entreprise.com" autocomplete="email" />
+                </label>
+                <label>
+                    Mot de passe
+                    <span class="auth-password-input">
+                        <input asp-for="Password" type="password" placeholder="••••••••" autocomplete="current-password" />
+                        <button type="button" class="auth-password-toggle" aria-label="Afficher le mot de passe">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </span>
+                </label>
+                <div class="landing-form-row">
+                    <label><input type="checkbox" name="remember" /> Se souvenir de moi</label>
+                    <a href="#" class="landing-forgot">Mot de passe oublié ?</a>
+                </div>
+                <button type="submit" class="landing-btn-primary">Se connecter →</button>
+            </form>
+            <p class="landing-form-footer">Pas encore de compte ? <a asp-controller="Account" asp-action="Register">Créer un compte</a></p>
+        </div>
+    </div>
+</section>
+
+<section class="landing-stats">
+    <article class="landing-stat">
+        <span class="landing-stat-icon purple"><i class="bi bi-robot"></i></span>
+        <div>
+            <div class="landing-stat-value">12,458</div>
+            <div class="landing-stat-label">Agents créés</div>
+            <div class="landing-stat-delta">+18.2% ce mois</div>
+        </div>
+    </article>
+    <article class="landing-stat">
+        <span class="landing-stat-icon green"><i class="bi bi-lightning"></i></span>
+        <div>
+            <div class="landing-stat-value">3,214</div>
+            <div class="landing-stat-label">Déploiements</div>
+            <div class="landing-stat-delta">+24.7% ce mois</div>
+        </div>
+    </article>
+    <article class="landing-stat">
+        <span class="landing-stat-icon amber"><i class="bi bi-activity"></i></span>
+        <div>
+            <div class="landing-stat-value">98.5%</div>
+            <div class="landing-stat-label">Uptime moyen</div>
+            <div class="landing-stat-delta neutral">Sur les 30 derniers jours</div>
+        </div>
+    </article>
+    <article class="landing-stat">
+        <span class="landing-stat-icon blue"><i class="bi bi-people"></i></span>
+        <div>
+            <div class="landing-stat-value">2,847</div>
+            <div class="landing-stat-label">Utilisateurs actifs</div>
+            <div class="landing-stat-delta">+16.3% ce mois</div>
+        </div>
+    </article>
+</section>
+
+<section class="landing-partners">
+    <p>Utilisé par des équipes innovantes dans le monde entier</p>
+    <div class="landing-partner-logos">
+        <span>TechNova</span>
+        <span>DataSync</span>
+        <span>CloudFlow</span>
+        <span>InnovateAI</span>
+        <span>FutureCorp</span>
+        <span>ByteWorks</span>
+    </div>
+</section>
