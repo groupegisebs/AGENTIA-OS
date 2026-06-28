@@ -176,6 +176,18 @@ public class StudioController(
         var monthlyCost = costPerRun * runsPerMonth;
         var costBasis = "pricing";
 
+        var planFees = await db.OrganizationSubscriptions
+            .AsNoTracking()
+            .Where(x => x.OrganizationId == organizationId && x.IsActive)
+            .Select(x => new { x.SubscriptionPlan!.BlueprintCreationFeeUsd, x.SubscriptionPlan.DeployFeeUsd })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var creationPromptTokens = 800 + request.ObjectiveCount * 100 + request.ActionCount * 80;
+        var creationCompletionTokens = (int)(creationPromptTokens * 0.6) + 400;
+        var creationCostUsd = (creationPromptTokens / 1000m) * promptRate
+            + (creationCompletionTokens / 1000m) * completionRate
+            + (planFees?.BlueprintCreationFeeUsd ?? 0m);
+
         var thirtyDaysAgo = DateTime.UtcNow.Date.AddDays(-29);
         var orgRunCosts = await db.AgentRuns
             .AsNoTracking()
@@ -194,6 +206,8 @@ public class StudioController(
         {
             complexity,
             estimatedMonthlyCostUsd = Math.Round(monthlyCost, 2),
+            creationCostUsd = Math.Round(creationCostUsd, 4),
+            deployFeeUsd = planFees?.DeployFeeUsd ?? 0m,
             aiModel,
             costBasis,
             costLabel = costBasis switch

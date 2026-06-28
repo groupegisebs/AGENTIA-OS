@@ -3,16 +3,34 @@ using AgenticFactory.Domain;
 namespace AgenticFactory.Application;
 
 public sealed record ChatMessageRequest(string Message, Guid? ExistingAgentId);
-public sealed record BlueprintResponse(string BlueprintJson, string Summary, bool IsValid, string ValidationNotes);
+public sealed record BlueprintResponse(
+    string BlueprintJson,
+    string Summary,
+    bool IsValid,
+    string ValidationNotes,
+    decimal EstimatedCostUsd = 0,
+    int PromptTokens = 0,
+    int CompletionTokens = 0);
 public sealed record BlueprintCreatedResponse(
     Guid Id,
     Guid AgentId,
     string PromptSummary,
     string BlueprintJson,
     string Status,
-    string ValidationNotes);
+    string ValidationNotes,
+    decimal CreationCostUsd = 0,
+    int PromptTokens = 0,
+    int CompletionTokens = 0);
 public sealed record DeployAgentRequest(Guid AgentId, Guid BlueprintId, string Environment);
-public sealed record DeployAgentResponse(Guid AgentId, Guid AgentVersionId, Guid DeploymentId, string EndpointSlug, string PlainApiKey);
+public sealed record DeployAgentResponse(
+    Guid AgentId,
+    Guid AgentVersionId,
+    Guid DeploymentId,
+    string EndpointSlug,
+    string PlainApiKey,
+    decimal DeployFeeUsd = 0,
+    int CurrentAgents = 0,
+    int MaxAgents = 0);
 public sealed record InvokeAgentRequest(Dictionary<string, object?> Input);
 public sealed record InvokeAgentResponse(Guid RunId, string Status, Dictionary<string, object?> Output, int PromptTokens, int CompletionTokens, decimal EstimatedCostUsd);
 public sealed record ModelGenerationRequest(Guid OrganizationId, string Prompt, string? SystemPrompt);

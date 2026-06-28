@@ -87,7 +87,15 @@ public sealed class MockBlueprintGenerator(IConfiguration configuration) : IBlue
         };
 
         var json = JsonSerializer.Serialize(definition, new JsonSerializerOptions { WriteIndented = true });
-        return Task.FromResult(new BlueprintResponse(json, $"Blueprint generated from '{message}'", true, "Blueprint appears valid in mock mode."));
+        var estimate = AiPricingHelper.EstimateFromPrompt(message, configuration);
+        return Task.FromResult(new BlueprintResponse(
+            json,
+            $"Blueprint generated from '{message}'",
+            true,
+            "Blueprint appears valid in mock mode.",
+            estimate.EstimatedCostUsd,
+            estimate.PromptTokens,
+            estimate.CompletionTokens));
     }
 
     private static List<BlueprintActionProvider> ExtractExecutionProviders(string message)
@@ -166,6 +174,15 @@ public sealed class AgentCreationService(
     {
         TenantGuard.RequireOrganization(organizationId);
         var generated = await blueprintGenerator.GenerateAsync(organizationId, request.Message, cancellationToken);
+
+        var planFee = await dbContext.OrganizationSubscriptions
+            .AsNoTracking()
+            .Where(x => x.OrganizationId == organizationId && x.IsActive)
+            .Select(x => x.SubscriptionPlan!.BlueprintCreationFeeUsd)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var creationCostUsd = Math.Round(generated.EstimatedCostUsd + planFee, 6);
+
         var agent = request.ExistingAgentId.HasValue
             ? await dbContext.Agents.FirstAsync(x => x.Id == request.ExistingAgentId.Value && x.OrganizationId == organizationId, cancellationToken)
             : new Agent
@@ -189,7 +206,10 @@ public sealed class AgentCreationService(
             PromptSummary = request.Message,
             BlueprintJson = generated.BlueprintJson,
             Status = generated.IsValid ? BlueprintStatus.Validated : BlueprintStatus.Rejected,
-            ValidationNotes = generated.ValidationNotes
+            ValidationNotes = generated.ValidationNotes,
+            PromptTokens = generated.PromptTokens,
+            CompletionTokens = generated.CompletionTokens,
+            CreationCostUsd = creationCostUsd
         };
 
         dbContext.AgentBlueprints.Add(blueprint);
@@ -215,8 +235,10 @@ public sealed class AgentDeploymentService(
         var currentAgents = await dbContext.Agents.CountAsync(x => x.OrganizationId == organizationId, cancellationToken);
         if (currentAgents > subscription.SubscriptionPlan!.MaxAgents)
         {
-            throw new InvalidOperationException("Agent quota exceeded for this plan.");
+            throw new InvalidOperationException("Quota agents dépassé pour ce plan.");
         }
+
+        var deployFeeUsd = subscription.SubscriptionPlan.DeployFeeUsd;
 
         var agent = await dbContext.Agents.FirstAsync(x => x.Id == request.AgentId && x.OrganizationId == organizationId, cancellationToken);
         var blueprint = await dbContext.AgentBlueprints.FirstAsync(x => x.Id == request.BlueprintId && x.OrganizationId == organizationId, cancellationToken);
@@ -245,6 +267,7 @@ public sealed class AgentDeploymentService(
             Environment = request.Environment,
             ApiKeyHash = ApiKeyHasher.Hash(apiKey),
             Status = DeploymentStatus.Active,
+            DeployFeeUsd = deployFeeUsd,
             ActivatedAtUtc = DateTime.UtcNow
         };
         dbContext.AgentDeployments.Add(deployment);
@@ -253,7 +276,15 @@ public sealed class AgentDeploymentService(
         agent.Status = AgentStatus.Active;
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return new DeployAgentResponse(agent.Id, version.Id, deployment.Id, agent.EndpointSlug, apiKey);
+        return new DeployAgentResponse(
+            agent.Id,
+            version.Id,
+            deployment.Id,
+            agent.EndpointSlug,
+            apiKey,
+            deployFeeUsd,
+            currentAgents,
+            subscription.SubscriptionPlan.MaxAgents);
     }
 }
 
@@ -321,6 +352,19 @@ public sealed class AgentExecutor(
         dbContext.AgentRuns.Add(run);
         await dbContext.SaveChangesAsync(cancellationToken);
 
+        var subscription = await dbContext.OrganizationSubscriptions
+            .Include(x => x.SubscriptionPlan)
+            .FirstOrDefaultAsync(x => x.OrganizationId == organizationId && x.IsActive, cancellationToken);
+
+        if (subscription?.SubscriptionPlan is not null)
+        {
+            AiPricingHelper.ResetBillingPeriodIfNeeded(subscription);
+            if (subscription.UsedRunsThisMonth >= subscription.SubscriptionPlan.MaxRunsPerMonth)
+            {
+                throw new InvalidOperationException("Quota de runs mensuel dépassé pour ce plan.");
+            }
+        }
+
         try
         {
             var toolOutput = await toolExecutor.ExecuteToolsAsync(organizationId, agent, input, cancellationToken);
@@ -341,8 +385,6 @@ public sealed class AgentExecutor(
             run.CompletedAtUtc = DateTime.UtcNow;
             await memoryService.RememberAsync(run.Id, run.OutputJson, cancellationToken);
 
-            var subscription = await dbContext.OrganizationSubscriptions.FirstOrDefaultAsync(
-                x => x.OrganizationId == organizationId && x.IsActive, cancellationToken);
             if (subscription is not null)
             {
                 subscription.UsedRunsThisMonth += 1;
@@ -498,7 +540,7 @@ public sealed class AgentModelProvider(
             completionTokens = Math.Max(20, output.Length / 6);
         }
 
-        var cost = EstimateCostUsd(promptTokens, completionTokens);
+        var cost = AiPricingHelper.EstimateCostUsd(promptTokens, completionTokens, configuration);
         return new ModelGenerationResult(output, promptTokens, completionTokens, cost, provider, UsedFallback: false);
     }
 
@@ -514,28 +556,16 @@ public sealed class AgentModelProvider(
             : 0;
     }
 
-    private decimal EstimateCostUsd(int promptTokens, int completionTokens)
+    private ModelGenerationResult GenerateMock(string prompt, string provider, bool usedFallback)
     {
-        var promptRate = ParseDecimal(configuration["AI:Pricing:PromptPer1kUsd"], 0.00015m);
-        var completionRate = ParseDecimal(configuration["AI:Pricing:CompletionPer1kUsd"], 0.0006m);
-        var promptCost = (promptTokens / 1000m) * promptRate;
-        var completionCost = (completionTokens / 1000m) * completionRate;
-        return Math.Round(promptCost + completionCost, 6);
-    }
-
-    private static decimal ParseDecimal(string? value, decimal fallback)
-    {
-        return decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed)
-            ? parsed
-            : fallback;
-    }
-
-    private static ModelGenerationResult GenerateMock(string prompt, string provider, bool usedFallback)
-    {
-        var promptTokens = Math.Max(30, prompt.Length / 4);
-        var completionTokens = 120;
-        var cost = Math.Round((promptTokens + completionTokens) * 0.00001m, 6);
-        return new ModelGenerationResult($"mock-response::{prompt[..Math.Min(40, prompt.Length)]}", promptTokens, completionTokens, cost, provider, usedFallback);
+        var estimate = AiPricingHelper.EstimateFromPrompt(prompt, configuration);
+        return new ModelGenerationResult(
+            $"mock-response::{prompt[..Math.Min(40, prompt.Length)]}",
+            estimate.PromptTokens,
+            estimate.CompletionTokens,
+            estimate.EstimatedCostUsd,
+            provider,
+            usedFallback);
     }
 }
 

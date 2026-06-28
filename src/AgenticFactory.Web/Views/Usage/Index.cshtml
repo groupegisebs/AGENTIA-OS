@@ -1,0 +1,176 @@
+@model AgenticFactory.Web.Models.UsageIndexViewModel
+@{
+    ViewData["Title"] = "Utilisation";
+    var initials = string.Concat(Model.UserDisplayName.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+        .Take(2).Select(p => char.ToUpper(p[0])));
+    int quotaPct = Model.MaxRunsPerMonth > 0
+        ? Math.Min(100, (int)Math.Round(Model.UsedRunsQuota * 100.0 / Model.MaxRunsPerMonth))
+        : 0;
+    string FormatTokens(long tokens) =>
+        tokens >= 1_000_000 ? $"{tokens / 1_000_000.0:0.##}M" :
+        tokens >= 1_000 ? $"{tokens / 1_000.0:0.#}k" : tokens.ToString("N0");
+}
+
+<div class="billing-page">
+    <nav class="billing-breadcrumb">
+        <a asp-controller="Dashboard" asp-action="Index">Accueil</a>
+        <span class="sep">›</span>
+        <span>Utilisation</span>
+    </nav>
+
+    <div class="billing-page-head">
+        <div>
+            <h1>Utilisation</h1>
+            <p>Métriques de consommation pour @Model.PeriodLabel.</p>
+        </div>
+        <div class="agents-user-chip">
+            <div class="agents-user-avatar">@initials</div>
+            <div>
+                <div class="agents-user-name">@Model.UserDisplayName</div>
+                <div class="agents-user-role">@Model.UserRole</div>
+            </div>
+        </div>
+    </div>
+
+    @if (!Model.ApiAvailable)
+    {
+        <div class="billing-alert warn">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            Impossible de charger les métriques d'utilisation. Vérifiez que l'API est démarrée.
+        </div>
+    }
+
+    <div class="billing-stats-row">
+        <div class="billing-stat-card">
+            <div class="label">Runs ce mois</div>
+            <div class="value">@Model.RunsThisMonth.ToString("N0")</div>
+            <div class="sub">@Model.FailedThisMonth échec(s)</div>
+        </div>
+        <div class="billing-stat-card">
+            <div class="label">Tokens</div>
+            <div class="value">@FormatTokens(Model.TokensThisMonth)</div>
+            <div class="sub">Ce mois</div>
+        </div>
+        <div class="billing-stat-card">
+            <div class="label">Coût estimé</div>
+            <div class="value">$@Model.CostThisMonth.ToString("0.00")</div>
+            <div class="sub">Total IA ce mois</div>
+        </div>
+        <div class="billing-stat-card">
+            <div class="label">Quota runs</div>
+            <div class="value">@quotaPct%</div>
+            <div class="sub">@Model.UsedRunsQuota.ToString("N0") / @Model.MaxRunsPerMonth.ToString("N0")</div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <div class="billing-panel">
+                <h2 class="billing-panel-title">Tokens (30 jours)</h2>
+                <div class="billing-chart-wrap">
+                    <canvas id="tokenChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="billing-panel">
+                <h2 class="billing-panel-title">Runs (30 jours)</h2>
+                <div class="billing-chart-wrap">
+                    <canvas id="runChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="billing-panel">
+        <h2 class="billing-panel-title">Répartition des coûts (@Model.PeriodLabel)</h2>
+        <div class="billing-stats-row" style="margin-bottom:0;">
+            <div class="billing-stat-card" style="box-shadow:none;border:none;padding:0;">
+                <div class="label">Runs IA</div>
+                <div class="value" style="font-size:1.5rem;">$@Model.AiRunCostThisMonth.ToString("0.0000")</div>
+                <div class="sub">@Model.RunsThisMonth run(s)</div>
+            </div>
+            <div class="billing-stat-card" style="box-shadow:none;border:none;padding:0;">
+                <div class="label">Création blueprints</div>
+                <div class="value" style="font-size:1.5rem;">$@Model.CreationCostThisMonth.ToString("0.0000")</div>
+                <div class="sub">@Model.BlueprintsThisMonth blueprint(s)</div>
+            </div>
+            <div class="billing-stat-card" style="box-shadow:none;border:none;padding:0;">
+                <div class="label">Déploiements</div>
+                <div class="value" style="font-size:1.5rem;">$@Model.DeployCostThisMonth.ToString("0.00")</div>
+                <div class="sub">@Model.DeploymentsThisMonth déploiement(s)</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="billing-panel">
+        <h2 class="billing-panel-title">Totaux cumulés</h2>
+        <div class="billing-stats-row" style="margin-bottom:0;">
+            <div class="billing-stat-card" style="box-shadow:none;border:none;padding:0;">
+                <div class="label">Total runs</div>
+                <div class="value" style="font-size:1.5rem;">@Model.TotalRuns.ToString("N0")</div>
+            </div>
+            <div class="billing-stat-card" style="box-shadow:none;border:none;padding:0;">
+                <div class="label">Total tokens</div>
+                <div class="value" style="font-size:1.5rem;">@FormatTokens(Model.TotalTokens)</div>
+            </div>
+            <div class="billing-stat-card" style="box-shadow:none;border:none;padding:0;">
+                <div class="label">Coût total estimé</div>
+                <div class="value" style="font-size:1.5rem;">$@Model.TotalCost.ToString("0.00")</div>
+                <div class="sub">Runs $@Model.AiRunCostTotal.ToString("0.00") · Création $@Model.CreationCostTotal.ToString("0.00") · Deploy $@Model.DeployCostTotal.ToString("0.00")</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script>
+        const tokenData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.TokenSeries));
+        const runData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.RunSeries));
+        const labels = Array.from({ length: 30 }, (_, i) => {
+            const d = new Date();
+            d.setDate(d.getDate() - 29 + i);
+            return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+        });
+
+        const chartOpts = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { display: false }, ticks: { maxTicksLimit: 7, font: { size: 10 } } },
+                y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } }
+            }
+        };
+
+        new Chart(document.getElementById('tokenChart'), {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    data: tokenData,
+                    borderColor: '#6366f1',
+                    backgroundColor: 'rgba(99,102,241,0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 0
+                }]
+            },
+            options: chartOpts
+        });
+
+        new Chart(document.getElementById('runChart'), {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    data: runData,
+                    backgroundColor: 'rgba(99,102,241,0.7)',
+                    borderRadius: 4
+                }]
+            },
+            options: chartOpts
+        });
+    </script>
+}

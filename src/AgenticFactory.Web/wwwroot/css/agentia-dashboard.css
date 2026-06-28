@@ -18,7 +18,7 @@ body.dash-mode .af-topbar { display: none; }
 
 /* Sidebar extended */
 .af-sidebar { width: 260px; }
-.af-main { margin-left: 260px; }
+.af-main { margin-left: 260px; width: calc(100% - 260px); box-sizing: border-box; }
 .af-nav { overflow-y: auto; flex: 1; max-height: calc(100vh - 180px); }
 
 /* Collapsible nav sections */

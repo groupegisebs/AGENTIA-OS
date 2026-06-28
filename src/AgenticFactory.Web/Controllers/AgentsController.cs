@@ -82,7 +82,10 @@ public class AgentsController(ApiClient api) : AuthenticatedController
 
         var summary = string.IsNullOrWhiteSpace(result.PromptSummary) ? message : result.PromptSummary.Trim();
         var label = summary.Length > 60 ? summary[..60] + "…" : summary;
-        TempData["Success"] = $"Collaborateur IA « {label} » recruté. Déployez-le depuis la liste.";
+        var costNote = result.CreationCostUsd > 0
+            ? $" Coût estimé de création : ${result.CreationCostUsd:0.0000}."
+            : string.Empty;
+        TempData["Success"] = $"Collaborateur IA « {label} » recruté.{costNote} Déployez-le depuis la liste.";
         return RedirectToAction(nameof(Index));
     }
 
@@ -151,6 +154,8 @@ public class AgentsController(ApiClient api) : AuthenticatedController
         {
             complexity = result.Complexity,
             estimatedMonthlyCostUsd = result.EstimatedMonthlyCostUsd,
+            creationCostUsd = result.CreationCostUsd,
+            deployFeeUsd = result.DeployFeeUsd,
             aiModel = result.AiModel,
             costBasis = result.CostBasis,
             costLabel = result.CostLabel
@@ -402,7 +407,10 @@ public class AgentsController(ApiClient api) : AuthenticatedController
         }
         else
         {
-            TempData["Success"] = $"Agent déployé sur /api/agents/{result.EndpointSlug}/invoke";
+            var feeNote = result.DeployFeeUsd > 0
+                ? $" Frais de déploiement : ${result.DeployFeeUsd:0.00}."
+                : string.Empty;
+            TempData["Success"] = $"Agent déployé sur /api/agents/{result.EndpointSlug}/invoke.{feeNote} ({result.CurrentAgents}/{result.MaxAgents} agents)";
             TempData["ApiKey"] = result.PlainApiKey;
         }
         return RedirectToAction(nameof(Index));

@@ -183,6 +183,9 @@ public class AgentBlueprint : BaseEntity, ITenantEntity
     public required string BlueprintJson { get; set; }
     public BlueprintStatus Status { get; set; } = BlueprintStatus.Proposed;
     public string ValidationNotes { get; set; } = string.Empty;
+    public int PromptTokens { get; set; }
+    public int CompletionTokens { get; set; }
+    public decimal CreationCostUsd { get; set; }
     public Agent? Agent { get; set; }
 }
 
@@ -206,6 +209,7 @@ public class AgentDeployment : BaseEntity, ITenantEntity
     public DeploymentStatus Status { get; set; } = DeploymentStatus.Pending;
     public required string Environment { get; set; }
     public required string ApiKeyHash { get; set; }
+    public decimal DeployFeeUsd { get; set; }
     public DateTime? ActivatedAtUtc { get; set; }
 
     public Agent? Agent { get; set; }
@@ -258,6 +262,10 @@ public class SubscriptionPlan : BaseEntity
     public int MaxAgents { get; set; }
     public int MaxRunsPerMonth { get; set; }
     public decimal MonthlyPriceUsd { get; set; }
+    /// <summary>Frais forfaitaire par génération de blueprint (0 = inclus dans l'abonnement).</summary>
+    public decimal BlueprintCreationFeeUsd { get; set; }
+    /// <summary>Frais forfaitaire par déploiement (0 = inclus dans l'abonnement).</summary>
+    public decimal DeployFeeUsd { get; set; }
 }
 
 public class OrganizationSubscription : BaseEntity, ITenantEntity

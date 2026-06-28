@@ -3,7 +3,7 @@ body.agents-mode { background: #f1f5f9; }
 body.agents-mode .af-content { padding: 0; }
 body.agents-mode .af-topbar { display: none; }
 
-.agents-page { padding: 20px 32px 48px; max-width: 1440px; }
+.agents-page { padding: 20px 32px 48px; width: 100%; max-width: none; box-sizing: border-box; }
 
 .agents-breadcrumb {
     font-size: 0.8rem; color: #64748b; margin-bottom: 16px;

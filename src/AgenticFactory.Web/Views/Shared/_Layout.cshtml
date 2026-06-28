@@ -4,6 +4,7 @@
     var agentsMode = ViewData["AgentsMode"] as bool? == true;
     var deploymentsMode = ViewData["DeploymentsMode"] as bool? == true;
     var studioMode = ViewData["StudioMode"] as bool? == true;
+    var billingMode = ViewData["BillingMode"] as bool? == true;
 }
 <!DOCTYPE html>
 <html lang="fr">
@@ -19,6 +20,7 @@
     <link rel="stylesheet" href="~/css/agentia-agents.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/agentia-deployments.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/agentia-studio.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/agentia-billing.css" asp-append-version="true" />
     <style>
         :root {
             --af-primary: #6366f1;
@@ -69,7 +71,7 @@
         .af-stat-value { font-size: 2rem; font-weight: 700; color: #0f172a; }
     </style>
 </head>
-<body class="@(dashMode ? "dash-mode" : agentsMode ? "agents-mode" : deploymentsMode ? "deployments-mode" : "")@(studioMode ? " studio-mode" : "")">
+<body class="@(dashMode ? "dash-mode" : agentsMode ? "agents-mode" : deploymentsMode ? "deployments-mode" : billingMode ? "billing-mode" : "")@(studioMode ? " studio-mode" : "")">
     <aside class="af-sidebar">
         <div class="af-sidebar-brand">
             <div class="brand-icon">A</div>
@@ -140,11 +142,6 @@
                             <i class="bi bi-collection"></i> Mes Agents
                         </a>
                     </div>
-                    <div class="af-nav-item">
-                        <a asp-controller="ComingSoon" asp-action="Index" asp-route-name="Achats" class="@(activeNav == "Purchases" ? "active" : "")">
-                            <i class="bi bi-bag"></i> Achats
-                        </a>
-                    </div>
                 </div>
             </div>
 
@@ -155,17 +152,17 @@
                 </button>
                 <div class="af-nav-section-body" id="nav-section-facturation">
                     <div class="af-nav-item">
-                        <a asp-controller="ComingSoon" asp-action="Index" asp-route-name="Abonnements">
+                        <a asp-controller="Subscriptions" asp-action="Index" class="@(activeNav == "Subscriptions" ? "active" : "")">
                             <i class="bi bi-credit-card"></i> Abonnements
                         </a>
                     </div>
                     <div class="af-nav-item">
-                        <a asp-controller="ComingSoon" asp-action="Index" asp-route-name="Facturation">
+                        <a asp-controller="Billing" asp-action="Index" class="@(activeNav == "Billing" ? "active" : "")">
                             <i class="bi bi-receipt"></i> Facturation
                         </a>
                     </div>
                     <div class="af-nav-item">
-                        <a asp-controller="ComingSoon" asp-action="Index" asp-route-name="Utilisation">
+                        <a asp-controller="Usage" asp-action="Index" class="@(activeNav == "Usage" ? "active" : "")">
                             <i class="bi bi-bar-chart"></i> Utilisation
                         </a>
                     </div>
@@ -206,7 +203,7 @@
             <div class="af-sidebar-promo">
                 <strong>Plan Pro</strong>
                 Débloquez plus d'agents et de runs.
-                <a asp-controller="Marketplace" asp-action="Index">Voir les plans</a>
+                <a asp-controller="Subscriptions" asp-action="Index">Voir les plans</a>
             </div>
             <form asp-controller="Account" asp-action="Logout" method="post" class="mt-2">
                 <button class="btn btn-sm w-100 text-start" style="color:#94a3b8;" type="submit">

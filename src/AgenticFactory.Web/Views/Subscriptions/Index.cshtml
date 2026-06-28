@@ -1,0 +1,158 @@
+@model AgenticFactory.Web.Models.SubscriptionsIndexViewModel
+@{
+    ViewData["Title"] = "Abonnements";
+    var initials = string.Concat(Model.UserDisplayName.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+        .Take(2).Select(p => char.ToUpper(p[0])));
+    int Pct(int used, int max) => max > 0 ? Math.Min(100, (int)Math.Round(used * 100.0 / max)) : 0;
+    var runsPct = Pct(Model.UsedRunsThisMonth, Model.MaxRunsPerMonth);
+    var agentsPct = Pct(Model.CurrentAgents, Model.MaxAgents);
+    var upgradePlans = Model.AvailablePlans.Where(p => !p.IsCurrent).ToList();
+    string FormatPeriod(DateTime? start, DateTime? end)
+    {
+        if (start is null || end is null) return "—";
+        return $"{start.Value.ToLocalTime():d MMM yyyy} — {end.Value.ToLocalTime():d MMM yyyy}";
+    }
+}
+
+<div class="billing-page">
+    <nav class="billing-breadcrumb">
+        <a asp-controller="Dashboard" asp-action="Index">Accueil</a>
+        <span class="sep">›</span>
+        <span>Abonnements</span>
+    </nav>
+
+    <div class="billing-page-head">
+        <div>
+            <h1>Abonnements</h1>
+            <p>Gérez votre plan, quotas et options de mise à niveau.</p>
+        </div>
+        <div class="agents-user-chip">
+            <div class="agents-user-avatar">@initials</div>
+            <div>
+                <div class="agents-user-name">@Model.UserDisplayName</div>
+                <div class="agents-user-role">@Model.UserRole</div>
+            </div>
+        </div>
+    </div>
+
+    @if (!Model.ApiAvailable)
+    {
+        <div class="billing-alert warn">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            Impossible de charger les données d'abonnement. Vérifiez que l'API est démarrée.
+        </div>
+    }
+
+    <div class="billing-stats-row">
+        <div class="billing-stat-card">
+            <div class="label">Plan actuel</div>
+            <div class="value">@Model.PlanName</div>
+            <div class="sub">@(Model.MonthlyPriceUsd > 0 ? $"{Model.MonthlyPriceUsd:0} $/mois" : "Gratuit")</div>
+        </div>
+        <div class="billing-stat-card">
+            <div class="label">Agents</div>
+            <div class="value">@Model.CurrentAgents / @Model.MaxAgents</div>
+            <div class="sub">Quota agents</div>
+        </div>
+        <div class="billing-stat-card">
+            <div class="label">Runs ce mois</div>
+            <div class="value">@Model.UsedRunsThisMonth.ToString("N0")</div>
+            <div class="sub">sur @Model.MaxRunsPerMonth.ToString("N0") inclus</div>
+        </div>
+        <div class="billing-stat-card">
+            <div class="label">Période</div>
+            <div class="value" style="font-size:1rem;">@FormatPeriod(Model.PeriodStartUtc, Model.PeriodEndUtc)</div>
+            <div class="sub">Facturation mensuelle</div>
+        </div>
+    </div>
+
+    <div class="billing-panel">
+        <h2 class="billing-panel-title">Utilisation des quotas</h2>
+        <span class="billing-plan-badge"><i class="bi bi-shield-check"></i> @Model.PlanName</span>
+
+        <div class="billing-progress">
+            <div class="billing-progress-header">
+                <span>Runs utilisés</span>
+                <span>@Model.UsedRunsThisMonth.ToString("N0") / @Model.MaxRunsPerMonth.ToString("N0")</span>
+            </div>
+            <div class="billing-progress-bar">
+                <div class="billing-progress-fill @(runsPct >= 90 ? "warn" : "")" style="width:@runsPct%"></div>
+            </div>
+        </div>
+
+        <div class="billing-progress">
+            <div class="billing-progress-header">
+                <span>Agents déployés</span>
+                <span>@Model.CurrentAgents / @Model.MaxAgents</span>
+            </div>
+            <div class="billing-progress-bar">
+                <div class="billing-progress-fill @(agentsPct >= 90 ? "warn" : "")" style="width:@agentsPct%"></div>
+            </div>
+        </div>
+    </div>
+
+    @if (upgradePlans.Count > 0)
+    {
+        <div class="billing-panel">
+            <h2 class="billing-panel-title">Plans disponibles</h2>
+            <div class="billing-plans-grid">
+                @foreach (var plan in Model.AvailablePlans)
+                {
+                    <div class="billing-plan-card @(plan.IsCurrent ? "current" : "")">
+                        @if (plan.IsCurrent)
+                        {
+                            <span class="billing-plan-badge" style="margin-bottom:12px;"><i class="bi bi-check-circle"></i> Plan actuel</span>
+                        }
+                        <div class="plan-name">@plan.Name</div>
+                        <div class="plan-price">
+                            @(plan.MonthlyPriceUsd > 0 ? $"{plan.MonthlyPriceUsd:0}" : "0")
+                            <span>$/mois</span>
+                        </div>
+                        <ul>
+                            <li><i class="bi bi-check-lg"></i> @plan.MaxAgents agents</li>
+                            <li><i class="bi bi-check-lg"></i> @plan.MaxRunsPerMonth.ToString("N0") runs/mois</li>
+                            @if (plan.BlueprintCreationFeeUsd > 0 || plan.DeployFeeUsd > 0)
+                            {
+                                <li><i class="bi bi-check-lg"></i> Frais création : $@plan.BlueprintCreationFeeUsd.ToString("0.00")</li>
+                                <li><i class="bi bi-check-lg"></i> Frais déploiement : $@plan.DeployFeeUsd.ToString("0.00")</li>
+                            }
+                            else
+                            {
+                                <li><i class="bi bi-check-lg"></i> Création et déploiement inclus</li>
+                            }
+                        </ul>
+                        @if (plan.IsCurrent)
+                        {
+                            <button class="billing-btn-primary disabled" disabled>Plan actuel</button>
+                        }
+                        else
+                        {
+                            <a href="mailto:support@agentia.io?subject=Upgrade%20@plan.Name" class="billing-btn-outline">
+                                <i class="bi bi-arrow-up-circle"></i> Demander une mise à niveau
+                            </a>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
+    else if (Model.HasSubscription)
+    {
+        <div class="billing-panel">
+            <div class="billing-alert info">
+                <i class="bi bi-info-circle me-1"></i>
+                Vous êtes sur le plan <strong>@Model.PlanName</strong>. Contactez-nous pour modifier votre abonnement.
+            </div>
+        </div>
+    }
+
+    <div class="billing-panel">
+        <h2 class="billing-panel-title">Besoin de plus ?</h2>
+        <p style="color:#64748b;font-size:0.9rem;margin-bottom:16px;">
+            Passez à un plan supérieur pour débloquer plus d'agents, de runs et de fonctionnalités avancées.
+        </p>
+        <a asp-controller="Billing" asp-action="Index" class="billing-btn-primary">
+            <i class="bi bi-receipt"></i> Voir la facturation
+        </a>
+    </div>
+</div>

@@ -31,7 +31,10 @@ public class AgentCreationController(
                 blueprint.PromptSummary,
                 blueprint.BlueprintJson,
                 blueprint.Status.ToString(),
-                blueprint.ValidationNotes));
+                blueprint.ValidationNotes,
+                blueprint.CreationCostUsd,
+                blueprint.PromptTokens,
+                blueprint.CompletionTokens));
         }
         catch (Exception ex)
         {

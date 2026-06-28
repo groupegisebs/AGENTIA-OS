@@ -1,0 +1,156 @@
+@model AgenticFactory.Web.Models.BillingIndexViewModel
+@{
+    ViewData["Title"] = "Facturation";
+    var initials = string.Concat(Model.UserDisplayName.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+        .Take(2).Select(p => char.ToUpper(p[0])));
+    string FormatPeriod(DateTime? start, DateTime? end)
+    {
+        if (start is null || end is null) return "—";
+        return $"{start.Value.ToLocalTime():d MMM yyyy} — {end.Value.ToLocalTime():d MMM yyyy}";
+    }
+    string StatusLabel(string status) => status switch
+    {
+        "Paid" => "Payée",
+        "Pending" => "En attente",
+        "Failed" => "Échouée",
+        _ => status
+    };
+}
+
+<div class="billing-page">
+    <nav class="billing-breadcrumb">
+        <a asp-controller="Dashboard" asp-action="Index">Accueil</a>
+        <span class="sep">›</span>
+        <span>Facturation</span>
+    </nav>
+
+    <div class="billing-page-head">
+        <div>
+            <h1>Facturation</h1>
+            <p>Récapitulatif, moyen de paiement et historique des factures.</p>
+        </div>
+        <div class="agents-user-chip">
+            <div class="agents-user-avatar">@initials</div>
+            <div>
+                <div class="agents-user-name">@Model.UserDisplayName</div>
+                <div class="agents-user-role">@Model.UserRole</div>
+            </div>
+        </div>
+    </div>
+
+    @if (!Model.ApiAvailable)
+    {
+        <div class="billing-alert warn">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            Impossible de charger les données de facturation. Vérifiez que l'API est démarrée.
+        </div>
+    }
+
+    <div class="billing-stats-row">
+        <div class="billing-stat-card">
+            <div class="label">Organisation</div>
+            <div class="value" style="font-size:1.25rem;">@Model.OrganizationName</div>
+        </div>
+        <div class="billing-stat-card">
+            <div class="label">Plan</div>
+            <div class="value">@Model.PlanName</div>
+            <div class="sub">@(Model.MonthlyPriceUsd > 0 ? $"{Model.MonthlyPriceUsd:0} $/mois" : "Gratuit")</div>
+        </div>
+        <div class="billing-stat-card">
+            <div class="label">Période en cours</div>
+            <div class="value" style="font-size:1rem;">@FormatPeriod(Model.PeriodStartUtc, Model.PeriodEndUtc)</div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <div class="billing-panel h-100">
+                <h2 class="billing-panel-title">Moyen de paiement</h2>
+                @if (Model.HasPaymentMethod && !string.IsNullOrWhiteSpace(Model.PaymentMethodLabel))
+                {
+                    <div class="billing-payment-card" style="border-style:solid;">
+                        <div class="billing-payment-icon" style="background:#eef2ff;color:#6366f1;">
+                            <i class="bi bi-credit-card"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight:600;color:#0f172a;">@Model.PaymentMethodLabel</div>
+                            <div style="font-size:0.8rem;color:#64748b;">Méthode par défaut</div>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="billing-payment-card">
+                        <div class="billing-payment-icon">
+                            <i class="bi bi-credit-card-2-front"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight:600;color:#0f172a;">Aucun moyen de paiement</div>
+                            <div style="font-size:0.8rem;color:#64748b;margin-bottom:12px;">
+                                L'intégration Stripe n'est pas encore configurée pour votre organisation.
+                            </div>
+                            <button class="billing-btn-outline" disabled style="opacity:0.6;cursor:not-allowed;">
+                                <i class="bi bi-plus-lg"></i> Ajouter une carte
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="billing-panel h-100">
+                <h2 class="billing-panel-title">Prochaine facture</h2>
+                <div style="font-size:2rem;font-weight:700;color:#6366f1;margin-bottom:8px;">
+                    @(Model.MonthlyPriceUsd > 0 ? $"{Model.MonthlyPriceUsd:0.00} $" : "0,00 $")
+                </div>
+                <p style="color:#64748b;font-size:0.85rem;margin-bottom:16px;">
+                    Montant estimé pour la période @FormatPeriod(Model.PeriodStartUtc, Model.PeriodEndUtc).
+                    Les coûts d'utilisation IA sont facturés séparément.
+                </p>
+                <a asp-controller="Usage" asp-action="Index" class="billing-btn-outline">
+                    <i class="bi bi-bar-chart"></i> Voir l'utilisation
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="billing-panel">
+        <h2 class="billing-panel-title">Historique des factures</h2>
+        @if (Model.Invoices.Count > 0)
+        {
+            <table class="billing-table">
+                <thead>
+                    <tr>
+                        <th>Numéro</th>
+                        <th>Date</th>
+                        <th>Montant</th>
+                        <th>Statut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var inv in Model.Invoices)
+                    {
+                        <tr>
+                            <td>@inv.Number</td>
+                            <td>@inv.DateUtc.ToLocalTime().ToString("d MMM yyyy")</td>
+                            <td>@inv.AmountUsd.ToString("0.00") $</td>
+                            <td>
+                                <span class="billing-status-pill @(inv.Status == "Paid" ? "paid" : "pending")">
+                                    @StatusLabel(inv.Status)
+                                </span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="billing-empty">
+                <i class="bi bi-receipt"></i>
+                <p>Aucune facture pour le moment.</p>
+                <p style="font-size:0.8rem;margin-top:8px;">Les factures apparaîtront ici une fois la facturation activée.</p>
+            </div>
+        }
+    </div>
+</div>

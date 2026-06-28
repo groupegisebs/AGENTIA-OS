@@ -43,7 +43,10 @@ public record DeployResponse(
     Guid AgentVersionId,
     Guid DeploymentId,
     string EndpointSlug,
-    string PlainApiKey);
+    string PlainApiKey,
+    decimal DeployFeeUsd = 0,
+    int CurrentAgents = 0,
+    int MaxAgents = 0);
 public record InvokeAgentResponse(
     Guid RunId,
     string Status,
@@ -64,7 +67,10 @@ public record BlueprintResult(
     string? PromptSummary,
     string? BlueprintJson,
     string? Status,
-    string? ValidationNotes);
+    string? ValidationNotes,
+    decimal CreationCostUsd = 0,
+    int PromptTokens = 0,
+    int CompletionTokens = 0);
 public record AgentsSummaryResponse(int Total, int Active, int Running, int Paused, int Disabled);
 public record AgentListItemResponse(
     Guid Id,
@@ -141,6 +147,8 @@ public record StudioEstimateRequest(
 public record StudioEstimateResponse(
     int Complexity,
     decimal EstimatedMonthlyCostUsd,
+    decimal CreationCostUsd,
+    decimal DeployFeeUsd,
     string AiModel,
     string CostBasis,
     string CostLabel);
@@ -173,6 +181,67 @@ public record RecommendExecutionProviderResponse(
     string ProviderType,
     string Reason,
     double Confidence);
+
+public record SubscriptionResponse(
+    bool HasSubscription,
+    string PlanName,
+    int MaxAgents,
+    int MaxRunsPerMonth,
+    decimal MonthlyPriceUsd,
+    int UsedRunsThisMonth,
+    int CurrentAgents,
+    DateTime? PeriodStartUtc,
+    DateTime? PeriodEndUtc);
+
+public record SubscriptionPlanResponse(
+    Guid Id,
+    string Name,
+    int MaxAgents,
+    int MaxRunsPerMonth,
+    decimal MonthlyPriceUsd,
+    decimal BlueprintCreationFeeUsd = 0,
+    decimal DeployFeeUsd = 0);
+
+public record UsageTotalsResponse(
+    int TotalRuns,
+    long TotalTokens,
+    decimal TotalCost,
+    decimal AiRunCostTotal = 0,
+    decimal CreationCostTotal = 0,
+    decimal DeployCostTotal = 0);
+
+public record UsageResponse(
+    int RunsThisMonth,
+    long TokensThisMonth,
+    decimal CostThisMonth,
+    decimal AiRunCostThisMonth,
+    decimal CreationCostThisMonth,
+    decimal DeployCostThisMonth,
+    int BlueprintsThisMonth,
+    int DeploymentsThisMonth,
+    int FailedThisMonth,
+    int UsedRunsQuota,
+    int MaxRunsPerMonth,
+    List<int> TokenSeries,
+    List<int> RunSeries,
+    string PeriodLabel,
+    UsageTotalsResponse Totals);
+
+public record BillingSummaryResponse(
+    string OrganizationName,
+    string PlanName,
+    decimal MonthlyPriceUsd,
+    DateTime? PeriodStartUtc,
+    DateTime? PeriodEndUtc,
+    bool HasPaymentMethod,
+    string? PaymentMethodLabel,
+    List<BillingInvoiceResponse> Invoices);
+
+public record BillingInvoiceResponse(
+    string Number,
+    DateTime DateUtc,
+    decimal AmountUsd,
+    string Status);
 
 public class ApiClient(HttpClient http)
 {
@@ -425,5 +494,37 @@ public class ApiClient(HttpClient http)
         if (!response.IsSuccessStatusCode) return null;
         var content = await response.Content.ReadAsStringAsync();
         return JsonSerializer.Deserialize<RecommendExecutionProviderResponse>(content, _json);
+    }
+
+    public async Task<SubscriptionResponse?> GetSubscriptionAsync()
+    {
+        var response = await http.GetAsync("/api/billing/subscription");
+        if (!response.IsSuccessStatusCode) return null;
+        var content = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<SubscriptionResponse>(content, _json);
+    }
+
+    public async Task<List<SubscriptionPlanResponse>?> GetSubscriptionPlansAsync()
+    {
+        var response = await http.GetAsync("/api/billing/plans");
+        if (!response.IsSuccessStatusCode) return null;
+        var content = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<List<SubscriptionPlanResponse>>(content, _json);
+    }
+
+    public async Task<UsageResponse?> GetUsageAsync()
+    {
+        var response = await http.GetAsync("/api/billing/usage");
+        if (!response.IsSuccessStatusCode) return null;
+        var content = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<UsageResponse>(content, _json);
+    }
+
+    public async Task<BillingSummaryResponse?> GetBillingSummaryAsync()
+    {
+        var response = await http.GetAsync("/api/billing/summary");
+        if (!response.IsSuccessStatusCode) return null;
+        var content = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<BillingSummaryResponse>(content, _json);
     }
 }
