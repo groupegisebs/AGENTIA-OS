@@ -118,7 +118,12 @@ public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
     [Fact]
     public async Task BillingCheckout_ReturnsError_WhenPayGatewayNotConfigured()
     {
-        var client = _factory.CreateClient();
+        var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("GisebsApiPayGateway:BaseUrl", "");
+            builder.UseSetting("GisebsApiPayGateway:ApiKey", "");
+        });
+        var client = factory.CreateClient();
         var (token, orgId) = await RegisterAndLoginAsync(client);
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
