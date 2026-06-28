@@ -2052,8 +2052,8 @@ body.page-auth .nav-link-login { color: #e4e9f5 !important; font-weight: 500; fo
 
 /* Route-specific spacing tune for /connexion */
 body.page-connexion .auth-premium-grid {
-  gap: 2.5rem 4rem;
-  padding: 3rem 3.5rem 1.75rem;
+  gap: 2.25rem 3.25rem;
+  padding: 2.5rem 2.5rem 1.5rem;
 }
 
 body.page-connexion .auth-premium-left { padding-right: 0.75rem; }
@@ -2064,18 +2064,18 @@ body.page-connexion .auth-features { margin-bottom: 2rem; gap: 1rem; }
 body.page-connexion .auth-features li { gap: 1rem; }
 body.page-connexion .auth-hub { margin: 0.5rem 0 2rem; }
 
-body.page-connexion .auth-premium-right { padding: 0.75rem 0; }
-body.page-connexion .auth-card { padding: 2.25rem; }
-body.page-connexion .auth-card-header { margin-bottom: 1.75rem; }
+body.page-connexion .auth-premium-right { padding: 0.5rem 0; }
+body.page-connexion .auth-card { padding: 2rem; }
+body.page-connexion .auth-card-header { margin-bottom: 1.5rem; }
 body.page-connexion .auth-card-header h2 { margin-bottom: 0.5rem; }
-body.page-connexion .auth-form { gap: 1rem; }
+body.page-connexion .auth-form { gap: 0.85rem; }
 body.page-connexion .auth-form label { gap: 0.5rem; line-height: 1.45; }
 body.page-connexion .auth-form label input { padding: 0.8rem 1rem; }
 body.page-connexion .auth-form .auth-password-wrap { gap: 0.5rem; }
 body.page-connexion .auth-form-row { margin-top: 0.25rem; margin-bottom: 0.25rem; }
-body.page-connexion .auth-form .btn { margin-top: 0.5rem; }
-body.page-connexion .auth-link { margin-top: 1.5rem; }
-body.page-connexion .auth-oauth { margin-top: 1.5rem; }
+body.page-connexion .auth-form .btn { margin-top: 0.25rem; }
+body.page-connexion .auth-link { margin-top: 1.25rem; }
+body.page-connexion .auth-oauth { margin-top: 1.25rem; }
 body.page-connexion .auth-oauth-divider { margin-bottom: 1rem; }
 body.page-connexion .auth-oauth-buttons.auth-oauth-row,
 body.page-connexion .auth-oauth-buttons.auth-oauth-grid { gap: 0.75rem; }
@@ -2087,6 +2087,10 @@ body.page-connexion .auth-trust-bar {
 
 body.page-connexion .auth-trust-item { gap: 0.875rem; }
 body.page-connexion .auth-trust-copy { gap: 0.2rem; }
+
+/* Final override block to keep /connexion spacing consistent across builds. */
+body.page-connexion .auth-card-header p { margin-top: 0.35rem; }
+body.page-connexion .auth-oauth-divider { margin-bottom: 0.85rem; }
 
 /* ────────────────────────────────────────────────────────────
    AUTH — FORM ELEMENTS (classes .form-*)
@@ -2207,9 +2211,9 @@ body.page-connexion .auth-trust-copy { gap: 0.2rem; }
   .workspace { grid-template-columns: 1fr; }
   .auth-premium-grid { grid-template-columns: 1fr; padding: 2rem 1.5rem; }
   .auth-premium-left { display: none; }
-  body.page-connexion .auth-premium-grid { padding: 2.25rem 1.75rem 1.5rem; gap: 2rem; }
-  body.page-connexion .auth-card { padding: 2rem; }
-  body.page-connexion .auth-trust-bar { padding: 1.5rem 1.75rem; }
+  body.page-connexion .auth-premium-grid { padding: 2rem 1.5rem 1.25rem; gap: 1.75rem; }
+  body.page-connexion .auth-card { padding: 1.75rem; }
+  body.page-connexion .auth-trust-bar { padding: 1.25rem 1.5rem; }
 }
 
 @media (max-width: 768px) {
@@ -2222,9 +2226,9 @@ body.page-connexion .auth-trust-copy { gap: 0.2rem; }
   .template-grid { grid-template-columns: 1fr; }
   .auth-trust-bar { grid-template-columns: 1fr; }
   .auth-logos { display: none; }
-  body.page-connexion .auth-premium-grid { padding: 2rem 1rem 1.25rem; gap: 1.5rem; }
-  body.page-connexion .auth-card { padding: 1.5rem; }
-  body.page-connexion .auth-card-header { margin-bottom: 1.5rem; }
+  body.page-connexion .auth-premium-grid { padding: 1.75rem 0.9rem 1rem; gap: 1.25rem; }
+  body.page-connexion .auth-card { padding: 1.35rem; }
+  body.page-connexion .auth-card-header { margin-bottom: 1.25rem; }
   body.page-connexion .auth-form { gap: 0.9rem; }
   body.page-connexion .auth-trust-bar { padding: 1.25rem 1rem; gap: 1rem; }
 }
