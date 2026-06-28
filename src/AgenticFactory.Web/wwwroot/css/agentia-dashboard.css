@@ -21,6 +21,14 @@ body.dash-mode .af-topbar { display: none; }
 .af-main { margin-left: 260px; width: calc(100% - 260px); box-sizing: border-box; }
 .af-nav { overflow-y: auto; flex: 1; max-height: calc(100vh - 180px); }
 
+.af-sidebar-brand .af-brand-logo {
+    max-height: 48px;
+    width: auto;
+    max-width: 100%;
+    object-fit: contain;
+    display: block;
+}
+
 /* Collapsible nav sections */
 .af-nav-section-group { margin-bottom: 2px; }
 

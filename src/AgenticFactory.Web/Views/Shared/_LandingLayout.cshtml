@@ -3,7 +3,11 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] — Agentia</title>
+    <title>@ViewData["Title"] — Agencia OS</title>
+    <link rel="icon" href="~/favicon.ico" asp-append-version="true" />
+    <link rel="icon" type="image/png" sizes="32x32" href="~/images/agencia-os-favicon-32.png" asp-append-version="true" />
+    <link rel="apple-touch-icon" sizes="180x180" href="~/images/agencia-os-favicon-180.png" asp-append-version="true" />
+    <meta name="application-name" content="Agencia OS" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -14,8 +18,8 @@
 <div class="landing-shell">
     <aside class="landing-sidebar">
         <a asp-controller="Home" asp-action="Index" class="landing-brand">
-            <span class="landing-brand-mark">A</span>
-            <span>Agentia</span>
+            <img src="~/images/agencia-os-icon.png" alt="" class="landing-brand-icon" aria-hidden="true" asp-append-version="true" />
+            <span>Agencia OS</span>
         </a>
         <nav class="landing-nav" aria-label="Navigation principale">
             <a asp-controller="Home" asp-action="Index" class="landing-nav-item active">
@@ -34,7 +38,7 @@
             <p>Découvrez comment créer votre premier agent IA en quelques minutes.</p>
             <a href="#" class="landing-guide-link">Voir le guide →</a>
         </div>
-        <p class="landing-sidebar-copy">© 2025 Agentia. Tous droits réservés.</p>
+        <p class="landing-sidebar-copy">© 2025 Agencia OS. Tous droits réservés.</p>
     </aside>
 
     <div class="landing-main">

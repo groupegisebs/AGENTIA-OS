@@ -73,6 +73,21 @@ body.auth-guest .topbar { grid-template-columns: auto 1fr; }
   box-shadow: 0 8px 28px var(--accent-glow);
 }
 
+.brand-icon-img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.auth-brand-logo {
+  max-width: 260px;
+  width: 100%;
+  height: auto;
+  margin-bottom: 1.25rem;
+  display: block;
+}
+
 .topnav-actions {
   display: flex;
   align-items: center;

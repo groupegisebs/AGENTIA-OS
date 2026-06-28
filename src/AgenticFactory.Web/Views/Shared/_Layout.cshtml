@@ -11,7 +11,11 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] — Agentia</title>
+    <title>@ViewData["Title"] — Agencia OS</title>
+    <link rel="icon" href="~/favicon.ico" asp-append-version="true" />
+    <link rel="icon" type="image/png" sizes="32x32" href="~/images/agencia-os-favicon-32.png" asp-append-version="true" />
+    <link rel="apple-touch-icon" sizes="180x180" href="~/images/agencia-os-favicon-180.png" asp-append-version="true" />
+    <meta name="application-name" content="Agencia OS" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
@@ -35,14 +39,8 @@
             display: flex; flex-direction: column;
         }
         .af-sidebar-brand {
-            padding: 20px 24px; border-bottom: 1px solid #1e293b;
-            color: #fff; font-weight: 700; font-size: 1.1rem;
-            display: flex; align-items: center; gap: 10px;
-        }
-        .af-sidebar-brand .brand-icon {
-            width: 32px; height: 32px; background: var(--af-primary);
-            border-radius: 8px; display: flex; align-items: center;
-            justify-content: center; color: white; font-size: 0.9rem; font-weight: 700;
+            padding: 16px 20px; border-bottom: 1px solid #1e293b;
+            display: flex; align-items: center; justify-content: center;
         }
         .af-nav-item a {
             display: flex; align-items: center; gap: 12px;
@@ -74,8 +72,7 @@
 <body class="@(dashMode ? "dash-mode" : agentsMode ? "agents-mode" : deploymentsMode ? "deployments-mode" : billingMode ? "billing-mode" : "")@(studioMode ? " studio-mode" : "")">
     <aside class="af-sidebar">
         <div class="af-sidebar-brand">
-            <div class="brand-icon">A</div>
-            Agentia
+            <img src="~/images/agencia-os-logo-compact.png" alt="Agencia OS" class="af-brand-logo" asp-append-version="true" />
         </div>
         <nav class="af-nav">
             <div class="af-nav-section-group" data-section="principal">
