@@ -12,43 +12,79 @@ public class DashboardController(ApiClient api) : AuthenticatedController
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
         SetActiveNav("Dashboard");
-        // Injecter le JWT de l'utilisateur dans le client HTTP
+        ViewData["DashboardMode"] = true;
         AuthenticateApi(api);
 
         var dashboard = await api.GetDashboardAsync();
+        var vm = new DashboardViewModel
+        {
+            UserDisplayName = User.FindFirstValue(ClaimTypes.Name) ?? User.Identity?.Name ?? "Utilisateur",
+            UserRole = User.FindFirstValue(ClaimTypes.Role) ?? "Membre"
+        };
 
-        var vm = dashboard is null
-            ? new DashboardViewModel()
-            : new DashboardViewModel
-            {
-                Stats = new DashboardStatsDto(
-                    dashboard.Stats.TotalAgents,
-                    dashboard.Stats.TotalRuns,
-                    dashboard.Stats.FailedRuns,
-                    dashboard.Stats.TotalTokens,
-                    (double)dashboard.Stats.EstimatedCostUsd,
-                    dashboard.Stats.RunsToday,
-                    dashboard.Stats.FailedRunsToday,
-                    dashboard.Stats.TokensToday,
-                    (double)dashboard.Stats.EstimatedCostTodayUsd),
-                RecentRuns = (dashboard.RecentRuns ?? [])
-                    .Select(r => new RunItem(
-                        r.Id,
-                        r.Status.ToString(),
-                        r.CreatedAtUtc,
-                        (double)r.EstimatedCostUsd,
-                        r.PromptTokens,
-                        r.CompletionTokens))
-                    .ToList(),
-                RuntimeStatuses = (dashboard.RuntimeStatuses ?? [])
-                    .Select(r => new Models.RuntimeStatusDto(
-                        r.NodeName,
-                        r.Status,
-                        r.LastSeenUtc,
-                        r.ActiveTriggerCount))
-                    .ToList()
-            };
+        if (dashboard is not null)
+        {
+            vm.Stats = new DashboardStatsDto(
+                dashboard.Stats.TotalAgents,
+                dashboard.Stats.TotalRuns,
+                dashboard.Stats.FailedRuns,
+                dashboard.Stats.TotalTokens,
+                (double)dashboard.Stats.EstimatedCostUsd,
+                dashboard.Stats.RunsToday,
+                dashboard.Stats.FailedRunsToday,
+                dashboard.Stats.TokensToday,
+                (double)dashboard.Stats.EstimatedCostTodayUsd);
+            vm.ActiveAgents = dashboard.ActiveAgents;
+            vm.RecentRuns = (dashboard.RecentRuns ?? [])
+                .Select(MapRun)
+                .ToList();
+            vm.RuntimeStatuses = (dashboard.RuntimeStatuses ?? [])
+                .Select(r => new RuntimeStatusDto(r.NodeName, r.Status, r.LastSeenUtc, r.ActiveTriggerCount))
+                .ToList();
+            vm.DailyRuns = (dashboard.DailyRuns ?? [])
+                .Select(d => new DailyRunChartPoint(d.Label, d.Success, d.Failed, d.Running, d.Queued))
+                .ToList();
+            vm.StatusBreakdown = (dashboard.StatusBreakdown ?? [])
+                .Select(s => new StatusBreakdownItem(TranslateStatus(s.Status), s.Count))
+                .ToList();
+            vm.TokenSeries = dashboard.TokenSeries ?? [];
+        }
 
         return View(vm);
     }
+
+    private static RunItem MapRun(RunItemResponse r)
+    {
+        var duration = r.StartedAtUtc.HasValue && r.CompletedAtUtc.HasValue
+            ? (r.CompletedAtUtc.Value - r.StartedAtUtc.Value).TotalSeconds
+            : (double?)null;
+
+        return new RunItem(
+            r.Id,
+            r.AgentName ?? "Agent",
+            TranslateStatus(r.Status),
+            r.CreatedAtUtc,
+            duration,
+            (double)r.EstimatedCostUsd,
+            r.PromptTokens,
+            r.CompletionTokens);
+    }
+
+    private static string TranslateStatus(int status) => status switch
+    {
+        1 => "En file",
+        2 => "En cours",
+        3 => "Succès",
+        4 => "Erreur",
+        _ => status.ToString()
+    };
+
+    private static string TranslateStatus(string status) => status switch
+    {
+        "Completed" => "Succès",
+        "Failed" => "Erreur",
+        "Running" => "En cours",
+        "Queued" => "En file",
+        _ => status
+    };
 }

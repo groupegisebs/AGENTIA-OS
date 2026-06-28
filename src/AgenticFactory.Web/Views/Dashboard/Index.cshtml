@@ -1,93 +1,258 @@
 @model AgenticFactory.Web.Models.DashboardViewModel
 @{
     ViewData["Title"] = "Agentic Factory Dashboard";
+    var errorRate = Model.Stats.TodayRuns > 0
+        ? Model.Stats.TodayErrors * 100.0 / Model.Stats.TodayRuns
+        : 0;
+    var initials = string.Concat(Model.UserDisplayName.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+        .Take(2).Select(p => char.ToUpper(p[0])));
+    var weekStart = DateTime.Now.Date.AddDays(-(int)DateTime.Now.DayOfWeek + 1);
+    if (DateTime.Now.DayOfWeek == DayOfWeek.Sunday) weekStart = weekStart.AddDays(-7);
+    var weekEnd = weekStart.AddDays(6);
+    string FormatTokens(long n) => n >= 1_000_000 ? $"{n / 1_000_000.0:0.##}M" : n >= 1_000 ? $"{n / 1_000.0:0.#}k" : n.ToString("N0");
+    string FormatDuration(double? sec) => sec is null or <= 0 ? "—" : sec < 60 ? $"{sec:0.#}s" : $"{sec / 60:0.#} min";
+    var totalStatus = Model.StatusBreakdown.Sum(s => s.Count);
 }
 
-<div class="container py-4">
-    <h2 class="mb-4">Agentic Factory — Monitoring</h2>
+<div class="dash-header">
+    <div>
+        <div class="dash-greeting">Bonjour @Model.UserDisplayName 👋</div>
+        <h1 class="dash-title">Agentic Factory Dashboard</h1>
+        <p class="dash-subtitle">Surveillez, gérez et optimisez vos agents IA en temps réel.</p>
+    </div>
+    <div class="dash-header-actions">
+        <span class="dash-online">En ligne</span>
+        <div class="dash-date-picker">
+            <i class="bi bi-calendar3"></i>
+            @weekStart.ToString("d MMM") – @weekEnd.ToString("d MMM yyyy")
+        </div>
+        <button type="button" class="dash-btn-export" onclick="window.print()">
+            <i class="bi bi-download me-1"></i> Exporter
+        </button>
+        <div class="dash-user-chip">
+            <div class="dash-user-avatar">@initials</div>
+            <div>
+                <div class="dash-user-name">@Model.UserDisplayName</div>
+                <div class="dash-user-role">@Model.UserRole</div>
+            </div>
+        </div>
+    </div>
+</div>
 
-    <div class="row g-3 mb-4">
-        <div class="col-md-2">
-            <div class="card h-100"><div class="card-body text-center">
-                <div class="text-muted small">Agents</div>
-                <div class="fs-3 fw-bold">@Model.Stats.TotalAgents</div>
-            </div></div>
+<div class="dash-body">
+    <div class="dash-kpi-row">
+        <div class="dash-kpi">
+            <div class="dash-kpi-icon purple"><i class="bi bi-robot"></i></div>
+            <div class="dash-kpi-label">Agents</div>
+            <div class="dash-kpi-value">@Model.Stats.TotalAgents</div>
+            <div class="dash-kpi-meta">@Model.ActiveAgents actifs</div>
         </div>
-        <div class="col-md-2">
-            <div class="card h-100"><div class="card-body text-center">
-                <div class="text-muted small">Runs (aujourd'hui)</div>
-                <div class="fs-3 fw-bold">@Model.Stats.TodayRuns</div>
-            </div></div>
+        <div class="dash-kpi">
+            <div class="dash-kpi-icon blue"><i class="bi bi-play-circle"></i></div>
+            <div class="dash-kpi-label">Runs (aujourd'hui)</div>
+            <div class="dash-kpi-value">@Model.Stats.TodayRuns.ToString("N0")</div>
+            <div class="dash-kpi-meta">Total : @Model.Stats.TotalRuns.ToString("N0")</div>
         </div>
-        <div class="col-md-2">
-            <div class="card h-100 border-danger"><div class="card-body text-center">
-                <div class="text-muted small">Erreurs (aujourd'hui)</div>
-                <div class="fs-3 fw-bold text-danger">@Model.Stats.TodayErrors</div>
-            </div></div>
+        <div class="dash-kpi">
+            <div class="dash-kpi-icon red"><i class="bi bi-exclamation-triangle"></i></div>
+            <div class="dash-kpi-label">Erreurs (aujourd'hui)</div>
+            <div class="dash-kpi-value">@Model.Stats.TodayErrors</div>
+            <div class="dash-kpi-meta">Taux : @errorRate.ToString("0.00")%</div>
         </div>
-        <div class="col-md-3">
-            <div class="card h-100"><div class="card-body text-center">
-                <div class="text-muted small">Tokens (aujourd'hui)</div>
-                <div class="fs-3 fw-bold">@Model.Stats.TodayTokens.ToString("N0")</div>
-            </div></div>
+        <div class="dash-kpi">
+            <div class="dash-kpi-icon green"><i class="bi bi-lightning"></i></div>
+            <div class="dash-kpi-label">Tokens (aujourd'hui)</div>
+            <div class="dash-kpi-value">@FormatTokens(Model.Stats.TodayTokens)</div>
+            <div class="dash-kpi-meta">Total : @FormatTokens(Model.Stats.TotalTokens)</div>
         </div>
-        <div class="col-md-3">
-            <div class="card h-100"><div class="card-body text-center">
-                <div class="text-muted small">Coût (aujourd'hui, USD)</div>
-                <div class="fs-3 fw-bold">$@Model.Stats.TodayCostUsd.ToString("0.0000")</div>
-            </div></div>
+        <div class="dash-kpi">
+            <div class="dash-kpi-icon orange"><i class="bi bi-currency-dollar"></i></div>
+            <div class="dash-kpi-label">Coût (aujourd'hui)</div>
+            <div class="dash-kpi-value">$@Model.Stats.TodayCostUsd.ToString("0.00")</div>
+            <div class="dash-kpi-meta">Total : $@Model.Stats.TotalCostUsd.ToString("0.00")</div>
         </div>
     </div>
 
-    <h4 class="mt-4">Statut des Runtime</h4>
-    @if (!Model.RuntimeStatuses.Any())
-    {
-        <div class="alert alert-secondary">Aucun runtime actif détecté.</div>
-    }
-    else
-    {
-        <table class="table table-striped">
-            <thead><tr><th>Nœud</th><th>Statut</th><th>Dernière activité</th><th>Triggers actifs</th></tr></thead>
-            <tbody>
-            @foreach (var rt in Model.RuntimeStatuses)
+    <div class="dash-grid-2">
+        <div class="dash-panel">
+            <div class="dash-panel-head">
+                <h3 class="dash-panel-title">Statut des Runtimes</h3>
+                <a asp-controller="Executions" asp-action="Index" class="dash-panel-link">Voir tous les nœuds →</a>
+            </div>
+            @if (!Model.RuntimeStatuses.Any())
             {
-                var stale = DateTime.UtcNow - rt.LastSeen > TimeSpan.FromMinutes(2);
-                <tr>
-                    <td>@rt.NodeName</td>
-                    <td><span class="badge @(stale ? "text-bg-warning" : "text-bg-success")">@rt.Status</span></td>
-                    <td>@rt.LastSeen.ToLocalTime().ToString("HH:mm:ss")</td>
-                    <td>@rt.ActiveTriggers</td>
-                </tr>
+                <div class="dash-empty">Aucun runtime actif détecté.</div>
             }
-            </tbody>
-        </table>
+            else
+            {
+                <table class="dash-runtime-table">
+                    <thead>
+                        <tr><th>Nœud</th><th>Statut</th><th>Triggers</th><th>Dernière activité</th></tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var rt in Model.RuntimeStatuses)
+                    {
+                        var stale = DateTime.UtcNow - rt.LastSeen > TimeSpan.FromMinutes(2);
+                        <tr>
+                            <td><strong>@rt.NodeName</strong></td>
+                            <td><span class="dash-badge @(stale ? "warn" : "ok")">@(stale ? "Stale" : rt.Status)</span></td>
+                            <td>@rt.ActiveTriggers</td>
+                            <td>@rt.LastSeen.ToLocalTime().ToString("HH:mm:ss")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        </div>
+        <div class="dash-panel">
+            <div class="dash-panel-head">
+                <h3 class="dash-panel-title">Exécutions des 7 derniers jours</h3>
+            </div>
+            <div class="dash-chart-wrap">
+                <canvas id="chartRuns7d"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="dash-grid-3">
+        <div class="dash-panel">
+            <div class="dash-panel-head">
+                <h3 class="dash-panel-title">Derniers runs</h3>
+                <a asp-controller="Executions" asp-action="Index" class="dash-panel-link">Voir tous →</a>
+            </div>
+            @if (!Model.RecentRuns.Any())
+            {
+                <div class="dash-empty">Aucun run enregistré. Créez et déployez un agent pour commencer.</div>
+            }
+            else
+            {
+                @foreach (var run in Model.RecentRuns)
+                {
+                    var isErr = run.Status == "Erreur";
+                    var isRun = run.Status == "En cours";
+                    <div class="dash-run-item">
+                        <div class="dash-run-icon @(isErr ? "err" : isRun ? "run" : "ok")">
+                            <i class="bi @(isErr ? "bi-x-circle" : isRun ? "bi-arrow-repeat" : "bi-check-circle")"></i>
+                        </div>
+                        <div class="dash-run-info">
+                            <div class="dash-run-name">@run.AgentName</div>
+                            <div class="dash-run-meta">
+                                <span class="dash-badge @(isErr ? "err" : isRun ? "warn" : "ok")">@run.Status</span>
+                                · @FormatDuration(run.DurationSeconds)
+                            </div>
+                        </div>
+                        <div class="dash-run-stats">
+                            @FormatTokens(run.PromptTokens + run.CompletionTokens) tokens
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+        <div class="dash-panel">
+            <div class="dash-panel-head">
+                <h3 class="dash-panel-title">Répartition par statut</h3>
+            </div>
+            <div class="dash-chart-wrap sm">
+                <canvas id="chartStatus"></canvas>
+            </div>
+            @if (totalStatus > 0)
+            {
+                <div class="text-center small text-muted mt-2">@totalStatus runs au total</div>
+            }
+        </div>
+        <div class="dash-panel">
+            <div class="dash-panel-head">
+                <h3 class="dash-panel-title">Consommation de tokens</h3>
+            </div>
+            <div class="dash-chart-wrap sm">
+                <canvas id="chartTokens"></canvas>
+            </div>
+            <div class="text-center small text-muted mt-2">30 derniers jours</div>
+        </div>
+    </div>
+</div>
+
+<a asp-controller="Agents" asp-action="Create" class="dash-fab">
+    <i class="bi bi-stars"></i> Créer un nouvel agent
+</a>
+
+@section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(() => {
+    const daily = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.DailyRuns, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)));
+    const statusData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.StatusBreakdown, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)));
+    const tokens = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.TokenSeries));
+
+    Chart.defaults.font.family = 'Inter, sans-serif';
+    Chart.defaults.color = '#64748b';
+
+    const ctx7d = document.getElementById('chartRuns7d');
+    if (ctx7d) {
+        new Chart(ctx7d, {
+            type: 'bar',
+            data: {
+                labels: daily.map(d => d.label),
+                datasets: [
+                    { label: 'Succès', data: daily.map(d => d.success), backgroundColor: '#6366f1', borderRadius: 4, stack: 's' },
+                    { label: 'Erreurs', data: daily.map(d => d.failed), backgroundColor: '#ef4444', borderRadius: 4, stack: 's' },
+                    { label: 'En cours', data: daily.map(d => d.running), backgroundColor: '#3b82f6', borderRadius: 4, stack: 's' },
+                    { label: 'En file', data: daily.map(d => d.queued), backgroundColor: '#94a3b8', borderRadius: 4, stack: 's' }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
+                scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } } }
+            }
+        });
     }
 
-    <h4 class="mt-4">Derniers runs</h4>
-    @if (!Model.RecentRuns.Any())
-    {
-        <div class="alert alert-secondary">Aucun run enregistré.</div>
-    }
-    else
-    {
-        <table class="table table-hover">
-            <thead><tr><th>Run ID</th><th>Statut</th><th>Créé le</th><th>Tokens</th><th>Coût</th></tr></thead>
-            <tbody id="runsBody">
-            @foreach (var run in Model.RecentRuns)
-            {
-                <tr data-run-id="@run.Id">
-                    <td class="font-monospace small">@run.Id</td>
-                    <td class="run-status">
-                        <span class="badge @(run.Status == "Failed" ? "text-bg-danger" : run.Status == "Completed" ? "text-bg-success" : "text-bg-secondary")">
-                            @run.Status
-                        </span>
-                    </td>
-                    <td>@run.CreatedAt.ToLocalTime().ToString("dd/MM HH:mm")</td>
-                    <td>@(run.PromptTokens + run.CompletionTokens)</td>
-                    <td>$@run.CostUsd.ToString("0.0000")</td>
-                </tr>
+    const ctxStatus = document.getElementById('chartStatus');
+    if (ctxStatus) {
+        const colors = ['#6366f1', '#ef4444', '#3b82f6', '#94a3b8'];
+        const counts = statusData.map(s => s.count);
+        new Chart(ctxStatus, {
+            type: 'doughnut',
+            data: {
+                labels: statusData.map(s => s.status),
+                datasets: [{ data: counts.length ? counts : [1], backgroundColor: colors.slice(0, counts.length || 1), borderWidth: 0 }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, cutout: '68%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } },
+                    tooltip: { enabled: counts.length > 0 }
+                }
             }
-            </tbody>
-        </table>
+        });
     }
-</div>
+
+    const ctxTokens = document.getElementById('chartTokens');
+    if (ctxTokens) {
+        const labels = tokens.map((_, i) => '');
+        new Chart(ctxTokens, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Tokens',
+                    data: tokens,
+                    borderColor: '#6366f1',
+                    backgroundColor: 'rgba(99,102,241,.12)',
+                    fill: true,
+                    tension: 0.35,
+                    pointRadius: 0,
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { x: { display: false }, y: { beginAtZero: true, grid: { color: '#f1f5f9' } } }
+            }
+        });
+    }
+})();
+</script>
+}

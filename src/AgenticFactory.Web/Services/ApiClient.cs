@@ -18,14 +18,24 @@ public record RunItemResponse(
     Guid Id,
     int Status,
     DateTime CreatedAtUtc,
+    DateTime? StartedAtUtc,
+    DateTime? CompletedAtUtc,
     decimal EstimatedCostUsd,
     int PromptTokens,
-    int CompletionTokens);
+    int CompletionTokens,
+    string? AgentName);
+
+public record DailyRunChartResponse(string Label, int Success, int Failed, int Running, int Queued);
+public record StatusBreakdownResponse(string Status, int Count);
 
 public record DashboardResponse(
     DashboardStatsDto Stats,
+    int ActiveAgents,
     List<RunItemResponse>? RecentRuns,
-    [property: JsonPropertyName("runtime")] List<RuntimeStatusDto>? RuntimeStatuses);
+    [property: JsonPropertyName("runtime")] List<RuntimeStatusDto>? RuntimeStatuses,
+    List<DailyRunChartResponse>? DailyRuns,
+    List<StatusBreakdownResponse>? StatusBreakdown,
+    List<int>? TokenSeries);
 
 public record DeployRequest(Guid AgentId, Guid BlueprintId, string Environment);
 public record DeployResponse(

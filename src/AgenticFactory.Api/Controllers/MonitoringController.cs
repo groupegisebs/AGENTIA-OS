@@ -41,16 +41,65 @@ public class MonitoringController(
 
         var recentRuns = await runsQuery
             .OrderByDescending(x => x.CreatedAtUtc)
-            .Take(20)
-            .Select(x => new { x.Id, x.Status, x.CreatedAtUtc, x.EstimatedCostUsd, x.PromptTokens, x.CompletionTokens })
+            .Take(10)
+            .Select(x => new
+            {
+                x.Id,
+                agentName = x.Agent!.Name,
+                status = x.Status,
+                x.CreatedAtUtc,
+                x.StartedAtUtc,
+                x.CompletedAtUtc,
+                x.EstimatedCostUsd,
+                x.PromptTokens,
+                x.CompletionTokens
+            })
             .ToListAsync(cancellationToken);
+
+        var start7d = DateTime.UtcNow.Date.AddDays(-6);
+        var runs7d = await runsQuery
+            .Where(x => x.CreatedAtUtc >= start7d)
+            .Select(x => new { x.CreatedAtUtc, x.Status, Tokens = x.PromptTokens + x.CompletionTokens })
+            .ToListAsync(cancellationToken);
+
+        var dailyRuns = Enumerable.Range(0, 7)
+            .Select(i => start7d.AddDays(i))
+            .Select(day => new
+            {
+                label = day.ToString("ddd", System.Globalization.CultureInfo.GetCultureInfo("fr-FR")),
+                success = runs7d.Count(r => r.CreatedAtUtc.Date == day.Date && r.Status == Domain.RunStatus.Completed),
+                failed = runs7d.Count(r => r.CreatedAtUtc.Date == day.Date && r.Status == Domain.RunStatus.Failed),
+                running = runs7d.Count(r => r.CreatedAtUtc.Date == day.Date && r.Status == Domain.RunStatus.Running),
+                queued = runs7d.Count(r => r.CreatedAtUtc.Date == day.Date && r.Status == Domain.RunStatus.Queued)
+            })
+            .ToList();
+
+        var statusBreakdown = await runsQuery
+            .GroupBy(x => x.Status)
+            .Select(g => new { status = g.Key.ToString(), count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        var start30d = DateTime.UtcNow.Date.AddDays(-29);
+        var tokens30d = await runsQuery
+            .Where(x => x.CreatedAtUtc >= start30d)
+            .Select(x => new { x.CreatedAtUtc, Tokens = x.PromptTokens + x.CompletionTokens })
+            .ToListAsync(cancellationToken);
+
+        var tokenSeries = Enumerable.Range(0, 30)
+            .Select(i => start30d.AddDays(i))
+            .Select(day => tokens30d.Where(r => r.CreatedAtUtc.Date == day.Date).Sum(r => r.Tokens))
+            .ToList();
+
+        var activeAgents = await dbContext.Agents.CountAsync(
+            x => x.OrganizationId == organizationId && x.Status == Domain.AgentStatus.Active,
+            cancellationToken);
 
         var runtime = await dbContext.RuntimeHeartbeats
             .OrderByDescending(x => x.LastSeenUtc)
             .Select(x => new RuntimeStatusDto(x.NodeName, x.Status, x.LastSeenUtc, x.ActiveTriggerCount))
             .ToListAsync(cancellationToken);
 
-        return Ok(new { stats, recentRuns, runtime });
+        return Ok(new { stats, activeAgents, recentRuns, runtime, dailyRuns, statusBreakdown, tokenSeries });
     }
 
     [HttpGet("runs")]
