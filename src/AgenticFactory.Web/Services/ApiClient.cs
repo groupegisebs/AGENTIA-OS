@@ -27,6 +27,50 @@ public record DashboardResponse(
     List<RunItemResponse>? RecentRuns,
     [property: JsonPropertyName("runtime")] List<RuntimeStatusDto>? RuntimeStatuses);
 
+public record DeployRequest(Guid AgentId, Guid BlueprintId, string Environment);
+public record DeployResponse(
+    Guid AgentId,
+    Guid AgentVersionId,
+    Guid DeploymentId,
+    string EndpointSlug,
+    string PlainApiKey);
+public record ChatRequest(string Message, Guid? ExistingAgentId = null);
+public record BlueprintResult(
+    Guid Id,
+    Guid AgentId,
+    string PromptSummary,
+    string BlueprintJson,
+    string Status,
+    string ValidationNotes);
+public record AgentListItemResponse(
+    Guid Id,
+    string Name,
+    string Description,
+    string EndpointSlug,
+    string Status,
+    DateTime CreatedAtUtc,
+    Guid? LatestBlueprintId);
+public record DeploymentListItemResponse(
+    Guid Id,
+    Guid AgentId,
+    string AgentName,
+    string EndpointSlug,
+    int VersionNumber,
+    string Status,
+    string Environment,
+    DateTime? ActivatedAtUtc,
+    DateTime CreatedAtUtc);
+public record RunListItemResponse(
+    Guid Id,
+    Guid AgentId,
+    string AgentName,
+    int Status,
+    DateTime CreatedAtUtc,
+    decimal EstimatedCostUsd,
+    int PromptTokens,
+    int CompletionTokens,
+    string ErrorMessage);
+
 public class ApiClient(HttpClient http)
 {
     private static readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
@@ -69,5 +113,51 @@ public class ApiClient(HttpClient http)
         if (!response.IsSuccessStatusCode) return null;
         var content = await response.Content.ReadAsStringAsync();
         return JsonSerializer.Deserialize<DashboardResponse>(content, _json);
+    }
+
+    public async Task<List<AgentListItemResponse>?> GetAgentsAsync()
+    {
+        var response = await http.GetAsync("/api/agents");
+        if (!response.IsSuccessStatusCode) return null;
+        var content = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<List<AgentListItemResponse>>(content, _json);
+    }
+
+    public async Task<List<DeploymentListItemResponse>?> GetDeploymentsAsync()
+    {
+        var response = await http.GetAsync("/api/agents/deployments");
+        if (!response.IsSuccessStatusCode) return null;
+        var content = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<List<DeploymentListItemResponse>>(content, _json);
+    }
+
+    public async Task<List<RunListItemResponse>?> GetRunsAsync(int limit = 50)
+    {
+        var response = await http.GetAsync($"/api/monitoring/runs?limit={limit}");
+        if (!response.IsSuccessStatusCode) return null;
+        var content = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<List<RunListItemResponse>>(content, _json);
+    }
+
+    public async Task<BlueprintResult?> CreateAgentFromChatAsync(string message)
+    {
+        var body = JsonSerializer.Serialize(new ChatRequest(message), _json);
+        var response = await http.PostAsync("/api/agent-creation/chat",
+            new StringContent(body, Encoding.UTF8, "application/json"));
+        if (!response.IsSuccessStatusCode) return null;
+        var content = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<BlueprintResult>(content, _json);
+    }
+
+    public async Task<(DeployResponse? Result, string? Error)> DeployAgentAsync(
+        Guid agentId, Guid blueprintId, string environment = "production")
+    {
+        var body = JsonSerializer.Serialize(new DeployRequest(agentId, blueprintId, environment), _json);
+        var response = await http.PostAsync("/api/agents/deploy",
+            new StringContent(body, Encoding.UTF8, "application/json"));
+        var content = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+            return (null, content);
+        return (JsonSerializer.Deserialize<DeployResponse>(content, _json), null);
     }
 }

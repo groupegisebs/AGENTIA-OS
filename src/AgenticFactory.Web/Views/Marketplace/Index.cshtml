@@ -1,0 +1,49 @@
+@{
+    ViewData["Title"] = "Marketplace";
+}
+
+<div class="mb-4">
+    <h2 class="mb-1">Marketplace</h2>
+    <p class="text-muted mb-0">Découvrez et partagez des agents prêts à l'emploi.</p>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-4">
+        <div class="af-card h-100">
+            <div class="text-muted small text-uppercase fw-semibold mb-2">Starter</div>
+            <div class="af-stat-value">Gratuit</div>
+            <ul class="mt-3 mb-0 ps-3 text-muted small">
+                <li>Jusqu'à 5 agents</li>
+                <li>Runs limités / mois</li>
+                <li>Mode IA mock inclus</li>
+            </ul>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="af-card h-100 border-primary">
+            <div class="text-primary small text-uppercase fw-semibold mb-2">Pro</div>
+            <div class="af-stat-value">Bientôt</div>
+            <ul class="mt-3 mb-0 ps-3 text-muted small">
+                <li>Agents illimités</li>
+                <li>Providers IA réels</li>
+                <li>Support prioritaire</li>
+            </ul>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="af-card h-100">
+            <div class="text-muted small text-uppercase fw-semibold mb-2">Enterprise</div>
+            <div class="af-stat-value">Sur mesure</div>
+            <ul class="mt-3 mb-0 ps-3 text-muted small">
+                <li>Multi-tenant avancé</li>
+                <li>SLA &amp; audit</li>
+                <li>Déploiement dédié</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="af-card mt-4">
+    <h5 class="mb-2">Catalogue d'agents</h5>
+    <p class="text-muted mb-0">Le catalogue public arrive prochainement. En attendant, créez vos propres agents depuis la section <a asp-controller="Agents" asp-action="Index">Agents</a>.</p>
+</div>

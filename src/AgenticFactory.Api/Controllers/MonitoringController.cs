@@ -52,4 +52,34 @@ public class MonitoringController(
 
         return Ok(new { stats, recentRuns, runtime });
     }
+
+    [HttpGet("runs")]
+    public async Task<IActionResult> Runs([FromQuery] int limit = 50, CancellationToken cancellationToken = default)
+    {
+        var organizationId = tenantService.OrganizationId;
+        if (organizationId == Guid.Empty)
+            return BadRequest("Missing organization context.");
+
+        limit = Math.Clamp(limit, 1, 200);
+
+        var runs = await dbContext.AgentRuns
+            .Where(x => x.OrganizationId == organizationId)
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .Take(limit)
+            .Select(x => new
+            {
+                x.Id,
+                x.AgentId,
+                agentName = x.Agent!.Name,
+                status = x.Status,
+                x.CreatedAtUtc,
+                x.EstimatedCostUsd,
+                x.PromptTokens,
+                x.CompletionTokens,
+                x.ErrorMessage
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(runs);
+    }
 }

@@ -1,4 +1,7 @@
-﻿<!DOCTYPE html>
+﻿@{
+    var activeNav = ViewData["ActiveNav"]?.ToString() ?? "";
+}
+<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="utf-8" />
@@ -87,29 +90,29 @@
         <nav class="af-nav">
             <div class="af-nav-section">Principal</div>
             <div class="af-nav-item">
-                <a asp-controller="Dashboard" asp-action="Index">
+                <a asp-controller="Dashboard" asp-action="Index" class="@(activeNav == "Dashboard" ? "active" : "")">
                     <i class="bi bi-grid-1x2"></i> Dashboard
                 </a>
             </div>
             <div class="af-nav-section">Plateforme</div>
             <div class="af-nav-item">
-                <a href="#">
+                <a asp-controller="Agents" asp-action="Index" class="@(activeNav == "Agents" ? "active" : "")">
                     <i class="bi bi-robot"></i> Agents
                 </a>
             </div>
             <div class="af-nav-item">
-                <a href="#">
+                <a asp-controller="Deployments" asp-action="Index" class="@(activeNav == "Deployments" ? "active" : "")">
                     <i class="bi bi-lightning"></i> Déploiements
                 </a>
             </div>
             <div class="af-nav-item">
-                <a href="#">
+                <a asp-controller="Executions" asp-action="Index" class="@(activeNav == "Executions" ? "active" : "")">
                     <i class="bi bi-activity"></i> Exécutions
                 </a>
             </div>
             <div class="af-nav-section">Marketplace</div>
             <div class="af-nav-item">
-                <a href="#">
+                <a asp-controller="Marketplace" asp-action="Index" class="@(activeNav == "Marketplace" ? "active" : "")">
                     <i class="bi bi-shop"></i> Explorer
                 </a>
             </div>

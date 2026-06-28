@@ -1,0 +1,29 @@
+@model AgenticFactory.Web.Models.CreateAgentViewModel
+@{
+    ViewData["Title"] = "Nouvel agent";
+}
+
+<div class="mb-4">
+    <a asp-action="Index" class="text-decoration-none small"><i class="bi bi-arrow-left"></i> Retour aux agents</a>
+    <h2 class="mt-2 mb-1">Créer un agent</h2>
+    <p class="text-muted">Décrivez en langage naturel ce que l'agent doit faire. Un blueprint sera généré automatiquement.</p>
+</div>
+
+<div class="af-card" style="max-width: 640px;">
+    <form asp-action="Create" method="post">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+        <div class="mb-3">
+            <label asp-for="Message" class="form-label">Description de l'agent</label>
+            <textarea asp-for="Message" class="form-control" rows="5"
+                      placeholder="Ex : Un agent qui résume les emails entrants et propose une réponse professionnelle en français."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-magic me-1"></i> Générer le blueprint
+        </button>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

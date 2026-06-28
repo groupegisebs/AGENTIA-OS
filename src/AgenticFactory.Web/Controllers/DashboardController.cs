@@ -7,14 +7,13 @@ using Microsoft.AspNetCore.Mvc;
 namespace AgenticFactory.Web.Controllers;
 
 [Authorize]
-public class DashboardController(ApiClient api) : Controller
+public class DashboardController(ApiClient api) : AuthenticatedController
 {
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
+        SetActiveNav("Dashboard");
         // Injecter le JWT de l'utilisateur dans le client HTTP
-        var token = User.FindFirstValue("ApiToken");
-        if (!string.IsNullOrEmpty(token))
-            api.SetBearerToken(token);
+        AuthenticateApi(api);
 
         var dashboard = await api.GetDashboardAsync();
 

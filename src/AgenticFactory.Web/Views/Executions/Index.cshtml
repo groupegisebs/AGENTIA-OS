@@ -1,0 +1,54 @@
+@model AgenticFactory.Web.Models.ExecutionsIndexViewModel
+@{
+    ViewData["Title"] = "Exécutions";
+}
+
+<div class="mb-4">
+    <h2 class="mb-1">Exécutions</h2>
+    <p class="text-muted mb-0">Historique des runs de vos agents.</p>
+</div>
+
+@if (!Model.Runs.Any())
+{
+    <div class="af-card text-center py-5">
+        <i class="bi bi-activity display-4 text-muted"></i>
+        <p class="mt-3 mb-0 text-muted">Aucune exécution enregistrée.</p>
+    </div>
+}
+else
+{
+    <div class="table-responsive af-card p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Run ID</th>
+                    <th>Agent</th>
+                    <th>Statut</th>
+                    <th>Date</th>
+                    <th>Tokens</th>
+                    <th>Coût</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var run in Model.Runs)
+            {
+                var isFailed = run.Status == "Failed";
+                <tr>
+                    <td class="font-monospace small">@run.Id.ToString()[..8]…</td>
+                    <td>@run.AgentName</td>
+                    <td>
+                        <span class="badge @(isFailed ? "text-bg-danger" : "text-bg-success")">@run.Status</span>
+                        @if (isFailed && !string.IsNullOrWhiteSpace(run.ErrorMessage))
+                        {
+                            <div class="small text-danger">@run.ErrorMessage</div>
+                        }
+                    </td>
+                    <td>@run.CreatedAtUtc.ToLocalTime().ToString("g")</td>
+                    <td>@(run.PromptTokens + run.CompletionTokens)</td>
+                    <td>$@run.EstimatedCostUsd.ToString("0.0000")</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
