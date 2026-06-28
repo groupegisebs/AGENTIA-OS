@@ -25,6 +25,8 @@ public class AgenticFactoryDbContext
     public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
     public DbSet<OrganizationSubscription> OrganizationSubscriptions => Set<OrganizationSubscription>();
     public DbSet<RuntimeHeartbeat> RuntimeHeartbeats => Set<RuntimeHeartbeat>();
+    public DbSet<StudioDomainRequest> StudioDomainRequests => Set<StudioDomainRequest>();
+    public DbSet<StudioObjectiveRequest> StudioObjectiveRequests => Set<StudioObjectiveRequest>();
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -112,6 +114,23 @@ public class AgenticFactoryDbContext
 
         builder.Entity<RuntimeHeartbeat>(entity => entity.HasIndex(x => x.NodeName).IsUnique());
         builder.Entity<AppIdentityUser>(entity => entity.HasIndex(x => new { x.OrganizationId, x.Email }).IsUnique());
+
+        builder.Entity<StudioDomainRequest>(entity =>
+        {
+            entity.HasIndex(x => new { x.OrganizationId, x.Status, x.CreatedAtUtc });
+            entity.Property(x => x.DomainName).HasMaxLength(120);
+            entity.Property(x => x.RequestedByEmail).HasMaxLength(320);
+            entity.Property(x => x.RequestedByName).HasMaxLength(150);
+        });
+
+        builder.Entity<StudioObjectiveRequest>(entity =>
+        {
+            entity.HasIndex(x => new { x.OrganizationId, x.Status, x.CreatedAtUtc });
+            entity.Property(x => x.ObjectiveName).HasMaxLength(120);
+            entity.Property(x => x.RelatedDomain).HasMaxLength(120);
+            entity.Property(x => x.RequestedByEmail).HasMaxLength(320);
+            entity.Property(x => x.RequestedByName).HasMaxLength(150);
+        });
     }
 
     private void EnforceTenantAndTimestamps()

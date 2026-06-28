@@ -45,6 +45,12 @@ public record DeployResponse(
     string EndpointSlug,
     string PlainApiKey);
 public record ChatRequest(string Message, Guid? ExistingAgentId = null);
+public record SubmitDomainRequestPayload(string DomainName, string? Industry, string? UseCase, string? Description);
+public record SubmitObjectiveRequestPayload(string ObjectiveName, string? RelatedDomain, string? UseCase, string? Description);
+public record SubmitDomainRequestResponse(
+    [property: JsonPropertyName("id")] Guid Id,
+    [property: JsonPropertyName("status")] string Status,
+    [property: JsonPropertyName("message")] string Message);
 public record BlueprintResult(
     Guid Id,
     Guid AgentId,
@@ -196,6 +202,42 @@ public class ApiClient(HttpClient http)
         if (!response.IsSuccessStatusCode) return null;
         var content = await response.Content.ReadAsStringAsync();
         return JsonSerializer.Deserialize<BlueprintResult>(content, _json);
+    }
+
+    public async Task<(SubmitDomainRequestResponse? Result, string? Error)> SubmitDomainRequestAsync(
+        SubmitDomainRequestPayload payload)
+    {
+        var body = JsonSerializer.Serialize(payload, _json);
+        var response = await http.PostAsync("/api/studio/domain-requests",
+            new StringContent(body, Encoding.UTF8, "application/json"));
+        var content = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+            return (null, TryReadErrorMessage(content) ?? "Impossible d'envoyer la demande.");
+        return (JsonSerializer.Deserialize<SubmitDomainRequestResponse>(content, _json), null);
+    }
+
+    public async Task<(SubmitDomainRequestResponse? Result, string? Error)> SubmitObjectiveRequestAsync(
+        SubmitObjectiveRequestPayload payload)
+    {
+        var body = JsonSerializer.Serialize(payload, _json);
+        var response = await http.PostAsync("/api/studio/objective-requests",
+            new StringContent(body, Encoding.UTF8, "application/json"));
+        var content = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+            return (null, TryReadErrorMessage(content) ?? "Impossible d'envoyer la demande.");
+        return (JsonSerializer.Deserialize<SubmitDomainRequestResponse>(content, _json), null);
+    }
+
+    private static string? TryReadErrorMessage(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("message", out var msg))
+                return msg.GetString();
+        }
+        catch { /* ignore */ }
+        return null;
     }
 
     public async Task<(DeployResponse? Result, string? Error)> DeployAgentAsync(

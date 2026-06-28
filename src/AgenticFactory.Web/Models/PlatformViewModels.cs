@@ -35,6 +35,22 @@ public sealed class CreateAgentViewModel
     public string? WizardJson { get; set; }
 }
 
+public sealed class StudioDomainRequestModel
+{
+    public string DomainName { get; set; } = string.Empty;
+    public string? Industry { get; set; }
+    public string? UseCase { get; set; }
+    public string? Description { get; set; }
+}
+
+public sealed class StudioObjectiveRequestModel
+{
+    public string ObjectiveName { get; set; } = string.Empty;
+    public string? RelatedDomain { get; set; }
+    public string? UseCase { get; set; }
+    public string? Description { get; set; }
+}
+
 public sealed class DeploymentsIndexViewModel
 {
     public List<DeploymentAgentGroup> AgentGroups { get; set; } = [];

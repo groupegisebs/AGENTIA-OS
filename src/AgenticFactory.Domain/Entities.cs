@@ -50,6 +50,14 @@ public enum TriggerType
     Webhook = 3
 }
 
+public enum DomainRequestStatus
+{
+    Pending = 1,
+    InReview = 2,
+    Approved = 3,
+    Rejected = 4
+}
+
 public class Organization : BaseEntity
 {
     [MaxLength(150)]
@@ -189,4 +197,40 @@ public class RuntimeHeartbeat : BaseEntity
     public required string Status { get; set; }
     public DateTime LastSeenUtc { get; set; } = DateTime.UtcNow;
     public int ActiveTriggerCount { get; set; }
+}
+
+public class StudioDomainRequest : BaseEntity, ITenantEntity
+{
+    public Guid OrganizationId { get; set; }
+    [MaxLength(320)]
+    public required string RequestedByEmail { get; set; }
+    [MaxLength(150)]
+    public required string RequestedByName { get; set; }
+    [MaxLength(120)]
+    public required string DomainName { get; set; }
+    [MaxLength(120)]
+    public string? Industry { get; set; }
+    [MaxLength(2000)]
+    public string? UseCase { get; set; }
+    [MaxLength(2000)]
+    public string? Description { get; set; }
+    public DomainRequestStatus Status { get; set; } = DomainRequestStatus.Pending;
+}
+
+public class StudioObjectiveRequest : BaseEntity, ITenantEntity
+{
+    public Guid OrganizationId { get; set; }
+    [MaxLength(320)]
+    public required string RequestedByEmail { get; set; }
+    [MaxLength(150)]
+    public required string RequestedByName { get; set; }
+    [MaxLength(120)]
+    public required string ObjectiveName { get; set; }
+    [MaxLength(120)]
+    public string? RelatedDomain { get; set; }
+    [MaxLength(2000)]
+    public string? UseCase { get; set; }
+    [MaxLength(2000)]
+    public string? Description { get; set; }
+    public DomainRequestStatus Status { get; set; } = DomainRequestStatus.Pending;
 }

@@ -95,6 +95,12 @@
                     <div class="studio-step-panel active" id="stepPanel1">
                         <h2 class="studio-step-title">1. Choisissez le domaine métier de votre agent</h2>
                         <div class="studio-domain-grid" id="domainGrid"></div>
+                        <div class="studio-domain-request-bar">
+                            <p>Vous ne trouvez pas votre secteur d'activité ?</p>
+                            <button type="button" class="studio-btn-request" id="btnRequestDomain">
+                                Demander l'ajout d'un domaine <i class="bi bi-arrow-right"></i>
+                            </button>
+                        </div>
                         <div class="studio-nl-section">
                             <label class="studio-nl-label" for="freeText">
                                 Décrivez votre besoin en langage naturel
@@ -109,17 +115,28 @@
 
                     <div class="studio-step-panel" id="stepPanel2">
                         <h2 class="studio-step-title">2. Quel est l'objectif principal de l'agent ?</h2>
-                        <div class="studio-check-grid cols-3" id="objectiveGrid"></div>
+                        <p class="studio-step-hint">Sélectionnez un ou plusieurs objectifs. Les options marquées « Recommandé » correspondent à votre domaine.</p>
+                        <div class="studio-objective-grid" id="objectiveGrid"></div>
+                        <div class="studio-domain-request-bar">
+                            <p>L'objectif recherché n'est pas dans la liste ?</p>
+                            <button type="button" class="studio-btn-request" id="btnRequestObjective">
+                                Demander l'ajout d'un objectif <i class="bi bi-arrow-right"></i>
+                            </button>
+                        </div>
                     </div>
 
                     <div class="studio-step-panel" id="stepPanel3">
                         <h2 class="studio-step-title">3. Où trouvent les données ?</h2>
-                        <div class="studio-check-grid cols-3" id="sourceGrid"></div>
+                        <p class="studio-step-hint">Sélectionnez vos sources puis renseignez les paramètres de connexion (SMTP, OAuth, API tokens, credentials…).</p>
+                        <div id="sourceGrid"></div>
+                        <div class="studio-source-config-panel" id="sourceConfigPanel"></div>
                     </div>
 
                     <div class="studio-step-panel" id="stepPanel4">
                         <h2 class="studio-step-title">4. Que doit faire l'agent ?</h2>
-                        <div class="studio-chip-grid" id="actionGrid"></div>
+                        <p class="studio-step-hint">Sélectionnez les actions du workflow puis renseignez leurs paramètres (destinataires, templates, règles, endpoints…).</p>
+                        <div id="actionGrid"></div>
+                        <div class="studio-source-config-panel" id="actionConfigPanel"></div>
                     </div>
 
                     <div class="studio-step-panel" id="stepPanel5">
@@ -253,6 +270,100 @@
     <div class="studio-draft-toast" id="draftToast">Brouillon enregistré localement</div>
 </div>
 
+<div class="studio-modal-backdrop" id="domainModalBackdrop" role="dialog" aria-modal="true" aria-labelledby="domainModalTitle">
+    <div class="studio-modal">
+        <div class="studio-modal-head">
+            <h3 id="domainModalTitle">Demander un nouveau domaine métier</h3>
+            <p>Votre demande sera transmise à l'équipe Agentia pour validation et ajout au catalogue.</p>
+        </div>
+        <div id="domainModalFormWrap">
+            <form id="domainRequestForm" class="studio-modal-body">
+                <div class="studio-modal-field">
+                    <label for="reqDomainName">Nom du domaine souhaité *</label>
+                    <input type="text" id="reqDomainName" maxlength="120"
+                           placeholder="Ex : Assurance, Transport maritime, Énergie…" required />
+                </div>
+                <div class="studio-modal-field">
+                    <label for="reqIndustry">Secteur / industrie</label>
+                    <input type="text" id="reqIndustry" maxlength="120"
+                           placeholder="Ex : Services financiers, Agroalimentaire…" />
+                </div>
+                <div class="studio-modal-field">
+                    <label for="reqUseCase">Cas d'usage principal</label>
+                    <textarea id="reqUseCase" maxlength="2000" rows="2"
+                              placeholder="Décrivez brièvement ce que l'agent devrait accomplir…"></textarea>
+                </div>
+                <div class="studio-modal-field">
+                    <label for="reqDescription">Informations complémentaires</label>
+                    <textarea id="reqDescription" maxlength="2000" rows="2"
+                              placeholder="Sources de données, contraintes, intégrations souhaitées…"></textarea>
+                </div>
+                <div class="studio-modal-error" id="domainModalError"></div>
+            </form>
+            <div class="studio-modal-foot">
+                <button type="button" class="studio-btn studio-btn-ghost" id="domainModalCancel">Annuler</button>
+                <button type="submit" form="domainRequestForm" class="studio-btn studio-btn-primary" id="domainModalSubmit">
+                    <i class="bi bi-send"></i> Envoyer la demande
+                </button>
+            </div>
+        </div>
+        <div id="domainModalSuccess" class="studio-modal-success d-none">
+            <div class="studio-modal-success-icon"><i class="bi bi-check-lg"></i></div>
+            <h4 style="font-size:1rem;font-weight:700;margin-bottom:8px;">Demande envoyée</h4>
+            <p id="domainSuccessMsg" style="font-size:0.85rem;color:#64748b;margin-bottom:16px;"></p>
+            <button type="button" class="studio-btn studio-btn-primary" id="domainModalClose">Fermer</button>
+        </div>
+    </div>
+</div>
+
+<div class="studio-modal-backdrop" id="objectiveModalBackdrop" role="dialog" aria-modal="true" aria-labelledby="objectiveModalTitle">
+    <div class="studio-modal">
+        <div class="studio-modal-head">
+            <h3 id="objectiveModalTitle">Demander un nouvel objectif</h3>
+            <p>Votre suggestion sera examinée par l'équipe Agentia et pourra être ajoutée au catalogue.</p>
+        </div>
+        <div id="objectiveModalFormWrap">
+            <form id="objectiveRequestForm" class="studio-modal-body">
+                <div class="studio-modal-field">
+                    <label for="reqObjectiveName">Nom de l'objectif souhaité *</label>
+                    <input type="text" id="reqObjectiveName" maxlength="120"
+                           placeholder="Ex : Réconcilier des factures, Qualifier un appel entrant…" required />
+                </div>
+                <div class="studio-modal-field">
+                    <label for="reqObjectiveDomain">Domaine concerné</label>
+                    <input type="text" id="reqObjectiveDomain" maxlength="120"
+                           placeholder="Ex : Comptabilité, Support client…" />
+                </div>
+                <div class="studio-modal-field">
+                    <label for="reqObjectiveUseCase">Cas d'usage</label>
+                    <textarea id="reqObjectiveUseCase" maxlength="2000" rows="2"
+                              placeholder="Décrivez ce que l'agent devrait accomplir…"></textarea>
+                </div>
+                <div class="studio-modal-field">
+                    <label for="reqObjectiveDescription">Informations complémentaires</label>
+                    <textarea id="reqObjectiveDescription" maxlength="2000" rows="2"
+                              placeholder="Entrées, sorties, contraintes, exemples…"></textarea>
+                </div>
+                <div class="studio-modal-error" id="objectiveModalError"></div>
+            </form>
+            <div class="studio-modal-foot">
+                <button type="button" class="studio-btn studio-btn-ghost" id="objectiveModalCancel">Annuler</button>
+                <button type="submit" form="objectiveRequestForm" class="studio-btn studio-btn-primary" id="objectiveModalSubmit">
+                    <i class="bi bi-send"></i> Envoyer la demande
+                </button>
+            </div>
+        </div>
+        <div id="objectiveModalSuccess" class="studio-modal-success d-none">
+            <div class="studio-modal-success-icon"><i class="bi bi-check-lg"></i></div>
+            <h4 style="font-size:1rem;font-weight:700;margin-bottom:8px;">Demande envoyée</h4>
+            <p id="objectiveSuccessMsg" style="font-size:0.85rem;color:#64748b;margin-bottom:16px;"></p>
+            <button type="button" class="studio-btn studio-btn-primary" id="objectiveModalClose">Fermer</button>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
+    <script src="~/js/agentia-studio-sources.js" asp-append-version="true"></script>
+    <script src="~/js/agentia-studio-actions.js" asp-append-version="true"></script>
     <script src="~/js/agentia-studio.js" asp-append-version="true"></script>
 }

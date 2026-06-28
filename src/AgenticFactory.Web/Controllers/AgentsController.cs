@@ -85,6 +85,48 @@ public class AgentsController(ApiClient api) : AuthenticatedController
         return RedirectToAction(nameof(Index));
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RequestDomain([FromBody] StudioDomainRequestModel model)
+    {
+        if (string.IsNullOrWhiteSpace(model.DomainName))
+            return BadRequest(new { message = "Le nom du domaine est requis." });
+
+        AuthenticateApi(api);
+        var (result, error) = await api.SubmitDomainRequestAsync(
+            new SubmitDomainRequestPayload(
+                model.DomainName.Trim(),
+                model.Industry?.Trim(),
+                model.UseCase?.Trim(),
+                model.Description?.Trim()));
+
+        if (result is null)
+            return StatusCode(502, new { message = error ?? "Impossible d'envoyer la demande." });
+
+        return Ok(new { message = result.Message, id = result.Id });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RequestObjective([FromBody] StudioObjectiveRequestModel model)
+    {
+        if (string.IsNullOrWhiteSpace(model.ObjectiveName))
+            return BadRequest(new { message = "Le nom de l'objectif est requis." });
+
+        AuthenticateApi(api);
+        var (result, error) = await api.SubmitObjectiveRequestAsync(
+            new SubmitObjectiveRequestPayload(
+                model.ObjectiveName.Trim(),
+                model.RelatedDomain?.Trim(),
+                model.UseCase?.Trim(),
+                model.Description?.Trim()));
+
+        if (result is null)
+            return StatusCode(502, new { message = error ?? "Impossible d'envoyer la demande." });
+
+        return Ok(new { message = result.Message, id = result.Id });
+    }
+
     private static string BuildCreationMessage(CreateAgentViewModel model)
     {
         if (!string.IsNullOrWhiteSpace(model.Message))
@@ -102,7 +144,9 @@ public class AgentsController(ApiClient api) : AuthenticatedController
             AppendLine(sb, "Domaine métier", root, "domain");
             AppendArray(sb, "Objectifs", root, "objectives");
             AppendArray(sb, "Sources de données", root, "sources");
+            AppendSourceDetails(sb, root);
             AppendArray(sb, "Actions workflow", root, "actions");
+            AppendActionDetails(sb, root);
             AppendLine(sb, "Déclencheur", root, "trigger");
             AppendLine(sb, "Runtime cible", root, "runtime");
             AppendLine(sb, "Niveau d'autonomie", root, "autonomy");
@@ -122,6 +166,48 @@ public class AgentsController(ApiClient api) : AuthenticatedController
     {
         if (root.TryGetProperty(prop, out var v) && !string.IsNullOrWhiteSpace(v.GetString()))
             sb.AppendLine($"- {label} : {v.GetString()}");
+    }
+
+    private static void AppendSourceDetails(StringBuilder sb, JsonElement root)
+    {
+        if (!root.TryGetProperty("sourceDetails", out var arr) || arr.ValueKind != JsonValueKind.Array)
+            return;
+        foreach (var item in arr.EnumerateArray())
+        {
+            var label = item.TryGetProperty("label", out var l) ? l.GetString() : null;
+            if (string.IsNullOrWhiteSpace(label)) continue;
+            if (!item.TryGetProperty("config", out var cfg) || cfg.ValueKind != JsonValueKind.Object)
+            {
+                sb.AppendLine($"  · {label}");
+                continue;
+            }
+            var parts = cfg.EnumerateObject()
+                .Select(p => $"{p.Name}={p.Value.GetString()}")
+                .Where(x => !string.IsNullOrWhiteSpace(x));
+            var detail = string.Join(", ", parts);
+            sb.AppendLine(string.IsNullOrWhiteSpace(detail) ? $"  · {label}" : $"  · {label} : {detail}");
+        }
+    }
+
+    private static void AppendActionDetails(StringBuilder sb, JsonElement root)
+    {
+        if (!root.TryGetProperty("actionDetails", out var arr) || arr.ValueKind != JsonValueKind.Array)
+            return;
+        foreach (var item in arr.EnumerateArray())
+        {
+            var label = item.TryGetProperty("label", out var l) ? l.GetString() : null;
+            if (string.IsNullOrWhiteSpace(label)) continue;
+            if (!item.TryGetProperty("config", out var cfg) || cfg.ValueKind != JsonValueKind.Object)
+            {
+                sb.AppendLine($"  · {label}");
+                continue;
+            }
+            var parts = cfg.EnumerateObject()
+                .Select(p => $"{p.Name}={p.Value.GetString()}")
+                .Where(x => !string.IsNullOrWhiteSpace(x));
+            var detail = string.Join(", ", parts);
+            sb.AppendLine(string.IsNullOrWhiteSpace(detail) ? $"  · {label}" : $"  · {label} : {detail}");
+        }
     }
 
     private static void AppendArray(StringBuilder sb, string label, JsonElement root, string prop)
