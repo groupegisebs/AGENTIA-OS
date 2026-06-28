@@ -66,6 +66,7 @@ public record AgentListItemResponse(
     string Environment,
     DateTime? LastRunAt,
     int RunsLast7Days,
+    int RunsLast30Days,
     decimal CostLast30Days,
     int[] RunsSparkline);
 public record AgentsPageResponse(AgentsSummaryResponse Summary, List<AgentListItemResponse> Agents);

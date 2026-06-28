@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using AgenticFactory.Web.Models;
 using AgenticFactory.Web.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -13,7 +14,11 @@ public class AgentsController(ApiClient api) : AuthenticatedController
         AuthenticateApi(api);
 
         var page = await api.GetAgentsAsync();
-        var vm = new AgentsIndexViewModel();
+        var vm = new AgentsIndexViewModel
+        {
+            UserDisplayName = User.FindFirstValue(ClaimTypes.Name) ?? User.Identity?.Name ?? "Utilisateur",
+            UserRole = User.FindFirstValue(ClaimTypes.Role) ?? "Membre"
+        };
 
         if (page is not null)
         {
@@ -25,6 +30,14 @@ public class AgentsController(ApiClient api) : AuthenticatedController
                 page.Summary.Disabled);
 
             vm.Agents = page.Agents.Select(MapAgent).ToList();
+            vm.WeeklyActivity = vm.Agents
+                .SelectMany(a => a.RunsSparkline.Select((v, i) => (i, v)))
+                .GroupBy(x => x.i)
+                .OrderBy(g => g.Key)
+                .Select(g => g.Sum(x => x.v))
+                .ToArray();
+            if (vm.WeeklyActivity.Length == 0)
+                vm.WeeklyActivity = [0, 0, 0, 0, 0, 0, 0];
         }
 
         return View(vm);
@@ -96,13 +109,14 @@ public class AgentsController(ApiClient api) : AuthenticatedController
         a.Environment,
         a.LastRunAt,
         a.RunsLast7Days,
+        a.RunsLast30Days,
         a.CostLast30Days,
         a.RunsSparkline ?? []);
 
     private static string GuessCategory(string name, string description)
     {
         var text = $"{name} {description}".ToLowerInvariant();
-        if (text.Contains("email") || text.Contains("mail")) return "Email";
+        if (text.Contains("email") || text.Contains("mail")) return "Productivité";
         if (text.Contains("document") || text.Contains("pdf")) return "Documents";
         if (text.Contains("support") || text.Contains("client")) return "Support";
         if (text.Contains("data") || text.Contains("analyt")) return "Analytics";

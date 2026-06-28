@@ -82,6 +82,7 @@ public class AgentsController(
                 environment = deployment?.Environment ?? "—",
                 lastRunAt = agentRuns.OrderByDescending(r => r.CreatedAtUtc).Select(r => (DateTime?)r.CreatedAtUtc).FirstOrDefault(),
                 runsLast7Days = agentRuns.Count(r => r.CreatedAtUtc >= sevenDaysAgo),
+                runsLast30Days = agentRuns.Count(r => r.CreatedAtUtc >= thirtyDaysAgo),
                 costLast30Days = agentRuns.Where(r => r.CreatedAtUtc >= thirtyDaysAgo).Sum(r => r.EstimatedCostUsd),
                 runsSparkline = sparkline
             };

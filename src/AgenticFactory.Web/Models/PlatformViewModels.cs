@@ -4,6 +4,9 @@ public sealed class AgentsIndexViewModel
 {
     public AgentsSummary Summary { get; set; } = new(0, 0, 0, 0, 0);
     public List<AgentListItem> Agents { get; set; } = [];
+    public string UserDisplayName { get; set; } = "Utilisateur";
+    public string UserRole { get; set; } = "Membre";
+    public int[] WeeklyActivity { get; set; } = [0, 0, 0, 0, 0, 0, 0];
 }
 
 public sealed record AgentsSummary(int Total, int Active, int Running, int Paused, int Disabled);
@@ -22,6 +25,7 @@ public sealed record AgentListItem(
     string Environment,
     DateTime? LastRunAt,
     int RunsLast7Days,
+    int RunsLast30Days,
     decimal CostLast30Days,
     int[] RunsSparkline);
 
