@@ -226,13 +226,35 @@ jobs:
           name: artifact-api
           path: publish/api/
 
-      - name: "4.3 Créer dossiers sur le serveur"
+      - name: "4.3 Checkout (pour récupérer les fichiers .service)"
+        uses: actions/checkout@v4
+
+      - name: "4.4 Préparer serveur + installer services systemd"
         run: |
+          # Créer dossiers applicatifs
           ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
             "${SSH_USER}@${SSH_HOST}" \
             "mkdir -p ${APP_ROOT}/api ${APP_ROOT}/web ${APP_ROOT}/runtime"
 
-      - name: "4.4 Écrire configuration API (.env)"
+          # Copier les fichiers .service vers le serveur
+          scp -i "$HOME/.ssh/deploy_key" -P "$SSH_PORT" \
+            deploy/agentia-os-api.service \
+            deploy/agentia-os-web.service \
+            deploy/agentia-os-runtime.service \
+            "${SSH_USER}@${SSH_HOST}:/tmp/"
+
+          # Installer + activer les services (idempotent)
+          ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
+            "${SSH_USER}@${SSH_HOST}" bash <<'SETUP'
+            sudo cp /tmp/agentia-os-api.service     /etc/systemd/system/
+            sudo cp /tmp/agentia-os-web.service     /etc/systemd/system/
+            sudo cp /tmp/agentia-os-runtime.service /etc/systemd/system/
+            sudo systemctl daemon-reload
+            sudo systemctl enable agentia-os-api agentia-os-web agentia-os-runtime
+            echo "Services systemd installés et activés"
+          SETUP
+
+      - name: "4.5 Écrire configuration API (.env)"
         run: |
           AI_MODE=$([ -n "${{ secrets.AGENTIA_OS_OPENAI_API_KEY }}" ] && echo "openai" \
             || ([ -n "${{ secrets.AGENTIA_OS_AZURE_OPENAI_API_KEY }}" ] && echo "azure" || echo "mock"))
@@ -252,20 +274,20 @@ jobs:
           AI__AzureOpenAI__Deployment=${{ secrets.AGENTIA_OS_AZURE_OPENAI_DEPLOYMENT }}
           ENV
 
-      - name: "4.5 Transférer bundle API (rsync)"
+      - name: "4.6 Transférer bundle API (rsync)"
         run: |
           rsync -az --delete \
             -e "ssh -i $HOME/.ssh/deploy_key -p $SSH_PORT -o BatchMode=yes" \
             publish/api/ \
             "${SSH_USER}@${SSH_HOST}:${APP_ROOT}/api/"
 
-      - name: "4.6 Redémarrer service API"
+      - name: "4.7 Redémarrer service API"
         run: |
           ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
             "${SSH_USER}@${SSH_HOST}" \
             "sudo systemctl restart $SERVICE_API && sleep 8 && systemctl is-active $SERVICE_API"
 
-      - name: "4.7 Health check API"
+      - name: "4.8 Health check API"
         run: |
           ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
             "${SSH_USER}@${SSH_HOST}" \

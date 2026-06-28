@@ -11,8 +11,8 @@ Restart=on-failure
 RestartSec=15
 KillSignal=SIGINT
 SyslogIdentifier=agentia-os-runtime
-User=agentia
-Group=agentia
+User=ubuntu
+Group=ubuntu
 
 EnvironmentFile=/opt/apps/agentia-os/.env.runtime
 
