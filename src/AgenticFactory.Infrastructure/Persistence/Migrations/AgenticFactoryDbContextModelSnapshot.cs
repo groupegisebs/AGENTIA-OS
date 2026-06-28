@@ -149,6 +149,12 @@ namespace AgenticFactory.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int>("CompletionTokens")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("CreationCostUsd")
+                        .HasColumnType("numeric");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -158,6 +164,9 @@ namespace AgenticFactory.Infrastructure.Persistence.Migrations
                     b.Property<string>("PromptSummary")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<int>("PromptTokens")
+                        .HasColumnType("integer");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
@@ -199,6 +208,9 @@ namespace AgenticFactory.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("DeployFeeUsd")
+                        .HasColumnType("numeric");
 
                     b.Property<string>("Environment")
                         .IsRequired()
@@ -652,6 +664,12 @@ namespace AgenticFactory.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("BlueprintCreationFeeUsd")
+                        .HasColumnType("numeric");
+
+                    b.Property<decimal>("DeployFeeUsd")
+                        .HasColumnType("numeric");
 
                     b.Property<int>("MaxAgents")
                         .HasColumnType("integer");
