@@ -2,9 +2,8 @@ name: Deploy Production
 
 on:
   workflow_run:
-    workflows: ["CI"]
+    workflows: ["CI", "ci.yml"]
     types: [completed]
-    branches: [main, master]
   workflow_dispatch:
 
 concurrency:
@@ -32,6 +31,8 @@ jobs:
       (
         github.event_name == 'workflow_run' &&
         github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        contains(fromJson('["main","master"]'), github.event.workflow_run.head_branch) &&
         github.event.workflow_run.head_repository.full_name == github.repository
       )
     runs-on: ubuntu-latest
