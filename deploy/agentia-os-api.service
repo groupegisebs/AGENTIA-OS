@@ -1,0 +1,22 @@
+[Unit]
+Description=Agentic Factory — API
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=notify
+WorkingDirectory=/opt/apps/agentia-os/api
+ExecStart=/usr/bin/dotnet /opt/apps/agentia-os/api/AgenticFactory.Api.dll
+Restart=on-failure
+RestartSec=10
+KillSignal=SIGINT
+SyslogIdentifier=agentia-os-api
+User=agentia
+Group=agentia
+
+EnvironmentFile=/opt/apps/agentia-os/.env.api
+
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

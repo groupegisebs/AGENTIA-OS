@@ -1,11 +1,10 @@
 name: Deploy Production
 
 on:
-  push:
-    branches: [main, master]
   workflow_run:
-    workflows: ["CI", "ci.yml"]
+    workflows: ["CI"]
     types: [completed]
+    branches: [main, master]
   workflow_dispatch:
 
 concurrency:
@@ -16,14 +15,13 @@ permissions:
   contents: read
 
 env:
-  PYTHON_VERSION: "3.11"
   DEFAULT_SSH_HOST: "51.79.53.197"
   DEFAULT_SSH_USER: "ubuntu"
   DEFAULT_SSH_PORT: "22"
   DEFAULT_APP_ROOT: "/opt/apps/agentia-os"
-  DEFAULT_SERVICE_NAME: "agentia-os"
-  DEFAULT_LISTEN_PORT: "8000"
-  DEFAULT_APP_NAME: "Agentia Factory — Agent Creator"
+  SERVICE_API: "agentia-os-api"
+  SERVICE_WEB: "agentia-os-web"
+  SERVICE_RUNTIME: "agentia-os-runtime"
 
 jobs:
   build-and-deploy:
@@ -31,14 +29,8 @@ jobs:
     if: |
       github.event_name == 'workflow_dispatch' ||
       (
-        github.event_name == 'push' &&
-        contains(fromJson('["main","master"]'), github.ref_name)
-      ) ||
-      (
         github.event_name == 'workflow_run' &&
         github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.event != 'push' &&
-        contains(fromJson('["main","master"]'), github.event.workflow_run.head_branch) &&
         github.event.workflow_run.head_repository.full_name == github.repository
       )
     runs-on: ubuntu-latest
@@ -49,145 +41,198 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
-      - name: Prepare publish bundle
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore AgenticFactory.slnx
+
+      - name: Publish API
         run: |
-          mkdir -p publish
-          cp -r agent_creator publish/
-          cp requirements.txt publish/
-          cp alembic.ini publish/ 2>/dev/null || true
-          cp -r alembic publish/ 2>/dev/null || true
-          cp -r deploy publish/deploy 2>/dev/null || true
-          test -f publish/requirements.txt
+          dotnet publish src/AgenticFactory.Api/AgenticFactory.Api.csproj \
+            -c Release -o publish/api --no-restore
 
-      - name: Prepare deploy scripts
-        run: chmod +x deploy/deploy-gha.sh deploy/gha-env.sh deploy/build-app-env.sh deploy/validate-gha-secrets.sh
+      - name: Publish Web
+        run: |
+          dotnet publish src/AgenticFactory.Web/AgenticFactory.Web.csproj \
+            -c Release -o publish/web --no-restore
 
-      - name: Diagnose secrets (noms acceptés)
+      - name: Publish Runtime
+        run: |
+          dotnet publish src/AgenticFactory.Runtime.WindowsService/AgenticFactory.Runtime.WindowsService.csproj \
+            -c Release -o publish/runtime --no-restore
+
+      - name: Diagnose secrets
         run: |
           echo "Dépôt : ${{ github.repository }}"
-          echo ""
-          echo "Secrets SSH (un seul suffit) :"
+          echo "Secrets SSH :"
           echo "  SSH_PRIVATE_KEY_UBUNTU1      → ${{ secrets.SSH_PRIVATE_KEY_UBUNTU1 != '' && 'OK' || 'manquant' }}"
           echo "  AGENTIA_OS_SSH_PRIVATE_KEY   → ${{ secrets.AGENTIA_OS_SSH_PRIVATE_KEY != '' && 'OK' || 'manquant' }}"
-          echo ""
-          echo "Connection string (un seul suffit) :"
+          echo "Secrets app :"
           echo "  AGENTIA_OS_CONNECTION_STRING → ${{ secrets.AGENTIA_OS_CONNECTION_STRING != '' && 'OK' || 'manquant' }}"
-          echo "  AGENTIA_OS_DATABASE_URL      → ${{ secrets.AGENTIA_OS_DATABASE_URL != '' && 'OK' || 'manquant' }}"
-          echo ""
-          echo "JWT/Gemini/GiseBsPay → secrets.json sur le serveur (pas GitHub)"
-          echo "Guide : https://github.com/${{ github.repository }}/blob/main/deploy/GITHUB-SECRETS.md"
+          echo "  AGENTIA_OS_JWT_SECRET        → ${{ secrets.AGENTIA_OS_JWT_SECRET != '' && 'OK' || 'manquant' }}"
 
-      - name: Validate production secrets
-        env:
-          AGENTIA_OS_SSH_PRIVATE_KEY: ${{ secrets.AGENTIA_OS_SSH_PRIVATE_KEY }}
-          SSH_PRIVATE_KEY_UBUNTU1: ${{ secrets.SSH_PRIVATE_KEY_UBUNTU1 }}
-          AGENTIA_OS_DATABASE_URL: ${{ secrets.AGENTIA_OS_DATABASE_URL }}
-          AGENTIA_OS_CONNECTION_STRING: ${{ secrets.AGENTIA_OS_CONNECTION_STRING }}
-          AGENTIA_OS_JWT_SECRET: ${{ secrets.AGENTIA_OS_JWT_SECRET }}
-          AGENTIA_OS_GEMINI_API_KEY: ${{ secrets.AGENTIA_OS_GEMINI_API_KEY }}
-          SSH_HOST: ${{ vars.SSH_HOST_UBUNTU1 || secrets.SSH_HOST_UBUNTU1 || '51.79.53.197' }}
-          SSH_USER: ${{ vars.SSH_USER_UBUNTU1 || secrets.SSH_USER_UBUNTU1 || 'ubuntu' }}
-          SSH_PORT: ${{ vars.SSH_PORT_UBUNTU1 || secrets.SSH_PORT_UBUNTU1 || '22' }}
-        run: bash deploy/validate-gha-secrets.sh
-
-      - name: Load configuration
-        env:
-          KEY_UBUNTU1: ${{ secrets.SSH_PRIVATE_KEY_UBUNTU1 }}
-          KEY_AGENTIA: ${{ secrets.AGENTIA_OS_SSH_PRIVATE_KEY }}
-          HOST_VAR: ${{ vars.SSH_HOST_UBUNTU1 }}
-          HOST_SECRET: ${{ secrets.SSH_HOST_UBUNTU1 }}
-          USER_VAR: ${{ vars.SSH_USER_UBUNTU1 }}
-          USER_SECRET: ${{ secrets.SSH_USER_UBUNTU1 }}
-          PORT_VAR: ${{ vars.SSH_PORT_UBUNTU1 }}
-          PORT_SECRET: ${{ secrets.SSH_PORT_UBUNTU1 }}
-          CONN_AGENTIA: ${{ secrets.AGENTIA_OS_CONNECTION_STRING }}
-          CONN_URL: ${{ secrets.AGENTIA_OS_DATABASE_URL }}
-          APP_ROOT_VAR: ${{ vars.AGENTIA_OS_APP_ROOT }}
-          APP_ROOT_SECRET: ${{ secrets.AGENTIA_OS_APP_ROOT }}
-          SERVICE_VAR: ${{ vars.AGENTIA_OS_SERVICE_NAME }}
-          SERVICE_SECRET: ${{ secrets.AGENTIA_OS_SERVICE_NAME }}
-          PORT_APP_VAR: ${{ vars.AGENTIA_OS_LISTEN_PORT }}
-          PORT_APP_SECRET: ${{ secrets.AGENTIA_OS_LISTEN_PORT }}
+      - name: Resolve configuration
         run: |
-          source deploy/gha-env.sh
+          pick() { for v in "$@"; do [ -n "$v" ] && { printf '%s' "$v"; return; }; done; }
 
-          pick_first() {
-            for v in "$@"; do
-              if [ -n "$v" ]; then
-                printf '%s' "$v"
-                return 0
-              fi
-            done
-            return 1
-          }
-
-          SSH_PRIVATE_KEY=$(pick_first "$KEY_AGENTIA" "$KEY_UBUNTU1") || true
-          SSH_HOST_RAW=$(pick_first "$HOST_VAR" "$HOST_SECRET" "$DEFAULT_SSH_HOST") || true
-          SSH_USER_RAW=$(pick_first "$USER_VAR" "$USER_SECRET" "$DEFAULT_SSH_USER") || true
-          SSH_PORT_RAW=$(pick_first "$PORT_VAR" "$PORT_SECRET" "$DEFAULT_SSH_PORT") || true
-          CONNECTION_STRING_RAW=$(pick_first "$CONN_AGENTIA" "$CONN_URL") || true
-          APP_ROOT_RAW=$(pick_first "$APP_ROOT_VAR" "$APP_ROOT_SECRET" "$DEFAULT_APP_ROOT") || true
-          SERVICE_NAME_RAW=$(pick_first "$SERVICE_VAR" "$SERVICE_SECRET" "$DEFAULT_SERVICE_NAME") || true
-          LISTEN_PORT_RAW=$(pick_first "$PORT_APP_VAR" "$PORT_APP_SECRET" "$DEFAULT_LISTEN_PORT") || true
+          SSH_KEY=$(pick \
+            "${{ secrets.AGENTIA_OS_SSH_PRIVATE_KEY }}" \
+            "${{ secrets.SSH_PRIVATE_KEY_UBUNTU1 }}")
+          SSH_HOST=$(pick \
+            "${{ vars.SSH_HOST_UBUNTU1 }}" \
+            "${{ secrets.SSH_HOST_UBUNTU1 }}" \
+            "$DEFAULT_SSH_HOST")
+          SSH_USER=$(pick \
+            "${{ vars.SSH_USER_UBUNTU1 }}" \
+            "${{ secrets.SSH_USER_UBUNTU1 }}" \
+            "$DEFAULT_SSH_USER")
+          SSH_PORT=$(pick \
+            "${{ vars.SSH_PORT_UBUNTU1 }}" \
+            "${{ secrets.SSH_PORT_UBUNTU1 }}" \
+            "$DEFAULT_SSH_PORT")
+          APP_ROOT=$(pick \
+            "${{ vars.AGENTIA_OS_APP_ROOT }}" \
+            "${{ secrets.AGENTIA_OS_APP_ROOT }}" \
+            "$DEFAULT_APP_ROOT")
+          CONN_STR=$(pick \
+            "${{ secrets.AGENTIA_OS_CONNECTION_STRING }}" \
+            "${{ secrets.AGENTIA_OS_DATABASE_URL }}")
+          JWT_SECRET="${{ secrets.AGENTIA_OS_JWT_SECRET }}"
+          AI_MODE=$(pick "${{ vars.AGENTIA_OS_AI_MODE }}" "mock")
+          OPENAI_KEY="${{ secrets.AGENTIA_OS_OPENAI_API_KEY }}"
+          AZURE_ENDPOINT="${{ secrets.AGENTIA_OS_AZURE_OPENAI_ENDPOINT }}"
+          AZURE_KEY="${{ secrets.AGENTIA_OS_AZURE_OPENAI_API_KEY }}"
+          AZURE_DEPLOY="${{ secrets.AGENTIA_OS_AZURE_OPENAI_DEPLOYMENT }}"
 
           missing=0
-          if [ -z "$SSH_PRIVATE_KEY" ]; then
-            echo "::error::Clé SSH manquante."
-            echo "→ deploy/GITHUB-SECRETS.md"
-            missing=1
-          fi
-          if [ -z "$CONNECTION_STRING_RAW" ]; then
-            echo "::error::Connection string PostgreSQL manquante."
-            echo "→ AGENTIA_OS_CONNECTION_STRING avec Database=agentia"
-            missing=1
-          fi
+          [ -z "$SSH_KEY"    ] && echo "::error::Clé SSH manquante (SSH_PRIVATE_KEY_UBUNTU1 ou AGENTIA_OS_SSH_PRIVATE_KEY)" && missing=1
+          [ -z "$CONN_STR"   ] && echo "::error::Connection string manquante (AGENTIA_OS_CONNECTION_STRING)" && missing=1
+          [ -z "$JWT_SECRET" ] && echo "::error::JWT secret manquant (AGENTIA_OS_JWT_SECRET)" && missing=1
           [ "$missing" -eq 0 ] || exit 1
 
-          gha_write_env SSH_PRIVATE_KEY "$SSH_PRIVATE_KEY"
-          gha_write_env SSH_HOST "$(gha_sanitize_host "$SSH_HOST_RAW")"
-          gha_write_env SSH_USER "$(gha_sanitize "$SSH_USER_RAW")"
-          gha_write_env SSH_PORT "$(gha_sanitize "$SSH_PORT_RAW")"
-          gha_write_env APP_ROOT "$(gha_sanitize "$APP_ROOT_RAW")"
-          gha_write_env SERVICE_NAME "$(gha_sanitize "$SERVICE_NAME_RAW")"
-          gha_write_env APP_NAME "$DEFAULT_APP_NAME"
-          gha_write_env LISTEN_PORT "$(gha_sanitize "$LISTEN_PORT_RAW")"
-          gha_write_env CONNECTION_STRING "$(gha_sanitize "$CONNECTION_STRING_RAW")"
-          echo "OK → ${SSH_USER}@${SSH_HOST}:${SSH_PORT} service=${SERVICE_NAME}"
+          echo "SSH_KEY<<ENVSSH"      >> "$GITHUB_ENV"
+          echo "$SSH_KEY"            >> "$GITHUB_ENV"
+          echo "ENVSSH"              >> "$GITHUB_ENV"
 
-      - name: Build production .env from secrets
-        env:
-          CONNECTION_STRING: ${{ env.CONNECTION_STRING }}
-          DATABASE_URL: ${{ env.CONNECTION_STRING }}
-          APP_ROOT: ${{ env.APP_ROOT }}
-          LISTEN_PORT: ${{ env.LISTEN_PORT }}
-        run: |
-          bash deploy/build-app-env.sh /tmp/agentia-os.app.env
-          echo "APP_ENV_FILE=/tmp/agentia-os.app.env" >> "$GITHUB_ENV"
+          {
+            echo "SSH_HOST=$SSH_HOST"
+            echo "SSH_USER=$SSH_USER"
+            echo "SSH_PORT=$SSH_PORT"
+            echo "APP_ROOT=$APP_ROOT"
+            echo "CONN_STR=$CONN_STR"
+            echo "JWT_SECRET=$JWT_SECRET"
+            echo "AI_MODE=$AI_MODE"
+            echo "OPENAI_KEY=$OPENAI_KEY"
+            echo "AZURE_ENDPOINT=$AZURE_ENDPOINT"
+            echo "AZURE_KEY=$AZURE_KEY"
+            echo "AZURE_DEPLOY=$AZURE_DEPLOY"
+          } >> "$GITHUB_ENV"
+
+          echo "Config → ${SSH_USER}@${SSH_HOST}:${SSH_PORT} root=${APP_ROOT}"
 
       - name: Setup SSH key
         id: ssh
         run: |
           mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
-          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/deploy_key"
+          printf '%s\n' "$SSH_KEY" > "$HOME/.ssh/deploy_key"
           chmod 600 "$HOME/.ssh/deploy_key"
-          ssh-keygen -y -f "$HOME/.ssh/deploy_key" > /dev/null 2>&1 || {
+          ssh-keygen -y -f "$HOME/.ssh/deploy_key" > /dev/null || {
             echo "::error::Clé SSH invalide"
             exit 1
           }
-          echo "SSH_KEY_PATH=$HOME/.ssh/deploy_key" >> "$GITHUB_ENV"
+          echo "KEY_PATH=$HOME/.ssh/deploy_key" >> "$GITHUB_ENV"
 
       - name: Add server to known_hosts
         run: ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> "$HOME/.ssh/known_hosts"
 
-      - name: Deploy
-        env:
-          SSH_KEY_PATH: ${{ env.SSH_KEY_PATH }}
-          PUBLISH_DIR: publish
-          APP_ENV_FILE: ${{ env.APP_ENV_FILE }}
-        run: bash deploy/deploy-gha.sh
+      - name: Write app env on server
+        run: |
+          ssh -i "$KEY_PATH" -p "$SSH_PORT" -o BatchMode=yes "${SSH_USER}@${SSH_HOST}" bash -s <<'ENVSSH'
+          mkdir -p /opt/apps/agentia-os
+          ENVSSH
+
+          ssh -i "$KEY_PATH" -p "$SSH_PORT" -o BatchMode=yes "${SSH_USER}@${SSH_HOST}" \
+            "cat > ${APP_ROOT}/.env.api" <<ENVFILE
+          ASPNETCORE_ENVIRONMENT=Production
+          ASPNETCORE_URLS=http://+:8080
+          ConnectionStrings__Default=${CONN_STR}
+          Database__Provider=postgres
+          Auth__JwtKey=${JWT_SECRET}
+          Auth__Issuer=AgenticFactory
+          Auth__Audience=AgenticFactoryClients
+          AI__Mode=${AI_MODE}
+          AI__Provider=${AI_MODE}
+          AI__OpenAI__ApiKey=${OPENAI_KEY}
+          AI__AzureOpenAI__Endpoint=${AZURE_ENDPOINT}
+          AI__AzureOpenAI__ApiKey=${AZURE_KEY}
+          AI__AzureOpenAI__Deployment=${AZURE_DEPLOY}
+          ENVFILE
+
+          ssh -i "$KEY_PATH" -p "$SSH_PORT" -o BatchMode=yes "${SSH_USER}@${SSH_HOST}" \
+            "cat > ${APP_ROOT}/.env.web" <<ENVWEB
+          ASPNETCORE_ENVIRONMENT=Production
+          ASPNETCORE_URLS=http://+:8081
+          ApiBaseUrl=http://localhost:8080
+          Auth__JwtKey=${JWT_SECRET}
+          Auth__Issuer=AgenticFactory
+          Auth__Audience=AgenticFactoryClients
+          ENVWEB
+
+          ssh -i "$KEY_PATH" -p "$SSH_PORT" -o BatchMode=yes "${SSH_USER}@${SSH_HOST}" \
+            "cat > ${APP_ROOT}/.env.runtime" <<ENVRT
+          ConnectionStrings__Default=${CONN_STR}
+          Database__Provider=postgres
+          AI__Mode=${AI_MODE}
+          AI__OpenAI__ApiKey=${OPENAI_KEY}
+          AI__AzureOpenAI__Endpoint=${AZURE_ENDPOINT}
+          AI__AzureOpenAI__ApiKey=${AZURE_KEY}
+          AI__AzureOpenAI__Deployment=${AZURE_DEPLOY}
+          ENVRT
+
+      - name: Sync API bundle
+        run: |
+          rsync -az --delete \
+            -e "ssh -i $KEY_PATH -p $SSH_PORT -o BatchMode=yes" \
+            publish/api/ \
+            "${SSH_USER}@${SSH_HOST}:${APP_ROOT}/api/"
+
+      - name: Sync Web bundle
+        run: |
+          rsync -az --delete \
+            -e "ssh -i $KEY_PATH -p $SSH_PORT -o BatchMode=yes" \
+            publish/web/ \
+            "${SSH_USER}@${SSH_HOST}:${APP_ROOT}/web/"
+
+      - name: Sync Runtime bundle
+        run: |
+          rsync -az --delete \
+            -e "ssh -i $KEY_PATH -p $SSH_PORT -o BatchMode=yes" \
+            publish/runtime/ \
+            "${SSH_USER}@${SSH_HOST}:${APP_ROOT}/runtime/"
+
+      - name: Run EF migrations
+        run: |
+          ssh -i "$KEY_PATH" -p "$SSH_PORT" -o BatchMode=yes "${SSH_USER}@${SSH_HOST}" \
+            "cd ${APP_ROOT}/api && \
+             set -a && source ${APP_ROOT}/.env.api && set +a && \
+             dotnet AgenticFactory.Api.dll --migrate-only 2>/dev/null || true"
+
+      - name: Restart services
+        run: |
+          ssh -i "$KEY_PATH" -p "$SSH_PORT" -o BatchMode=yes "${SSH_USER}@${SSH_HOST}" \
+            "sudo systemctl restart ${{ env.SERVICE_API }} ${{ env.SERVICE_WEB }} ${{ env.SERVICE_RUNTIME }}"
+
+      - name: Health check
+        run: |
+          sleep 10
+          ssh -i "$KEY_PATH" -p "$SSH_PORT" -o BatchMode=yes "${SSH_USER}@${SSH_HOST}" \
+            "curl -fsS http://localhost:8080/health && echo 'API OK'"
 
       - name: Service status
         if: always() && steps.ssh.outcome == 'success'
         run: |
-          ssh -i "$SSH_KEY_PATH" -p "$SSH_PORT" -o BatchMode=yes "${SSH_USER}@${SSH_HOST}" \
-            "sudo systemctl status ${SERVICE_NAME} --no-pager || true"
+          ssh -i "$KEY_PATH" -p "$SSH_PORT" -o BatchMode=yes "${SSH_USER}@${SSH_HOST}" \
+            "sudo systemctl status ${{ env.SERVICE_API }} ${{ env.SERVICE_WEB }} ${{ env.SERVICE_RUNTIME }} --no-pager || true"

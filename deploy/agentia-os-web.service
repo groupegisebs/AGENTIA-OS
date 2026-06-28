@@ -1,0 +1,22 @@
+[Unit]
+Description=Agentic Factory — Web Admin
+After=network.target agentia-os-api.service
+Wants=agentia-os-api.service
+
+[Service]
+Type=notify
+WorkingDirectory=/opt/apps/agentia-os/web
+ExecStart=/usr/bin/dotnet /opt/apps/agentia-os/web/AgenticFactory.Web.dll
+Restart=on-failure
+RestartSec=10
+KillSignal=SIGINT
+SyslogIdentifier=agentia-os-web
+User=agentia
+Group=agentia
+
+EnvironmentFile=/opt/apps/agentia-os/.env.web
+
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

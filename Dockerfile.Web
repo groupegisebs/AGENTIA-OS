@@ -1,0 +1,33 @@
+# ── Build stage ────────────────────────────────────────────────────────────────
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+
+WORKDIR /src
+
+COPY AgenticFactory.slnx ./
+COPY src/AgenticFactory.Shared/AgenticFactory.Shared.csproj             src/AgenticFactory.Shared/
+COPY src/AgenticFactory.Domain/AgenticFactory.Domain.csproj             src/AgenticFactory.Domain/
+COPY src/AgenticFactory.Application/AgenticFactory.Application.csproj   src/AgenticFactory.Application/
+COPY src/AgenticFactory.Infrastructure/AgenticFactory.Infrastructure.csproj src/AgenticFactory.Infrastructure/
+COPY src/AgenticFactory.Web/AgenticFactory.Web.csproj                   src/AgenticFactory.Web/
+
+RUN dotnet restore src/AgenticFactory.Web/AgenticFactory.Web.csproj
+
+COPY . .
+
+RUN dotnet publish src/AgenticFactory.Web/AgenticFactory.Web.csproj \
+        -c Release -o /out/web --no-restore
+
+
+# ── Runtime stage ───────────────────────────────────────────────────────────────
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+
+ENV ASPNETCORE_ENVIRONMENT=Production \
+    ASPNETCORE_URLS=http://+:8081
+
+WORKDIR /app
+
+COPY --from=build /out/web .
+
+EXPOSE 8081
+
+ENTRYPOINT ["dotnet", "AgenticFactory.Web.dll"]

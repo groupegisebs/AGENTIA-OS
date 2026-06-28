@@ -1,42 +1,50 @@
 # ── Build stage ────────────────────────────────────────────────────────────────
-FROM python:3.12-slim AS builder
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+WORKDIR /src
 
-WORKDIR /build
+COPY AgenticFactory.slnx ./
+COPY src/AgenticFactory.Shared/AgenticFactory.Shared.csproj             src/AgenticFactory.Shared/
+COPY src/AgenticFactory.Domain/AgenticFactory.Domain.csproj             src/AgenticFactory.Domain/
+COPY src/AgenticFactory.Application/AgenticFactory.Application.csproj   src/AgenticFactory.Application/
+COPY src/AgenticFactory.Infrastructure/AgenticFactory.Infrastructure.csproj src/AgenticFactory.Infrastructure/
+COPY src/AgenticFactory.Api/AgenticFactory.Api.csproj                   src/AgenticFactory.Api/
+COPY src/AgenticFactory.Web/AgenticFactory.Web.csproj                   src/AgenticFactory.Web/
+COPY src/AgenticFactory.Runtime.WindowsService/AgenticFactory.Runtime.WindowsService.csproj \
+     src/AgenticFactory.Runtime.WindowsService/
+COPY tests/AgenticFactory.Tests/AgenticFactory.Tests.csproj             tests/AgenticFactory.Tests/
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+RUN dotnet restore AgenticFactory.slnx
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+COPY . .
+
+RUN dotnet publish src/AgenticFactory.Api/AgenticFactory.Api.csproj \
+        -c Release -o /out/api --no-restore
+
+RUN dotnet publish src/AgenticFactory.Web/AgenticFactory.Web.csproj \
+        -c Release -o /out/web --no-restore
+
+RUN dotnet publish src/AgenticFactory.Runtime.WindowsService/AgenticFactory.Runtime.WindowsService.csproj \
+        -c Release -o /out/runtime --no-restore
 
 
-# ── Runtime stage ───────────────────────────────────────────────────────────────
-FROM python:3.12-slim AS runtime
+# ── Runtime stage (API) ─────────────────────────────────────────────────────────
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app
+ENV ASPNETCORE_ENVIRONMENT=Production \
+    ASPNETCORE_URLS=http://+:8080 \
+    DOTNET_RUNNING_IN_CONTAINER=true
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    libpq5 \
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /install /usr/local
-COPY . .
+COPY --from=build /out/api .
 
-# Healthcheck (API mode only — workers don't expose HTTP)
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
-    CMD curl -fsS http://localhost:8000/health || exit 1
+    CMD curl -fsS http://localhost:8080/health || exit 1
 
-EXPOSE 8000
+EXPOSE 8080
 
-# Default: API. Override with:  command: arq agent_creator.workers.agent_worker.WorkerSettings
-CMD ["uvicorn", "agent_creator.main:app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["dotnet", "AgenticFactory.Api.dll"]

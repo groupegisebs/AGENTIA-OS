@@ -17,27 +17,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
         with:
-          python-version: "3.11"
-          cache: pip
-          cache-dependency-path: requirements.txt
+          dotnet-version: "10.0.x"
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install ruff pytest pytest-asyncio httpx
+      - name: Restore dependencies
+        run: dotnet restore AgenticFactory.slnx
 
-      - name: Check no secrets in repo
-        run: bash deploy/check-no-secrets.sh
+      - name: Build
+        run: dotnet build AgenticFactory.slnx --no-restore -c Release
 
-      - name: Ruff
-        run: ruff check agent_creator tests
+      - name: Test
+        run: dotnet test AgenticFactory.slnx --no-build -c Release --verbosity normal \
+               --logger "trx;LogFileName=test-results.trx" \
+               --results-directory ./test-results
 
-      - name: Import check
-        run: python -c "from agent_creator.main import app; print('import ok', app.title)"
-
-      - name: Pytest
-        run: PYTHONPATH=. pytest tests -q
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: ./test-results/*.trx

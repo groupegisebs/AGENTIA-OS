@@ -1,0 +1,22 @@
+[Unit]
+Description=Agentic Factory — Agent Runtime
+After=network.target agentia-os-api.service
+Wants=agentia-os-api.service
+
+[Service]
+Type=notify
+WorkingDirectory=/opt/apps/agentia-os/runtime
+ExecStart=/usr/bin/dotnet /opt/apps/agentia-os/runtime/AgenticFactory.Runtime.WindowsService.dll
+Restart=on-failure
+RestartSec=15
+KillSignal=SIGINT
+SyslogIdentifier=agentia-os-runtime
+User=agentia
+Group=agentia
+
+EnvironmentFile=/opt/apps/agentia-os/.env.runtime
+
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target
