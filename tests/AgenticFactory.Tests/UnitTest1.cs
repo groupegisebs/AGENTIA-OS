@@ -2,6 +2,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using AgenticFactory.Api.Controllers;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace AgenticFactory.Tests;

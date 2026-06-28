@@ -1,4 +1,5 @@
 using AgenticFactory.Application;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,7 +13,7 @@ public class AgentsController(
     IAgentInvocationService invocationService) : ControllerBase
 {
     [HttpPost("deploy")]
-    [Authorize(Policy = "CanCreateAgent")]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Policy = "CanCreateAgent")]
     public async Task<IActionResult> Deploy(DeployAgentRequest request, CancellationToken cancellationToken)
     {
         var organizationId = tenantService.OrganizationId;

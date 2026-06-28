@@ -1,4 +1,5 @@
 using AgenticFactory.Application;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -6,7 +7,7 @@ namespace AgenticFactory.Api.Controllers;
 
 [ApiController]
 [Route("api/agent-creation")]
-[Authorize(Policy = "CanCreateAgent")]
+[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Policy = "CanCreateAgent")]
 public class AgentCreationController(
     ICurrentTenantService tenantService,
     IAgentCreationService creationService) : ControllerBase

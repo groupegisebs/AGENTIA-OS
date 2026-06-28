@@ -1,5 +1,6 @@
 using AgenticFactory.Infrastructure.Persistence;
 using AgenticFactory.Shared;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -8,7 +9,7 @@ namespace AgenticFactory.Api.Controllers;
 
 [ApiController]
 [Route("api/monitoring")]
-[Authorize(Policy = "CanViewDashboard")]
+[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Policy = "CanViewDashboard")]
 public class MonitoringController(AgenticFactoryDbContext dbContext) : ControllerBase
 {
     [HttpGet("dashboard")]
