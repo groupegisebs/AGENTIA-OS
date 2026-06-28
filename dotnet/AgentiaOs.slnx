@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AgentiaOs.Api/AgentiaOs.Api.csproj" />
+    <Project Path="src/AgentiaOs.Application/AgentiaOs.Application.csproj" />
+    <Project Path="src/AgentiaOs.Domain/AgentiaOs.Domain.csproj" />
+    <Project Path="src/AgentiaOs.Infrastructure/AgentiaOs.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AgentiaOs.Api.Tests/AgentiaOs.Api.Tests.csproj" />
+  </Folder>
+</Solution>

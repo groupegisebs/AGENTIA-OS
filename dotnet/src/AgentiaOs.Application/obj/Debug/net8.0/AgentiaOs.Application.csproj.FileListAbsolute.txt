@@ -1,0 +1,16 @@
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\dotnet\src\AgentiaOs.Application\bin\Debug\net8.0\AgentiaOs.Application.deps.json
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\dotnet\src\AgentiaOs.Application\bin\Debug\net8.0\AgentiaOs.Application.dll
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\dotnet\src\AgentiaOs.Application\bin\Debug\net8.0\AgentiaOs.Application.pdb
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\dotnet\src\AgentiaOs.Application\bin\Debug\net8.0\AgentiaOs.Domain.dll
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\dotnet\src\AgentiaOs.Application\bin\Debug\net8.0\AgentiaOs.Domain.pdb
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\dotnet\src\AgentiaOs.Application\obj\Debug\net8.0\AgentiaOs.Application.csproj.AssemblyReference.cache
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\dotnet\src\AgentiaOs.Application\obj\Debug\net8.0\AgentiaOs.Application.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\dotnet\src\AgentiaOs.Application\obj\Debug\net8.0\AgentiaOs.Application.AssemblyInfoInputs.cache
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\dotnet\src\AgentiaOs.Application\obj\Debug\net8.0\AgentiaOs.Application.AssemblyInfo.cs
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\dotnet\src\AgentiaOs.Application\obj\Debug\net8.0\AgentiaOs.Application.csproj.CoreCompileInputs.cache
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\dotnet\src\AgentiaOs.Application\obj\Debug\net8.0\AgentiaOs.Application.sourcelink.json
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\dotnet\src\AgentiaOs.Application\obj\Debug\net8.0\AgentiaO.D106D80A.Up2Date
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\dotnet\src\AgentiaOs.Application\obj\Debug\net8.0\AgentiaOs.Application.dll
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\dotnet\src\AgentiaOs.Application\obj\Debug\net8.0\refint\AgentiaOs.Application.dll
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\dotnet\src\AgentiaOs.Application\obj\Debug\net8.0\AgentiaOs.Application.pdb
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\dotnet\src\AgentiaOs.Application\obj\Debug\net8.0\ref\AgentiaOs.Application.dll

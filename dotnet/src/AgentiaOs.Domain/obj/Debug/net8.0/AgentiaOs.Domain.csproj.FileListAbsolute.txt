@@ -1,0 +1,12 @@
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\dotnet\src\AgentiaOs.Domain\bin\Debug\net8.0\AgentiaOs.Domain.deps.json
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\dotnet\src\AgentiaOs.Domain\bin\Debug\net8.0\AgentiaOs.Domain.dll
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\dotnet\src\AgentiaOs.Domain\bin\Debug\net8.0\AgentiaOs.Domain.pdb
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\dotnet\src\AgentiaOs.Domain\obj\Debug\net8.0\AgentiaOs.Domain.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\dotnet\src\AgentiaOs.Domain\obj\Debug\net8.0\AgentiaOs.Domain.AssemblyInfoInputs.cache
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\dotnet\src\AgentiaOs.Domain\obj\Debug\net8.0\AgentiaOs.Domain.AssemblyInfo.cs
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\dotnet\src\AgentiaOs.Domain\obj\Debug\net8.0\AgentiaOs.Domain.csproj.CoreCompileInputs.cache
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\dotnet\src\AgentiaOs.Domain\obj\Debug\net8.0\AgentiaOs.Domain.sourcelink.json
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\dotnet\src\AgentiaOs.Domain\obj\Debug\net8.0\AgentiaOs.Domain.dll
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\dotnet\src\AgentiaOs.Domain\obj\Debug\net8.0\refint\AgentiaOs.Domain.dll
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\dotnet\src\AgentiaOs.Domain\obj\Debug\net8.0\AgentiaOs.Domain.pdb
+C:\Users\bedig\source\repos\GISEEnterpriseEcosystemSolution\AGENTIA-OS\dotnet\src\AgentiaOs.Domain\obj\Debug\net8.0\ref\AgentiaOs.Domain.dll
