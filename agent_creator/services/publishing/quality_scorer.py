@@ -126,7 +126,6 @@ def _score_security(analysis: AgentAnalysis) -> tuple[float, list[str]]:
     else:
         improvements.append("Documenter les permissions requises par l'agent")
 
-    from agent_creator.models.agent import AgentPolicies
     score += 15
     if not analysis.memory_enabled:
         score += 15

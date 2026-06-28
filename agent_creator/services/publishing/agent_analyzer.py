@@ -1,8 +1,6 @@
 """Étape 1 — Analyse automatique d'un agent publié pour extraire ses caractéristiques produit."""
 from __future__ import annotations
 
-import json
-
 from agent_creator.models.agent import AgentManifest, PublishedAgent
 from agent_creator.models.publishing import AgentAnalysis
 
@@ -146,7 +144,7 @@ def _extract_objective(system_prompt: str, description: str) -> str:
         sentences = description.split(".")
         return sentences[0].strip() + "." if sentences else description
 
-    lines = [l.strip() for l in system_prompt.splitlines() if l.strip()]
+    lines = [line.strip() for line in system_prompt.splitlines() if line.strip()]
     for line in lines[:5]:
         if len(line) > 30 and not line.startswith("#") and not line.startswith("-"):
             return line[:200]

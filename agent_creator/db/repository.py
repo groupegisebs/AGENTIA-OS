@@ -738,7 +738,7 @@ def _memory_from_row(row: AgentMemoryEntryRow) -> AgentMemoryEntry:
 
 def _publishing_job_from_row(row: "PublishingJobRow"):
     from agent_creator.models.publishing import (
-        AgentAnalysis, GeneratedContent, GeneratedMedia, MarketplacePublication,
+        AgentAnalysis, GeneratedContent, GeneratedMedia,
         PublishingJob, PublishingJobStatus, PublishingStep, QualityScores, SaleSettings,
     )
     return PublishingJob(

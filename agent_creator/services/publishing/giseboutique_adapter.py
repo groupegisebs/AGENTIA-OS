@@ -1,8 +1,6 @@
 """Adaptateur GISEBoutique — publie un agent sur Agentia Market via l'API partenaire."""
 from __future__ import annotations
 
-import json
-
 import httpx
 
 from agent_creator.config import Settings
