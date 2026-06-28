@@ -54,10 +54,10 @@ public record SubmitDomainRequestResponse(
 public record BlueprintResult(
     Guid Id,
     Guid AgentId,
-    string PromptSummary,
-    string BlueprintJson,
-    string Status,
-    string ValidationNotes);
+    string? PromptSummary,
+    string? BlueprintJson,
+    string? Status,
+    string? ValidationNotes);
 public record AgentsSummaryResponse(int Total, int Active, int Running, int Paused, int Disabled);
 public record AgentListItemResponse(
     Guid Id,
@@ -261,14 +261,35 @@ public class ApiClient(HttpClient http)
         return JsonSerializer.Deserialize<List<RunListItemResponse>>(content, _json);
     }
 
-    public async Task<BlueprintResult?> CreateAgentFromChatAsync(string message)
+    public async Task<(BlueprintResult? Result, string? Error)> CreateAgentFromChatAsync(string message)
     {
-        var body = JsonSerializer.Serialize(new ChatRequest(message), _json);
-        var response = await http.PostAsync("/api/agent-creation/chat",
-            new StringContent(body, Encoding.UTF8, "application/json"));
-        if (!response.IsSuccessStatusCode) return null;
-        var content = await response.Content.ReadAsStringAsync();
-        return JsonSerializer.Deserialize<BlueprintResult>(content, _json);
+        try
+        {
+            var body = JsonSerializer.Serialize(new ChatRequest(message), _json);
+            using var response = await http.PostAsync("/api/agent-creation/chat",
+                new StringContent(body, Encoding.UTF8, "application/json"));
+            var content = await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode)
+                return (null, TryReadErrorMessage(content) ?? $"L'API a répondu avec le code {(int)response.StatusCode}.");
+
+            var result = JsonSerializer.Deserialize<BlueprintResult>(content, _json);
+            if (result is null || result.Id == Guid.Empty)
+                return (null, "Réponse API invalide lors de la création du blueprint.");
+
+            return (result, null);
+        }
+        catch (TaskCanceledException)
+        {
+            return (null, "Délai dépassé : l'API met trop de temps à générer le blueprint.");
+        }
+        catch (HttpRequestException)
+        {
+            return (null, "Impossible de joindre l'API backend. Vérifiez la configuration ou réessayez.");
+        }
+        catch (JsonException)
+        {
+            return (null, "Réponse API illisible lors de la création du blueprint.");
+        }
     }
 
     public async Task<(SubmitDomainRequestResponse? Result, string? Error)> SubmitDomainRequestAsync(
@@ -297,13 +318,26 @@ public class ApiClient(HttpClient http)
 
     private static string? TryReadErrorMessage(string json)
     {
+        if (string.IsNullOrWhiteSpace(json))
+            return null;
+
         try
         {
             using var doc = JsonDocument.Parse(json);
-            if (doc.RootElement.TryGetProperty("message", out var msg))
+            var root = doc.RootElement;
+            if (root.ValueKind == JsonValueKind.String)
+                return root.GetString();
+            if (root.TryGetProperty("message", out var msg) && msg.ValueKind == JsonValueKind.String)
                 return msg.GetString();
+            if (root.TryGetProperty("detail", out var detail) && detail.ValueKind == JsonValueKind.String)
+                return detail.GetString();
         }
-        catch { /* ignore */ }
+        catch
+        {
+            var trimmed = json.Trim();
+            if (trimmed.Length > 0 && trimmed.Length <= 300 && !trimmed.StartsWith('<'))
+                return trimmed;
+        }
         return null;
     }
 

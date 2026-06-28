@@ -4,6 +4,13 @@ namespace AgenticFactory.Application;
 
 public sealed record ChatMessageRequest(string Message, Guid? ExistingAgentId);
 public sealed record BlueprintResponse(string BlueprintJson, string Summary, bool IsValid, string ValidationNotes);
+public sealed record BlueprintCreatedResponse(
+    Guid Id,
+    Guid AgentId,
+    string PromptSummary,
+    string BlueprintJson,
+    string Status,
+    string ValidationNotes);
 public sealed record DeployAgentRequest(Guid AgentId, Guid BlueprintId, string Environment);
 public sealed record DeployAgentResponse(Guid AgentId, Guid AgentVersionId, Guid DeploymentId, string EndpointSlug, string PlainApiKey);
 public sealed record InvokeAgentRequest(Dictionary<string, object?> Input);

@@ -3,6 +3,7 @@ using System;
 using AgenticFactory.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AgenticFactory.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AgenticFactoryDbContext))]
-    partial class AgenticFactoryDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260628225551_ActionExecutionProviders")]
+    partial class ActionExecutionProviders
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -15,14 +15,28 @@ public class AgentCreationController(
     [HttpPost("chat")]
     public async Task<IActionResult> CreateFromChat(ChatMessageRequest request, CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(request.Message))
+            return BadRequest(new { message = "Message is required." });
+
         var organizationId = tenantService.OrganizationId;
         if (organizationId == Guid.Empty)
-        {
-            return BadRequest("Missing organization context.");
-        }
+            return BadRequest(new { message = "Missing organization context." });
 
-        var blueprint = await creationService.CreateBlueprintFromChatAsync(organizationId, request, cancellationToken);
-        return Ok(blueprint);
+        try
+        {
+            var blueprint = await creationService.CreateBlueprintFromChatAsync(organizationId, request, cancellationToken);
+            return Ok(new BlueprintCreatedResponse(
+                blueprint.Id,
+                blueprint.AgentId,
+                blueprint.PromptSummary,
+                blueprint.BlueprintJson,
+                blueprint.Status.ToString(),
+                blueprint.ValidationNotes));
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Blueprint generation failed.", detail = ex.Message });
+        }
     }
 
     [HttpPost("validate")]

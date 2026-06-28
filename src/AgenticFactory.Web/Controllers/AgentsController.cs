@@ -72,17 +72,16 @@ public class AgentsController(ApiClient api) : AuthenticatedController
         }
 
         AuthenticateApi(api);
-        var result = await api.CreateAgentFromChatAsync(message);
+        var (result, apiError) = await api.CreateAgentFromChatAsync(message);
         if (result is null)
         {
-            ModelState.AddModelError(string.Empty, "Impossible de générer le blueprint. Vérifiez vos droits ou réessayez.");
+            ModelState.AddModelError(string.Empty, apiError ?? "Impossible de générer le blueprint. Vérifiez vos droits ou réessayez.");
             model.Message = message;
             return View(model);
         }
 
-        var label = result.PromptSummary.Length > 60
-            ? result.PromptSummary[..60] + "…"
-            : result.PromptSummary;
+        var summary = string.IsNullOrWhiteSpace(result.PromptSummary) ? message : result.PromptSummary.Trim();
+        var label = summary.Length > 60 ? summary[..60] + "…" : summary;
         TempData["Success"] = $"Collaborateur IA « {label} » recruté. Déployez-le depuis la liste.";
         return RedirectToAction(nameof(Index));
     }
@@ -197,7 +196,7 @@ public class AgentsController(ApiClient api) : AuthenticatedController
             var sb = new StringBuilder();
             sb.AppendLine("Créer un agent IA Runtime Agentic via Agent Factory Studio :");
 
-            if (root.TryGetProperty("schemaVersion", out var sv) && sv.GetInt32() >= 2)
+            if (IsModernWizardSchema(root))
             {
                 AppendLine(sb, "Mission", root, "mission");
                 AppendLine(sb, "Contexte métier", root, "missionContext");
@@ -245,10 +244,36 @@ public class AgentsController(ApiClient api) : AuthenticatedController
         }
     }
 
+    private static bool IsModernWizardSchema(JsonElement root)
+    {
+        if (!root.TryGetProperty("schemaVersion", out var sv))
+            return root.TryGetProperty("mission", out _);
+
+        return sv.ValueKind switch
+        {
+            JsonValueKind.Number => sv.TryGetInt32(out var n) && n >= 2,
+            JsonValueKind.String => int.TryParse(sv.GetString(), out var n) && n >= 2,
+            _ => false
+        };
+    }
+
+    private static string FormatJsonConfigValue(JsonElement value) => value.ValueKind switch
+    {
+        JsonValueKind.String => value.GetString() ?? string.Empty,
+        JsonValueKind.True => "true",
+        JsonValueKind.False => "false",
+        JsonValueKind.Number => value.GetRawText(),
+        JsonValueKind.Null or JsonValueKind.Undefined => string.Empty,
+        _ => value.GetRawText()
+    };
+
     private static void AppendLine(StringBuilder sb, string label, JsonElement root, string prop)
     {
-        if (root.TryGetProperty(prop, out var v) && !string.IsNullOrWhiteSpace(v.GetString()))
-            sb.AppendLine($"- {label} : {v.GetString()}");
+        if (!root.TryGetProperty(prop, out var v))
+            return;
+        var text = v.ValueKind == JsonValueKind.String ? v.GetString() : FormatJsonConfigValue(v);
+        if (!string.IsNullOrWhiteSpace(text))
+            sb.AppendLine($"- {label} : {text}");
     }
 
     private static void AppendDecision(StringBuilder sb, JsonElement root)
@@ -317,8 +342,8 @@ public class AgentsController(ApiClient api) : AuthenticatedController
                 continue;
             }
             var parts = cfg.EnumerateObject()
-                .Select(p => $"{p.Name}={p.Value.GetString()}")
-                .Where(x => !string.IsNullOrWhiteSpace(x));
+                .Select(p => $"{p.Name}={FormatJsonConfigValue(p.Value)}")
+                .Where(x => !string.IsNullOrWhiteSpace(x) && !x.EndsWith('='));
             var detail = string.Join(", ", parts);
             sb.AppendLine(string.IsNullOrWhiteSpace(detail) ? $"  · {label}" : $"  · {label} : {detail}");
         }
