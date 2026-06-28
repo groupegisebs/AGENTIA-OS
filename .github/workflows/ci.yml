@@ -327,14 +327,22 @@ jobs:
         run: |
           ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
             "${SSH_USER}@${SSH_HOST}" bash <<'RESTART'
-            sudo systemctl restart agentia-os-api
-            sleep 10
+            # Arrêter proprement le service + tuer tout process sur le port 8080
+            sudo systemctl stop agentia-os-api 2>/dev/null || true
+            sleep 3
+            sudo fuser -k 8080/tcp 2>/dev/null || true
+            sleep 2
+
+            # Relancer
+            sudo systemctl start agentia-os-api
+            sleep 12
+
             if ! systemctl is-active --quiet agentia-os-api; then
               echo "=== ERREUR : service non démarré ==="
               echo "--- Status ---"
               sudo systemctl status agentia-os-api --no-pager -l || true
-              echo "--- Logs (30 dernières lignes) ---"
-              sudo journalctl -u agentia-os-api --no-pager -n 30 || true
+              echo "--- Logs (40 dernières lignes) ---"
+              sudo journalctl -u agentia-os-api --no-pager -n 40 || true
               exit 1
             fi
             echo "✓ Service API actif"
@@ -441,8 +449,21 @@ jobs:
       - name: "6.6 Redémarrer service Web"
         run: |
           ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
-            "${SSH_USER}@${SSH_HOST}" \
-            "sudo systemctl restart $SERVICE_WEB && sleep 8 && systemctl is-active $SERVICE_WEB"
+            "${SSH_USER}@${SSH_HOST}" bash <<'RESTART'
+            sudo systemctl stop agentia-os-web 2>/dev/null || true
+            sleep 3
+            sudo fuser -k 8081/tcp 2>/dev/null || true
+            sleep 2
+            sudo systemctl start agentia-os-web
+            sleep 12
+            if ! systemctl is-active --quiet agentia-os-web; then
+              echo "=== ERREUR : service Web non démarré ==="
+              sudo systemctl status agentia-os-web --no-pager -l || true
+              sudo journalctl -u agentia-os-web --no-pager -n 30 || true
+              exit 1
+            fi
+            echo "✓ Service Web actif"
+          RESTART
 
       - name: "6.7 Health check Web"
         run: |
@@ -510,8 +531,19 @@ jobs:
       - name: "7.6 Redémarrer service Runtime"
         run: |
           ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
-            "${SSH_USER}@${SSH_HOST}" \
-            "sudo systemctl restart $SERVICE_RUNTIME && sleep 5 && systemctl is-active $SERVICE_RUNTIME"
+            "${SSH_USER}@${SSH_HOST}" bash <<'RESTART'
+            sudo systemctl stop agentia-os-runtime 2>/dev/null || true
+            sleep 3
+            sudo systemctl start agentia-os-runtime
+            sleep 8
+            if ! systemctl is-active --quiet agentia-os-runtime; then
+              echo "=== ERREUR : service Runtime non démarré ==="
+              sudo systemctl status agentia-os-runtime --no-pager -l || true
+              sudo journalctl -u agentia-os-runtime --no-pager -n 30 || true
+              exit 1
+            fi
+            echo "✓ Service Runtime actif"
+          RESTART
 
 # ═══════════════════════════════════════════════════════════════════════
 # STAGE 8 — Rapport final du pipeline
