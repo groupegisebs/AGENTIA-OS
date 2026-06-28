@@ -229,7 +229,35 @@ jobs:
           name: artifact-api
           path: publish/api/
 
-      - name: "4.4 Préparer serveur (.NET + dossiers + services systemd)"
+      - name: "4.4 Installer Nginx + configurer reverse proxy"
+        run: |
+          scp -i "$HOME/.ssh/deploy_key" -P "$SSH_PORT" \
+            deploy/nginx/agentia-os.conf \
+            "${SSH_USER}@${SSH_HOST}:/tmp/agentia-os.conf"
+
+          ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
+            "${SSH_USER}@${SSH_HOST}" bash <<'NGINX'
+            # Installer Nginx si absent
+            if ! command -v nginx &>/dev/null; then
+              echo "=== Installation Nginx ==="
+              sudo apt-get update -qq && sudo apt-get install -y nginx
+            else
+              echo "=== Nginx déjà installé: $(nginx -v 2>&1) ==="
+            fi
+
+            # Désactiver le site default
+            sudo rm -f /etc/nginx/sites-enabled/default
+
+            # Installer la configuration Agentic Factory
+            sudo cp /tmp/agentia-os.conf /etc/nginx/sites-available/agentia-os
+            sudo ln -sf /etc/nginx/sites-available/agentia-os /etc/nginx/sites-enabled/agentia-os
+
+            # Tester et recharger
+            sudo nginx -t && sudo systemctl reload nginx
+            echo "✓ Nginx configuré — reverse proxy actif sur port 80"
+          NGINX
+
+      - name: "4.6 Préparer serveur (.NET + dossiers + services systemd)"
         run: |
           # Créer dossiers applicatifs
           ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
@@ -269,7 +297,7 @@ jobs:
             echo "Services systemd installés et activés"
           SETUP
 
-      - name: "4.5 Créer base de données PostgreSQL si absente"
+      - name: "4.7 Créer base de données PostgreSQL si absente"
         run: |
           # Extraire user/pass/db depuis la connection string du secret
           CONN="${{ secrets.AGENTIA_OS_CONNECTION_STRING }}"
@@ -296,7 +324,7 @@ jobs:
             echo "✓ Base '${DB_NAME}' et user '${DB_USER}' prêts"
           PGSETUP
 
-      - name: "4.6 Écrire configuration API (.env)"
+      - name: "4.8 Écrire configuration API (.env)"
         run: |
           AI_MODE=$([ -n "${{ secrets.AGENTIA_OS_OPENAI_API_KEY }}" ] && echo "openai" \
             || ([ -n "${{ secrets.AGENTIA_OS_AZURE_OPENAI_API_KEY }}" ] && echo "azure" || echo "mock"))
@@ -316,14 +344,14 @@ jobs:
           AI__AzureOpenAI__Deployment=${{ secrets.AGENTIA_OS_AZURE_OPENAI_DEPLOYMENT }}
           ENV
 
-      - name: "4.7 Transférer bundle API (rsync)"
+      - name: "4.9 Transférer bundle API (rsync)"
         run: |
           rsync -az --delete \
             -e "ssh -i $HOME/.ssh/deploy_key -p $SSH_PORT -o BatchMode=yes" \
             publish/api/ \
             "${SSH_USER}@${SSH_HOST}:${APP_ROOT}/api/"
 
-      - name: "4.8 Redémarrer service API"
+      - name: "4.10 Redémarrer service API"
         run: |
           ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
             "${SSH_USER}@${SSH_HOST}" bash <<'RESTART'
@@ -348,7 +376,7 @@ jobs:
             echo "✓ Service API actif"
           RESTART
 
-      - name: "4.9 Health check API"
+      - name: "4.11 Health check API"
         run: |
           ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
             "${SSH_USER}@${SSH_HOST}" \
