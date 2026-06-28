@@ -31,9 +31,8 @@ public sealed record AgentListItem(
 
 public sealed class CreateAgentViewModel
 {
-    [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Décrivez ce que l'agent doit faire.")]
-    [System.ComponentModel.DataAnnotations.MinLength(10, ErrorMessage = "Minimum 10 caractères.")]
     public string Message { get; set; } = string.Empty;
+    public string? WizardJson { get; set; }
 }
 
 public sealed class DeploymentsIndexViewModel

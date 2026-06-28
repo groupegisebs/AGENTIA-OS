@@ -3,6 +3,7 @@
     var dashMode = ViewData["DashboardMode"] as bool? == true;
     var agentsMode = ViewData["AgentsMode"] as bool? == true;
     var deploymentsMode = ViewData["DeploymentsMode"] as bool? == true;
+    var studioMode = ViewData["StudioMode"] as bool? == true;
 }
 <!DOCTYPE html>
 <html lang="fr">
@@ -17,6 +18,7 @@
     <link rel="stylesheet" href="~/css/agentia-dashboard.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/agentia-agents.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/agentia-deployments.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/agentia-studio.css" asp-append-version="true" />
     <style>
         :root {
             --af-primary: #6366f1;
@@ -71,7 +73,7 @@
         .af-stat-value { font-size: 2rem; font-weight: 700; color: #0f172a; }
     </style>
 </head>
-<body class="@(dashMode ? "dash-mode" : agentsMode ? "agents-mode" : deploymentsMode ? "deployments-mode" : "")">
+<body class="@(dashMode ? "dash-mode" : agentsMode ? "agents-mode" : deploymentsMode ? "deployments-mode" : "")@(studioMode ? " studio-mode" : "")">
     <aside class="af-sidebar">
         <div class="af-sidebar-brand">
             <div class="brand-icon">A</div>

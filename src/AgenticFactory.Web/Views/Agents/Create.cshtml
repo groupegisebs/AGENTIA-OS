@@ -1,42 +1,258 @@
 @model AgenticFactory.Web.Models.CreateAgentViewModel
 @{
-    ViewData["Title"] = "Nouvel agent";
+    ViewData["Title"] = "Créer un nouvel agent";
+    var displayName = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
+        ?? User.Identity?.Name ?? "Utilisateur";
+    var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "Utilisateur";
+    var initials = string.Concat(displayName.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+        .Take(2).Select(p => char.ToUpper(p[0])));
 }
 
-<div class="agents-page">
-    <nav class="agents-breadcrumb">
-        <a asp-controller="Dashboard" asp-action="Index">Accueil</a>
-        <span class="sep">›</span>
-        <a asp-action="Index">Agents</a>
-        <span class="sep">›</span>
-        <span>Créer</span>
-    </nav>
-
-    <div class="agents-create-page">
-        <h2>Créer un nouvel agent</h2>
-        <p class="text-muted mb-4">Décrivez en langage naturel ce que l'agent doit faire. Un blueprint sera généré automatiquement.</p>
-
-        <div class="agents-create-card">
-            <form asp-action="Create" method="post">
-                @Html.AntiForgeryToken()
-                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
-                <div class="mb-3">
-                    <label asp-for="Message" class="form-label fw-semibold">Description de l'agent</label>
-                    <textarea asp-for="Message" class="form-control" rows="6"
-                              placeholder="Ex : Un agent qui analyse les emails entrants, extrait les pièces jointes et propose une réponse professionnelle en français."></textarea>
-                    <span asp-validation-for="Message" class="text-danger small"></span>
+<div class="studio-page">
+    <div class="studio-page-top">
+        <nav class="studio-breadcrumb">
+            <a asp-controller="Dashboard" asp-action="Index">Accueil</a>
+            <span class="sep">›</span>
+            <a asp-action="Index">Agents</a>
+            <span class="sep">›</span>
+            <span>Créer un nouvel agent</span>
+        </nav>
+        <div class="studio-page-head-right">
+            <span class="studio-online">En ligne</span>
+            <button type="button" class="studio-notif-btn" title="Notifications">
+                <i class="bi bi-bell"></i>
+            </button>
+            <div class="studio-user-chip">
+                <div class="studio-user-avatar">@initials</div>
+                <div>
+                    <div class="studio-user-name">@displayName</div>
+                    <div class="studio-user-role">@role</div>
                 </div>
-                <div class="d-flex gap-2">
-                    <button type="submit" class="agents-btn-create border-0">
-                        <i class="bi bi-stars"></i> Générer le blueprint
-                    </button>
-                    <a asp-action="Index" class="btn btn-outline-secondary">Annuler</a>
-                </div>
-            </form>
+            </div>
         </div>
     </div>
+
+    <header class="studio-header">
+        <h1>Créer un nouvel agent IA</h1>
+        <p>Suivez les étapes pour décrire votre agent. Nous générerons automatiquement le blueprint.</p>
+    </header>
+
+    <form id="studioForm" asp-action="Create" method="post">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="Message" id="hiddenMessage" />
+        <input type="hidden" asp-for="WizardJson" id="hiddenWizardJson" />
+
+        <div class="studio-layout">
+            <div class="studio-main">
+                <div class="studio-stepper-wrap">
+                    <div class="studio-stepper" id="stepper">
+                        <div class="studio-stepper-item active" data-step="1">
+                            <div class="studio-stepper-circle">1</div>
+                            <div class="studio-stepper-title">Domaine</div>
+                            <div class="studio-stepper-sub">Métier</div>
+                        </div>
+                        <div class="studio-stepper-item" data-step="2">
+                            <div class="studio-stepper-circle">2</div>
+                            <div class="studio-stepper-title">Objectif</div>
+                            <div class="studio-stepper-sub">Mission</div>
+                        </div>
+                        <div class="studio-stepper-item" data-step="3">
+                            <div class="studio-stepper-circle">3</div>
+                            <div class="studio-stepper-title">Données</div>
+                            <div class="studio-stepper-sub">Sources</div>
+                        </div>
+                        <div class="studio-stepper-item" data-step="4">
+                            <div class="studio-stepper-circle">4</div>
+                            <div class="studio-stepper-title">Actions</div>
+                            <div class="studio-stepper-sub">Tâches</div>
+                        </div>
+                        <div class="studio-stepper-item" data-step="5">
+                            <div class="studio-stepper-circle">5</div>
+                            <div class="studio-stepper-title">Déclencheur</div>
+                            <div class="studio-stepper-sub">Fréquence</div>
+                        </div>
+                        <div class="studio-stepper-item" data-step="6">
+                            <div class="studio-stepper-circle">6</div>
+                            <div class="studio-stepper-title">Autonomie</div>
+                            <div class="studio-stepper-sub">Niveau</div>
+                        </div>
+                        <div class="studio-stepper-item" data-step="7">
+                            <div class="studio-stepper-circle">7</div>
+                            <div class="studio-stepper-title">Sécurité</div>
+                            <div class="studio-stepper-sub">Règles</div>
+                        </div>
+                        <div class="studio-stepper-item" data-step="8">
+                            <div class="studio-stepper-circle">8</div>
+                            <div class="studio-stepper-title">Blueprint</div>
+                            <div class="studio-stepper-sub">Résumé</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="studio-wizard-card">
+                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+                    <div class="studio-step-panel active" id="stepPanel1">
+                        <h2 class="studio-step-title">1. Choisissez le domaine métier de votre agent</h2>
+                        <div class="studio-domain-grid" id="domainGrid"></div>
+                        <div class="studio-nl-section">
+                            <label class="studio-nl-label" for="freeText">
+                                Décrivez votre besoin en langage naturel
+                                <span class="studio-nl-hint">(optionnel mais recommandé)</span>
+                            </label>
+                            <textarea class="studio-freetext" id="freeText" maxlength="2000" rows="3"
+                                      placeholder="Ex : Je veux un agent qui lit mes emails Outlook, détecte les factures PDF, extrait les informations importantes, les envoie dans CogniDoc puis notifie le comptable."></textarea>
+                            <div class="studio-char-count"><span id="charCount">0</span> / 2000</div>
+                        </div>
+                        <div class="studio-validation-msg" id="validationMsg"></div>
+                    </div>
+
+                    <div class="studio-step-panel" id="stepPanel2">
+                        <h2 class="studio-step-title">2. Quel est l'objectif principal de l'agent ?</h2>
+                        <div class="studio-check-grid cols-3" id="objectiveGrid"></div>
+                    </div>
+
+                    <div class="studio-step-panel" id="stepPanel3">
+                        <h2 class="studio-step-title">3. Où trouvent les données ?</h2>
+                        <div class="studio-check-grid cols-3" id="sourceGrid"></div>
+                    </div>
+
+                    <div class="studio-step-panel" id="stepPanel4">
+                        <h2 class="studio-step-title">4. Que doit faire l'agent ?</h2>
+                        <div class="studio-chip-grid" id="actionGrid"></div>
+                    </div>
+
+                    <div class="studio-step-panel" id="stepPanel5">
+                        <h2 class="studio-step-title">5. Quel est le déclencheur ?</h2>
+                        <div class="studio-radio-grid" id="triggerGrid"></div>
+                        <div class="studio-subsection">
+                            <h4>Runtime cible</h4>
+                            <div class="studio-radio-grid" id="runtimeGrid"></div>
+                        </div>
+                    </div>
+
+                    <div class="studio-step-panel" id="stepPanel6">
+                        <h2 class="studio-step-title">6. Quel niveau d'autonomie ?</h2>
+                        <div class="studio-autonomy-wrap">
+                            <div class="studio-autonomy-label-row">
+                                <span>Assistant</span>
+                                <span>Superviseur multi-agent</span>
+                            </div>
+                            <div class="studio-autonomy-track">
+                                <div class="studio-autonomy-fill" id="autonomyFill" style="width:25%"></div>
+                            </div>
+                            <input type="range" class="studio-autonomy-slider" id="autonomySlider"
+                                   min="0" max="3" step="1" value="0" />
+                            <div class="studio-bp-autonomy-label" id="autonomyLabel">Assistant</div>
+                        </div>
+                    </div>
+
+                    <div class="studio-step-panel" id="stepPanel7">
+                        <h2 class="studio-step-title">7. Quelles règles de sécurité ?</h2>
+                        <div class="studio-check-grid cols-3" id="securityGrid"></div>
+                    </div>
+
+                    <div class="studio-step-panel" id="stepPanel8">
+                        <h2 class="studio-step-title">8. Blueprint — résumé final</h2>
+                        <div id="finalReview"></div>
+                    </div>
+
+                    <div class="studio-footer">
+                        <div class="studio-footer-left">
+                            <button type="button" class="studio-btn studio-btn-ghost" id="btnPrev" style="display:none">
+                                <i class="bi bi-arrow-left"></i> Retour
+                            </button>
+                            <a asp-action="Index" class="studio-btn studio-btn-ghost">Annuler</a>
+                        </div>
+                        <div class="studio-footer-right">
+                            <button type="button" class="studio-btn studio-btn-outline" id="btnDraft">
+                                Enregistrer comme brouillon
+                            </button>
+                            <button type="button" class="studio-btn studio-btn-primary" id="btnNext">
+                                Suivant <i class="bi bi-arrow-right"></i>
+                            </button>
+                            <button type="submit" class="studio-btn studio-btn-primary" id="btnGenerate" style="display:none">
+                                <i class="bi bi-stars"></i> Générer le Blueprint
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <aside class="studio-blueprint-panel">
+                <div class="studio-blueprint-card">
+                    <div class="studio-blueprint-head">
+                        <h3><i class="bi bi-magic"></i> Blueprint en construction</h3>
+                        <span class="studio-bp-status-badge">En construction</span>
+                    </div>
+                    <div class="studio-blueprint-body">
+                        <div class="studio-bp-field">
+                            <div class="studio-bp-label">Nom proposé</div>
+                            <div class="studio-bp-name-row">
+                                <span class="studio-bp-value" id="bp-name">Email Invoice Agent</span>
+                                <button type="button" class="studio-bp-edit" id="bpEditName" title="Modifier le nom">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="studio-bp-field">
+                            <div class="studio-bp-label">Catégorie</div>
+                            <div id="bp-category"><span class="studio-bp-pill">Email</span></div>
+                        </div>
+                        <div class="studio-bp-field">
+                            <div class="studio-bp-label">Objectif principal</div>
+                            <div class="studio-bp-value undefined" id="bp-objective">— Non défini —</div>
+                        </div>
+                        <div class="studio-bp-field">
+                            <div class="studio-bp-label">Sources détectées</div>
+                            <div class="studio-bp-value undefined" id="bp-sources">— Non défini —</div>
+                        </div>
+                        <div class="studio-bp-field">
+                            <div class="studio-bp-label">Actions prévues</div>
+                            <div class="studio-bp-value undefined" id="bp-actions">— Non défini —</div>
+                        </div>
+                        <div class="studio-bp-field">
+                            <div class="studio-bp-label">Déclencheur</div>
+                            <div class="studio-bp-value undefined" id="bp-trigger">— Non défini —</div>
+                        </div>
+                        <div class="studio-bp-field">
+                            <div class="studio-bp-label">Niveau d'autonomie</div>
+                            <div class="studio-bp-autonomy-bar">
+                                <div class="studio-bp-autonomy-fill" id="bp-autonomy-fill" style="width:25%"></div>
+                            </div>
+                            <div class="studio-bp-autonomy-label" id="bp-autonomy">Assistant</div>
+                        </div>
+                        <div class="studio-bp-field">
+                            <div class="studio-bp-label">Complexité estimée</div>
+                            <div class="studio-bp-stars" id="bp-complexity">
+                                <span class="filled">★</span><span class="filled">★</span><span>★</span><span>★</span><span>★</span>
+                            </div>
+                        </div>
+                        <div class="studio-bp-field">
+                            <div class="studio-bp-label">Coût estimé (IA)</div>
+                            <div class="studio-bp-cost" id="bp-cost">$0.00 / mois</div>
+                        </div>
+                        <div class="studio-bp-field">
+                            <div class="studio-bp-label">Runtime cible</div>
+                            <div id="bp-runtime"><span class="studio-bp-pill blue">Windows Service</span></div>
+                        </div>
+                        <div class="studio-bp-field">
+                            <div class="studio-bp-label">Statut</div>
+                            <div id="bp-status"><span class="studio-bp-pill amber">En construction</span></div>
+                        </div>
+                    </div>
+                    <div class="studio-bp-empty" id="bp-empty">
+                        <div class="studio-bp-empty-icon"><i class="bi bi-diagram-3"></i></div>
+                        <p>Complétez les étapes pour voir le blueprint complet de votre agent.</p>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </form>
+
+    <div class="studio-draft-toast" id="draftToast">Brouillon enregistré localement</div>
 </div>
 
 @section Scripts {
-    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/agentia-studio.js" asp-append-version="true"></script>
 }

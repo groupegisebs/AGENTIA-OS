@@ -1,3 +1,5 @@
+using System.Text;
+using System.Text.Json;
 using System.Security.Claims;
 using AgenticFactory.Web.Models;
 using AgenticFactory.Web.Services;
@@ -48,6 +50,7 @@ public class AgentsController(ApiClient api) : AuthenticatedController
     {
         SetActiveNav("Agents");
         ViewData["AgentsMode"] = true;
+        ViewData["StudioMode"] = true;
         return View(new CreateAgentViewModel());
     }
 
@@ -56,25 +59,78 @@ public class AgentsController(ApiClient api) : AuthenticatedController
     public async Task<IActionResult> Create(CreateAgentViewModel model)
     {
         SetActiveNav("Agents");
-        if (string.IsNullOrWhiteSpace(model.Message))
+        ViewData["AgentsMode"] = true;
+        ViewData["StudioMode"] = true;
+
+        var message = BuildCreationMessage(model);
+        if (string.IsNullOrWhiteSpace(message))
         {
-            ModelState.AddModelError(nameof(model.Message), "Décrivez ce que l'agent doit faire.");
+            ModelState.AddModelError(string.Empty, "Complétez au minimum le domaine et un objectif, ou ajoutez une description.");
             return View(model);
         }
 
         AuthenticateApi(api);
-        var result = await api.CreateAgentFromChatAsync(model.Message.Trim());
+        var result = await api.CreateAgentFromChatAsync(message);
         if (result is null)
         {
             ModelState.AddModelError(string.Empty, "Impossible de générer le blueprint. Vérifiez vos droits ou réessayez.");
+            model.Message = message;
             return View(model);
         }
 
         var label = result.PromptSummary.Length > 60
             ? result.PromptSummary[..60] + "…"
             : result.PromptSummary;
-        TempData["Success"] = $"Agent « {label} » créé. Déployez-le depuis la liste.";
+        TempData["Success"] = $"Collaborateur IA « {label} » recruté. Déployez-le depuis la liste.";
         return RedirectToAction(nameof(Index));
+    }
+
+    private static string BuildCreationMessage(CreateAgentViewModel model)
+    {
+        if (!string.IsNullOrWhiteSpace(model.Message))
+            return model.Message.Trim();
+
+        if (string.IsNullOrWhiteSpace(model.WizardJson))
+            return string.Empty;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(model.WizardJson);
+            var root = doc.RootElement;
+            var sb = new StringBuilder();
+            sb.AppendLine("Créer un agent IA via Agent Factory Studio avec la configuration suivante :");
+            AppendLine(sb, "Domaine métier", root, "domain");
+            AppendArray(sb, "Objectifs", root, "objectives");
+            AppendArray(sb, "Sources de données", root, "sources");
+            AppendArray(sb, "Actions workflow", root, "actions");
+            AppendLine(sb, "Déclencheur", root, "trigger");
+            AppendLine(sb, "Runtime cible", root, "runtime");
+            AppendLine(sb, "Niveau d'autonomie", root, "autonomy");
+            AppendArray(sb, "Sécurité", root, "security");
+            AppendLine(sb, "Nom proposé", root, "agentName");
+            if (root.TryGetProperty("freeText", out var ft) && !string.IsNullOrWhiteSpace(ft.GetString()))
+                sb.AppendLine($"Description complémentaire : {ft.GetString()}");
+            return sb.ToString().Trim();
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    private static void AppendLine(StringBuilder sb, string label, JsonElement root, string prop)
+    {
+        if (root.TryGetProperty(prop, out var v) && !string.IsNullOrWhiteSpace(v.GetString()))
+            sb.AppendLine($"- {label} : {v.GetString()}");
+    }
+
+    private static void AppendArray(StringBuilder sb, string label, JsonElement root, string prop)
+    {
+        if (!root.TryGetProperty(prop, out var arr) || arr.ValueKind != JsonValueKind.Array)
+            return;
+        var items = arr.EnumerateArray().Select(x => x.GetString()).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
+        if (items.Count > 0)
+            sb.AppendLine($"- {label} : {string.Join(", ", items)}");
     }
 
     [HttpPost]
