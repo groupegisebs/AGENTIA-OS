@@ -64,6 +64,14 @@ public sealed class StudioEstimateRequestModel
     public bool HeartbeatEnabled { get; set; }
 }
 
+public sealed class RecommendExecutionProviderRequestModel
+{
+    public string? ActionId { get; set; }
+    public string? ActuatorType { get; set; }
+    public List<string>? Sensors { get; set; }
+    public List<string>? Tools { get; set; }
+}
+
 public sealed class DeploymentsIndexViewModel
 {
     public List<DeploymentAgentGroup> AgentGroups { get; set; } = [];
@@ -130,3 +138,24 @@ public sealed record RunListItem(
     int PromptTokens,
     int CompletionTokens,
     string ErrorMessage);
+
+public sealed class ExecutionProvidersIndexViewModel
+{
+    public List<ExecutionProviderListItem> Providers { get; set; } = [];
+}
+
+public sealed record ExecutionProviderListItem(
+    Guid Id,
+    string Name,
+    string Description,
+    string Category,
+    string ProviderType,
+    string Version,
+    string Author,
+    string State,
+    bool IsEnabled,
+    bool SupportsMonitoring,
+    bool SupportsRetry,
+    bool SupportsRollback,
+    bool SupportsScheduling,
+    bool SupportsParameters);

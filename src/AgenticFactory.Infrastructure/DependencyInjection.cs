@@ -1,5 +1,6 @@
 using System.Text;
 using AgenticFactory.Application;
+using AgenticFactory.Domain;
 using AgenticFactory.Infrastructure.Identity;
 using AgenticFactory.Infrastructure.Persistence;
 using AgenticFactory.Infrastructure.Services;
@@ -95,16 +96,16 @@ public static class DependencyInjection
             var runtime = sp.GetRequiredService<WindowsRuntimeProvider>();
             ExecutionProviderType[] stubTypes =
             [
-                Domain.ExecutionProviderType.PowerAutomate,
-                Domain.ExecutionProviderType.LogicApps,
-                Domain.ExecutionProviderType.N8n,
-                Domain.ExecutionProviderType.Webhook,
-                Domain.ExecutionProviderType.RestApi,
-                Domain.ExecutionProviderType.PowerShell,
-                Domain.ExecutionProviderType.Python,
-                Domain.ExecutionProviderType.DockerJob,
-                Domain.ExecutionProviderType.AzureFunction,
-                Domain.ExecutionProviderType.WindowsScript
+                ExecutionProviderType.PowerAutomate,
+                ExecutionProviderType.LogicApps,
+                ExecutionProviderType.N8n,
+                ExecutionProviderType.Webhook,
+                ExecutionProviderType.RestApi,
+                ExecutionProviderType.PowerShell,
+                ExecutionProviderType.Python,
+                ExecutionProviderType.DockerJob,
+                ExecutionProviderType.AzureFunction,
+                ExecutionProviderType.WindowsScript
             ];
             IExecutionProvider[] providers = [runtime, .. stubTypes.Select(t => new StubExecutionProvider(t))];
             return providers;

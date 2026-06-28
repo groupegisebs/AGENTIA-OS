@@ -100,7 +100,6 @@ public static class ExecutionProviderSeed
 
 public sealed class ExecutionProviderCatalogService(
     AgenticFactoryDbContext dbContext,
-    IExecutionProviderRegistry registry,
     IPowerAutomateGenerator powerAutomateGenerator,
     ILogicAppGenerator logicAppGenerator,
     IN8nWorkflowGenerator n8nWorkflowGenerator) : IExecutionProviderCatalogService

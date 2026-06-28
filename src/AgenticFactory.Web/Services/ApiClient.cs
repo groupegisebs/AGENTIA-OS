@@ -138,6 +138,35 @@ public record StudioEstimateResponse(
     string CostBasis,
     string CostLabel);
 
+public record ExecutionProviderResponse(
+    Guid Id,
+    string Name,
+    string Description,
+    string Category,
+    string ProviderType,
+    string Version,
+    string Author,
+    string State,
+    bool IsEnabled,
+    bool SupportsMonitoring,
+    bool SupportsRetry,
+    bool SupportsRollback,
+    bool SupportsScheduling,
+    bool SupportsParameters);
+
+public record RecommendExecutionProviderRequest(
+    string? ActionId,
+    string ActuatorType,
+    IReadOnlyList<string>? Sensors,
+    IReadOnlyList<string>? Tools);
+
+public record RecommendExecutionProviderResponse(
+    Guid ProviderId,
+    string ProviderName,
+    string ProviderType,
+    string Reason,
+    double Confidence);
+
 public class ApiClient(HttpClient http)
 {
     private static readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
@@ -288,5 +317,24 @@ public class ApiClient(HttpClient http)
         if (!response.IsSuccessStatusCode)
             return (null, content);
         return (JsonSerializer.Deserialize<DeployResponse>(content, _json), null);
+    }
+
+    public async Task<List<ExecutionProviderResponse>?> GetExecutionProvidersAsync()
+    {
+        var response = await http.GetAsync("/api/execution-providers");
+        if (!response.IsSuccessStatusCode) return null;
+        var content = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<List<ExecutionProviderResponse>>(content, _json);
+    }
+
+    public async Task<RecommendExecutionProviderResponse?> RecommendExecutionProviderAsync(
+        RecommendExecutionProviderRequest request)
+    {
+        var body = JsonSerializer.Serialize(request, _json);
+        var response = await http.PostAsync("/api/execution-providers/recommend",
+            new StringContent(body, Encoding.UTF8, "application/json"));
+        if (!response.IsSuccessStatusCode) return null;
+        var content = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<RecommendExecutionProviderResponse>(content, _json);
     }
 }

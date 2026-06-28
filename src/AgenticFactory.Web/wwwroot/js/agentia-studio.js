@@ -2,7 +2,7 @@
     'use strict';
 
     const STORAGE_KEY = 'agentia-studio-draft';
-    const SCHEMA_VERSION = 2;
+    const SCHEMA_VERSION = 3;
     const TOTAL_STEPS = 10;
     const MAX_CHARS = 2000;
 
@@ -84,12 +84,33 @@
     let state = defaultState();
     let latestEstimate = null;
     let estimateTimer = null;
+    let recommendTimer = null;
     let activeConfigModal = null;
 
     const $ = (sel, ctx) => (ctx || document).querySelector(sel);
     const $$ = (sel, ctx) => [...(ctx || document).querySelectorAll(sel)];
     const UNDEF = '— Non défini —';
     const EXEC = () => window.STUDIO_EXECUTION;
+    const EXEC_PROVIDERS = () => window.STUDIO_EXECUTION_PROVIDER_CATALOG;
+
+    function getDefaultProviderId() {
+        return EXEC_PROVIDERS()?.defaultProviderId || 'a1000001-0001-4001-8001-000000000001';
+    }
+
+    function ensureActuatorExecutionProvider(actuatorId) {
+        if (!state.actuatorConfigs[actuatorId]) state.actuatorConfigs[actuatorId] = {};
+        const c = state.actuatorConfigs[actuatorId];
+        if (!c.executionProvider) {
+            const def = getStudioExecutionProvider(getDefaultProviderId());
+            c.executionProvider = {
+                id: getDefaultProviderId(),
+                name: def?.name || 'Windows Runtime',
+                providerType: def?.providerType || 'InternalRuntime'
+            };
+        }
+        if (!c.executionConfig) c.executionConfig = { mode: 'Synchronous', timeoutSeconds: 300 };
+        return c;
+    }
 
     function init() {
         if (!$('.studio-page')) return;
@@ -229,6 +250,7 @@
                 } else {
                     arr.push(id);
                     if (!state[configs][id]) state[configs][id] = {};
+                    if (key === 'actuators') ensureActuatorExecutionProvider(id);
                     item.classList.add('checked');
                     $('input', item).checked = true;
                     const itemDef = cfg.getItem(id);
@@ -348,10 +370,103 @@
         const c = state[configs][itemId] || {};
         const body = $('#catalogConfigModalBody');
         if (body) {
-            body.innerHTML = `<div class="studio-source-config-fields">${renderConfigFields(item.fields, c, cfg.dataAttr, itemId)}</div>`;
+            let html = `<div class="studio-source-config-fields">${renderConfigFields(item.fields, c, cfg.dataAttr, itemId)}</div>`;
+            if (key === 'actuators') html += renderExecutionProviderPicker(itemId, c);
+            body.innerHTML = html;
             bindConfigInputs(body, configs, cfg.dataAttr, itemId, key);
+            if (key === 'actuators') bindExecutionProviderPicker(itemId);
         }
         updateCatalogConfigProgress(key, itemId);
+        if (key === 'actuators') scheduleRecommendProvider(itemId);
+    }
+
+    function renderExecutionProviderPicker(actuatorId, config) {
+        ensureActuatorExecutionProvider(actuatorId);
+        const ep = config.executionProvider || {};
+        const catalog = EXEC_PROVIDERS();
+        const providers = catalog?.providers || [];
+        const recBadge = config.recommendation
+            ? `<div class="studio-exec-rec-badge"><i class="bi bi-stars"></i> ${escapeHtml(config.recommendation.providerName)} recommandé</div>`
+            : '';
+        const cards = providers.map(p => {
+            const selected = (ep.id === p.id || ep.providerType === p.providerType);
+            const caps = [
+                p.supportsMonitoring ? 'Monitoring' : null,
+                p.supportsRetry ? 'Retry' : null,
+                p.supportsScheduling ? 'Planification' : null
+            ].filter(Boolean).join(' · ');
+            return `
+                <label class="studio-exec-provider-card${selected ? ' selected' : ''}" data-exec-provider="${p.id}">
+                    <input type="radio" name="execProvider_${actuatorId}" ${selected ? 'checked' : ''}>
+                    <span class="studio-exec-provider-icon"><i class="bi ${p.icon}"></i></span>
+                    <span class="studio-exec-provider-name">${escapeHtml(p.name)}</span>
+                    <span class="studio-exec-provider-desc">${escapeHtml(p.description)}</span>
+                    ${caps ? `<span class="studio-exec-provider-caps">${escapeHtml(caps)}</span>` : ''}
+                </label>`;
+        }).join('');
+        return `
+            <div class="studio-exec-provider-section" data-actuator-exec="${actuatorId}">
+                <h4 class="studio-exec-provider-title"><i class="bi bi-lightning-charge"></i> Comment exécuter cette action ?</h4>
+                <p class="studio-step-hint">Choisissez le moteur d'exécution pour cet actionneur. L'agent Windows Service reste l'orchestrateur.</p>
+                ${recBadge}
+                <div class="studio-exec-provider-grid">${cards}</div>
+            </div>`;
+    }
+
+    function bindExecutionProviderPicker(actuatorId) {
+        $$(`[data-actuator-exec="${actuatorId}"] [data-exec-provider]`).forEach(card => {
+            card.addEventListener('click', e => {
+                e.preventDefault();
+                const pid = card.dataset.execProvider;
+                const p = getStudioExecutionProvider(pid);
+                if (!p) return;
+                ensureActuatorExecutionProvider(actuatorId);
+                state.actuatorConfigs[actuatorId].executionProvider = {
+                    id: p.id,
+                    name: p.name,
+                    providerType: p.providerType
+                };
+                $$(`[data-actuator-exec="${actuatorId}"] .studio-exec-provider-card`).forEach(c =>
+                    c.classList.toggle('selected', c === card));
+                updateBlueprint();
+            });
+        });
+    }
+
+    function scheduleRecommendProvider(actuatorId) {
+        clearTimeout(recommendTimer);
+        recommendTimer = setTimeout(() => fetchRecommendProvider(actuatorId), 400);
+    }
+
+    async function fetchRecommendProvider(actuatorId) {
+        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+        if (!token) return;
+        try {
+            const res = await fetch('/Agents/RecommendExecutionProvider', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
+                body: JSON.stringify({
+                    actionId: actuatorId,
+                    actuatorType: actuatorId,
+                    sensors: state.sensors,
+                    tools: state.tools
+                })
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            ensureActuatorExecutionProvider(actuatorId);
+            state.actuatorConfigs[actuatorId].recommendation = data;
+            if (activeConfigModal?.key === 'actuators' && activeConfigModal.itemId === actuatorId) {
+                const section = $(`[data-actuator-exec="${actuatorId}"]`);
+                if (section && !section.querySelector('.studio-exec-rec-badge')) {
+                    const badge = document.createElement('div');
+                    badge.className = 'studio-exec-rec-badge';
+                    badge.innerHTML = `<i class="bi bi-stars"></i> ${escapeHtml(data.providerName)} recommandé`;
+                    section.querySelector('.studio-exec-provider-title')?.after(badge);
+                }
+            }
+            updateBlueprint();
+        } catch (_) { /* fallback to catalog default */ }
     }
 
     function bindConfigInputs(container, configsKey, dataAttr, itemId, catalogKey) {
@@ -703,7 +818,30 @@
                 const v = (c[f.key] || '').toString().trim();
                 if (v) configSummary[f.key] = f.secret ? '[VAULT]' : v;
             });
-            return { id, label: cfg.getLabel(id), config: configSummary };
+            const detail = { id, label: cfg.getLabel(id), config: configSummary };
+            if (key === 'actuators') {
+                ensureActuatorExecutionProvider(id);
+                detail.executionProvider = { ...c.executionProvider };
+                detail.executionConfig = { ...(c.executionConfig || {}) };
+            }
+            return detail;
+        });
+    }
+
+    function buildExecutionProvidersPayload() {
+        return (state.actuators || []).map(id => {
+            ensureActuatorExecutionProvider(id);
+            const c = state.actuatorConfigs[id];
+            return {
+                actuatorId: id,
+                actuatorLabel: getStudioActuatorLabel(id),
+                providerId: c.executionProvider?.id,
+                providerName: c.executionProvider?.name,
+                providerType: c.executionProvider?.providerType,
+                executionMode: c.executionConfig?.mode || 'Synchronous',
+                timeoutSeconds: c.executionConfig?.timeoutSeconds || 300,
+                recommendation: c.recommendation?.reason || null
+            };
         });
     }
 
@@ -808,6 +946,7 @@
             actuators: getLabels('actuators'),
             actuatorIds: [...state.actuators],
             actuatorDetails: buildCatalogDetails('actuators'),
+            executionProviders: buildExecutionProvidersPayload(),
             decision: { engine: state.decision.engine, label: decisionLabel, config: { ...state.decision.config } },
             memory: { types: state.memory.types.map(getStudioMemoryLabel), typeIds: [...state.memory.types], config: { ...state.memory.config } },
             trigger: getTriggerLabel(),
@@ -841,6 +980,9 @@
         appendDetails(lines, p.toolDetails);
         lines.push(`- Actionneurs (Act) : ${p.actuators.join(', ') || 'Aucun'}`);
         appendDetails(lines, p.actuatorDetails);
+        (p.executionProviders || []).forEach(ep => {
+            lines.push(`  · Provider d'exécution : ${ep.actuatorLabel} → ${ep.providerName}`);
+        });
         lines.push(`- Moteur de décision : ${p.decision?.label || p.decision?.engine || '—'}`);
         lines.push(`- Mémoire : ${p.memory?.types?.join(', ') || 'Aucune'}`);
         lines.push(`- Exécution : ${p.runtime} — ${p.trigger}`);
@@ -1009,7 +1151,7 @@
         ).join('')}</div>`;
     }
 
-    function renderCatalogItems(details, emptyText) {
+    function renderCatalogItems(details, emptyText, showExecutionProvider) {
         if (!details?.length) return `<span class="studio-wf-muted">${escapeHtml(emptyText)}</span>`;
         return details.map(d => {
             const keys = Object.entries(d.config || {});
@@ -1018,7 +1160,10 @@
                     `<span class="studio-wf-tag${v === '[VAULT]' ? ' vault' : ''}"><span class="studio-wf-tag-k">${escapeHtml(k)}</span> ${escapeHtml(v)}</span>`
                 ).join('')
                 : '<span class="studio-wf-muted">Par défaut</span>';
-            return `<div class="studio-wf-item"><span class="studio-wf-item-label">${escapeHtml(d.label)}</span><div class="studio-wf-tags">${tags}</div></div>`;
+            const providerTag = showExecutionProvider && d.executionProvider?.name
+                ? `<span class="studio-wf-tag provider"><i class="bi bi-lightning-charge"></i> ${escapeHtml(d.executionProvider.name)}</span>`
+                : '';
+            return `<div class="studio-wf-item"><span class="studio-wf-item-label">${escapeHtml(d.label)}</span><div class="studio-wf-tags">${providerTag}${tags}</div></div>`;
         }).join('');
     }
 
@@ -1195,10 +1340,19 @@
                     ${renderWfCard('Decision Engine — Decide', 'bi-cpu', 'Decide', 6,
                         `<p class="studio-wf-text"><strong>${escapeHtml(p.decision.label)}</strong></p>${renderConfigTags(buildDecisionSummary())}`)}
                     ${renderWfCard('Tools — Capacités', 'bi-wrench', 'Decide / Act', 4, renderCatalogItems(p.toolDetails, 'Aucun outil'))}
-                    ${renderWfCard('Actuators — Act', 'bi-send', 'Act', 5, renderCatalogItems(p.actuatorDetails, 'Aucun actionneur'))}
+                    ${renderWfCard('Actuators — Act', 'bi-send', 'Act', 5, renderCatalogItems(p.actuatorDetails, 'Aucun actionneur', true))}
                     ${renderWfCard('Memory — Log / Contexte', 'bi-database', 'Log', 7, memoryBody)}
                     ${renderWfCard('Execution Runtime — Wait', 'bi-gear-wide-connected', 'Wait', 8, renderKvRows(buildExecutionSummary(p)))}
                     ${renderWfCard('Security — Verify', 'bi-shield-check', 'Verify', 9, securityBody)}
+                </div>
+                <div class="studio-wf-exec-cta">
+                    <h4><i class="bi bi-question-circle"></i> Comment exécuter mon workflow ?</h4>
+                    <ul>
+                        <li>Votre agent sera créé comme <strong>Windows Service orchestrateur</strong> — il coordonne la boucle agentique.</li>
+                        <li>Chaque action (actionneur) s'exécute via le <strong>provider choisi</strong> (Runtime, Power Automate, n8n, etc.).</li>
+                        <li>Après <strong>Générer le Blueprint</strong>, déployez depuis la liste <a href="/Agents">Agents</a> ou <a href="/Deployments">Déploiements</a>.</li>
+                        <li>Consultez le catalogue complet sur la page <a href="/ExecutionProviders">Execution Providers</a>.</li>
+                    </ul>
                 </div>
             </div>`;
 
@@ -1237,6 +1391,10 @@
     function migrateLegacyDraft(saved) {
         if (saved.schemaVersion >= SCHEMA_VERSION) return saved;
         const migrated = { ...defaultState(), ...saved, schemaVersion: SCHEMA_VERSION };
+
+        if (saved.schemaVersion === 2 && saved.actuatorConfigs) {
+            Object.keys(saved.actuatorConfigs).forEach(id => ensureActuatorExecutionProvider(id));
+        }
 
         if (saved.domain && !saved.businessDomain) migrated.businessDomain = saved.domain;
         if (saved.customDomainLabel) migrated.missionContext = saved.customDomainLabel;

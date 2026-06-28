@@ -1811,3 +1811,78 @@ body.studio-mode .af-topbar { display: none; }
     text-align: right;
     word-break: break-word;
 }
+
+/* Execution Providers — wizard actuator config */
+.studio-exec-provider-section {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid #e2e8f0;
+}
+.studio-exec-provider-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #0f172a;
+}
+.studio-exec-provider-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+}
+.studio-exec-provider-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    background: #fff;
+}
+.studio-exec-provider-card:hover { border-color: #a5b4fc; background: #f8fafc; }
+.studio-exec-provider-card.selected { border-color: #6366f1; background: #eef2ff; }
+.studio-exec-provider-card input { display: none; }
+.studio-exec-provider-icon { font-size: 1.25rem; color: #6366f1; }
+.studio-exec-provider-name { font-weight: 600; font-size: 0.82rem; color: #0f172a; }
+.studio-exec-provider-desc { font-size: 0.68rem; color: #64748b; line-height: 1.35; }
+.studio-exec-provider-caps { font-size: 0.65rem; color: #94a3b8; }
+.studio-exec-rec-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #7c3aed;
+    background: #f5f3ff;
+    padding: 6px 12px;
+    border-radius: 999px;
+    margin-bottom: 8px;
+}
+.studio-wf-tag.provider {
+    background: #eef2ff;
+    color: #4338ca;
+    border-color: #c7d2fe;
+}
+.studio-wf-exec-cta {
+    margin-top: 8px;
+    padding: 20px 24px;
+    background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%);
+    border: 1px solid #c7d2fe;
+    border-radius: 12px;
+}
+.studio-wf-exec-cta h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: #312e81;
+}
+.studio-wf-exec-cta ul {
+    margin: 0;
+    padding-left: 1.25rem;
+    color: #475569;
+    font-size: 0.875rem;
+    line-height: 1.6;
+}
+.studio-wf-exec-cta a { color: #6366f1; font-weight: 500; }

@@ -104,6 +104,11 @@
                 </a>
             </div>
             <div class="af-nav-item">
+                <a asp-controller="ExecutionProviders" asp-action="Index" class="@(activeNav == "ExecutionProviders" ? "active" : "")">
+                    <i class="bi bi-plug"></i> Execution Providers
+                </a>
+            </div>
+            <div class="af-nav-item">
                 <a asp-controller="Dashboard" asp-action="Index" class="@(activeNav == "Monitoring" ? "active" : "")">
                     <i class="bi bi-graph-up"></i> Monitoring
                 </a>

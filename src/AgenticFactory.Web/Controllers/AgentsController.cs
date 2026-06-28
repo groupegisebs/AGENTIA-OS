@@ -158,6 +158,30 @@ public class AgentsController(ApiClient api) : AuthenticatedController
         });
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RecommendExecutionProvider([FromBody] RecommendExecutionProviderRequestModel model)
+    {
+        AuthenticateApi(api);
+        var result = await api.RecommendExecutionProviderAsync(new RecommendExecutionProviderRequest(
+            model.ActionId,
+            model.ActuatorType ?? string.Empty,
+            model.Sensors,
+            model.Tools));
+
+        if (result is null)
+            return StatusCode(502, new { message = "Impossible d'obtenir une recommandation." });
+
+        return Ok(new
+        {
+            providerId = result.ProviderId,
+            providerName = result.ProviderName,
+            providerType = result.ProviderType,
+            reason = result.Reason,
+            confidence = result.Confidence
+        });
+    }
+
     private static string BuildCreationMessage(CreateAgentViewModel model)
     {
         if (!string.IsNullOrWhiteSpace(model.Message))
@@ -186,6 +210,7 @@ public class AgentsController(ApiClient api) : AuthenticatedController
                 AppendCatalogDetails(sb, root, "toolDetails");
                 AppendArray(sb, "Actionneurs (Act)", root, "actuators");
                 AppendCatalogDetails(sb, root, "actuatorDetails");
+                AppendExecutionProviders(sb, root);
                 AppendDecision(sb, root);
                 AppendMemory(sb, root);
                 AppendLine(sb, "Configuration d'exécution", root, "trigger");
@@ -245,6 +270,36 @@ public class AgentsController(ApiClient api) : AuthenticatedController
             var items = types.EnumerateArray().Select(x => x.GetString()).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
             if (items.Count > 0)
                 sb.AppendLine($"- Mémoire : {string.Join(", ", items)}");
+        }
+    }
+
+    private static void AppendExecutionProviders(StringBuilder sb, JsonElement root)
+    {
+        if (root.TryGetProperty("executionProviders", out var providers) && providers.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in providers.EnumerateArray())
+            {
+                var label = item.TryGetProperty("actuatorLabel", out var l) ? l.GetString() : null;
+                var provider = item.TryGetProperty("providerName", out var p) ? p.GetString() : null;
+                if (!string.IsNullOrWhiteSpace(label) && !string.IsNullOrWhiteSpace(provider))
+                    sb.AppendLine($"  · Provider d'exécution : {label} → {provider}");
+            }
+            return;
+        }
+
+        if (!root.TryGetProperty("actuatorDetails", out var details) || details.ValueKind != JsonValueKind.Array)
+            return;
+
+        foreach (var item in details.EnumerateArray())
+        {
+            var label = item.TryGetProperty("label", out var l) ? l.GetString() : null;
+            if (string.IsNullOrWhiteSpace(label)) continue;
+            if (item.TryGetProperty("executionProvider", out var ep) && ep.ValueKind == JsonValueKind.Object)
+            {
+                var name = ep.TryGetProperty("name", out var n) ? n.GetString() : null;
+                if (!string.IsNullOrWhiteSpace(name))
+                    sb.AppendLine($"  · Provider d'exécution : {label} → {name}");
+            }
         }
     }
 
