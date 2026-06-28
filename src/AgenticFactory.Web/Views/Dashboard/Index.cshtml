@@ -4,56 +4,90 @@
 }
 
 <div class="container py-4">
-    <h2 class="mb-4">Agentic Factory Monitoring</h2>
+    <h2 class="mb-4">Agentic Factory — Monitoring</h2>
+
     <div class="row g-3 mb-4">
-        <div class="col-md-2"><div class="card h-100"><div class="card-body"><strong>Agents</strong><div>@Model.Stats.TotalAgents</div></div></div></div>
-        <div class="col-md-2"><div class="card h-100"><div class="card-body"><strong>Runs (today)</strong><div>@Model.Stats.RunsToday</div></div></div></div>
-        <div class="col-md-2"><div class="card h-100"><div class="card-body"><strong>Errors (today)</strong><div>@Model.Stats.FailedRunsToday</div></div></div></div>
-        <div class="col-md-3"><div class="card h-100"><div class="card-body"><strong>Tokens (today)</strong><div>@Model.Stats.TokensToday</div></div></div></div>
-        <div class="col-md-3"><div class="card h-100"><div class="card-body"><strong>Cost (today, USD)</strong><div>@Model.Stats.EstimatedCostTodayUsd.ToString("0.0000")</div></div></div></div>
+        <div class="col-md-2">
+            <div class="card h-100"><div class="card-body text-center">
+                <div class="text-muted small">Agents</div>
+                <div class="fs-3 fw-bold">@Model.Stats.TotalAgents</div>
+            </div></div>
+        </div>
+        <div class="col-md-2">
+            <div class="card h-100"><div class="card-body text-center">
+                <div class="text-muted small">Runs (aujourd'hui)</div>
+                <div class="fs-3 fw-bold">@Model.Stats.TodayRuns</div>
+            </div></div>
+        </div>
+        <div class="col-md-2">
+            <div class="card h-100 border-danger"><div class="card-body text-center">
+                <div class="text-muted small">Erreurs (aujourd'hui)</div>
+                <div class="fs-3 fw-bold text-danger">@Model.Stats.TodayErrors</div>
+            </div></div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100"><div class="card-body text-center">
+                <div class="text-muted small">Tokens (aujourd'hui)</div>
+                <div class="fs-3 fw-bold">@Model.Stats.TodayTokens.ToString("N0")</div>
+            </div></div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100"><div class="card-body text-center">
+                <div class="text-muted small">Coût (aujourd'hui, USD)</div>
+                <div class="fs-3 fw-bold">$@Model.Stats.TodayCostUsd.ToString("0.0000")</div>
+            </div></div>
+        </div>
     </div>
 
-    <h4>Runtime Status</h4>
-    <table class="table table-striped">
-        <thead><tr><th>Node</th><th>Status</th><th>Last Seen</th><th>Active Triggers</th></tr></thead>
-        <tbody>
-        @foreach (var rt in Model.RuntimeStatuses)
-        {
-            var stale = DateTime.UtcNow - rt.LastSeenUtc > TimeSpan.FromMinutes(2);
-            <tr>
-                <td>@rt.NodeName</td>
-                <td><span class="badge @(stale ? "text-bg-warning" : "text-bg-success")">@rt.Status</span></td>
-                <td>@rt.LastSeenUtc.ToLocalTime()</td>
-                <td>@rt.ActiveTriggerCount</td>
-            </tr>
-        }
-        </tbody>
-    </table>
+    <h4 class="mt-4">Statut des Runtime</h4>
+    @if (!Model.RuntimeStatuses.Any())
+    {
+        <div class="alert alert-secondary">Aucun runtime actif détecté.</div>
+    }
+    else
+    {
+        <table class="table table-striped">
+            <thead><tr><th>Nœud</th><th>Statut</th><th>Dernière activité</th><th>Triggers actifs</th></tr></thead>
+            <tbody>
+            @foreach (var rt in Model.RuntimeStatuses)
+            {
+                var stale = DateTime.UtcNow - rt.LastSeen > TimeSpan.FromMinutes(2);
+                <tr>
+                    <td>@rt.NodeName</td>
+                    <td><span class="badge @(stale ? "text-bg-warning" : "text-bg-success")">@rt.Status</span></td>
+                    <td>@rt.LastSeen.ToLocalTime().ToString("HH:mm:ss")</td>
+                    <td>@rt.ActiveTriggers</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
 
-    <h4>Latest Runs</h4>
-    <table class="table table-hover">
-        <thead><tr><th>Run Id</th><th>Status</th><th>Created</th><th>Tokens</th><th>Cost</th></tr></thead>
-        <tbody id="runsBody">
-        @foreach (var run in Model.RecentRuns)
-        {
-            <tr data-run-id="@run.Id">
-                <td>@run.Id</td>
-                <td class="run-status">@run.Status</td>
-                <td>@run.CreatedAtUtc.ToLocalTime()</td>
-                <td>@(run.PromptTokens + run.CompletionTokens)</td>
-                <td>@run.EstimatedCostUsd.ToString("0.0000")</td>
-            </tr>
-        }
-        </tbody>
-    </table>
+    <h4 class="mt-4">Derniers runs</h4>
+    @if (!Model.RecentRuns.Any())
+    {
+        <div class="alert alert-secondary">Aucun run enregistré.</div>
+    }
+    else
+    {
+        <table class="table table-hover">
+            <thead><tr><th>Run ID</th><th>Statut</th><th>Créé le</th><th>Tokens</th><th>Coût</th></tr></thead>
+            <tbody id="runsBody">
+            @foreach (var run in Model.RecentRuns)
+            {
+                <tr data-run-id="@run.Id">
+                    <td class="font-monospace small">@run.Id</td>
+                    <td class="run-status">
+                        <span class="badge @(run.Status == "Failed" ? "text-bg-danger" : run.Status == "Completed" ? "text-bg-success" : "text-bg-secondary")">
+                            @run.Status
+                        </span>
+                    </td>
+                    <td>@run.CreatedAt.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                    <td>@(run.PromptTokens + run.CompletionTokens)</td>
+                    <td>$@run.CostUsd.ToString("0.0000")</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
 </div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
-<script>
-    const connection = new signalR.HubConnectionBuilder().withUrl("http://localhost:5107/hubs/runs").build();
-    connection.on("run-status", (runId, status) => {
-        const row = document.querySelector(`tr[data-run-id='${runId}'] .run-status`);
-        if (row) row.innerText = status;
-    });
-    connection.start().catch(console.error);
-</script>

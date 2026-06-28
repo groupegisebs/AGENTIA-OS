@@ -1,55 +1,44 @@
-using AgenticFactory.Domain;
-using AgenticFactory.Infrastructure.Identity;
-using AgenticFactory.Infrastructure.Persistence;
-using AgenticFactory.Shared;
+using System.Security.Claims;
 using AgenticFactory.Web.Models;
+using AgenticFactory.Web.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace AgenticFactory.Web.Controllers;
 
 [Authorize]
-public class DashboardController(
-    AgenticFactoryDbContext dbContext,
-    UserManager<AppIdentityUser> userManager) : Controller
+public class DashboardController(ApiClient api) : Controller
 {
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
-        var user = await userManager.GetUserAsync(User);
-        if (user is null || user.OrganizationId == Guid.Empty)
-        {
-            return Forbid();
-        }
+        // Injecter le JWT de l'utilisateur dans le client HTTP
+        var token = User.FindFirstValue("ApiToken");
+        if (!string.IsNullOrEmpty(token))
+            api.SetBearerToken(token);
 
-        var organizationId = user.OrganizationId;
-        var startOfDayUtc = DateTime.UtcNow.Date;
-        var runsQuery = dbContext.AgentRuns.Where(x => x.OrganizationId == organizationId);
-        var runsTodayQuery = runsQuery.Where(x => x.CreatedAtUtc >= startOfDayUtc);
+        var dashboard = await api.GetDashboardAsync();
 
-        var vm = new DashboardViewModel
-        {
-            Stats = new DashboardStatsDto(
-                await dbContext.Agents.CountAsync(x => x.OrganizationId == organizationId, cancellationToken),
-                await runsQuery.CountAsync(cancellationToken),
-                await runsQuery.CountAsync(x => x.Status == RunStatus.Failed, cancellationToken),
-                await runsQuery.SumAsync(x => x.PromptTokens + x.CompletionTokens, cancellationToken),
-                await runsQuery.SumAsync(x => x.EstimatedCostUsd, cancellationToken),
-                await runsTodayQuery.CountAsync(cancellationToken),
-                await runsTodayQuery.CountAsync(x => x.Status == RunStatus.Failed, cancellationToken),
-                await runsTodayQuery.SumAsync(x => x.PromptTokens + x.CompletionTokens, cancellationToken),
-                await runsTodayQuery.SumAsync(x => x.EstimatedCostUsd, cancellationToken)),
-            RecentRuns = await runsQuery
-                .OrderByDescending(x => x.CreatedAtUtc)
-                .Take(10)
-                .Select(x => new RunItem(x.Id, x.Status.ToString(), x.CreatedAtUtc, x.EstimatedCostUsd, x.PromptTokens, x.CompletionTokens))
-                .ToListAsync(cancellationToken),
-            RuntimeStatuses = await dbContext.RuntimeHeartbeats
-                .OrderByDescending(x => x.LastSeenUtc)
-                .Select(x => new RuntimeStatusDto(x.NodeName, x.Status, x.LastSeenUtc, x.ActiveTriggerCount))
-                .ToListAsync(cancellationToken)
-        };
+        var vm = dashboard is null
+            ? new DashboardViewModel()
+            : new DashboardViewModel
+            {
+                Stats = new DashboardStatsDto(
+                    dashboard.Stats.TotalAgents,
+                    dashboard.Stats.TotalRuns,
+                    dashboard.Stats.TotalErrors,
+                    dashboard.Stats.TotalTokens,
+                    dashboard.Stats.TotalCostUsd,
+                    dashboard.Stats.TodayRuns,
+                    dashboard.Stats.TodayErrors,
+                    dashboard.Stats.TodayTokens,
+                    dashboard.Stats.TodayCostUsd),
+                RecentRuns = dashboard.RecentRuns
+                    .Select(r => new RunItem(r.Id, r.Status, r.CreatedAt, r.CostUsd, r.PromptTokens, r.CompletionTokens))
+                    .ToList(),
+                RuntimeStatuses = dashboard.RuntimeStatuses
+                    .Select(r => new RuntimeStatusDto(r.NodeName, r.Status, r.LastSeen, r.ActiveTriggers))
+                    .ToList()
+            };
 
         return View(vm);
     }

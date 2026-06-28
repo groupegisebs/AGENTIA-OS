@@ -1,17 +1,13 @@
-using AgenticFactory.Domain;
-using AgenticFactory.Infrastructure.Identity;
-using AgenticFactory.Infrastructure.Persistence;
-using AgenticFactory.Shared;
+using System.Security.Claims;
 using AgenticFactory.Web.Models;
-using Microsoft.AspNetCore.Identity;
+using AgenticFactory.Web.Services;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AgenticFactory.Web.Controllers;
 
-public class AccountController(
-    UserManager<AppIdentityUser> userManager,
-    SignInManager<AppIdentityUser> signInManager,
-    AgenticFactoryDbContext dbContext) : Controller
+public class AccountController(ApiClient api) : Controller
 {
     [HttpGet]
     public IActionResult Login() => View(new LoginViewModel());
@@ -19,18 +15,16 @@ public class AccountController(
     [HttpPost]
     public async Task<IActionResult> Login(LoginViewModel model)
     {
-        if (!ModelState.IsValid)
+        if (!ModelState.IsValid) return View(model);
+
+        var result = await api.LoginAsync(model.Email, model.Password);
+        if (result is null)
         {
+            ModelState.AddModelError(string.Empty, "Email ou mot de passe incorrect.");
             return View(model);
         }
 
-        var result = await signInManager.PasswordSignInAsync(model.Email, model.Password, false, false);
-        if (!result.Succeeded)
-        {
-            ModelState.AddModelError(string.Empty, "Invalid credentials.");
-            return View(model);
-        }
-
+        await SignInWithCookieAsync(result);
         return RedirectToAction("Index", "Dashboard");
     }
 
@@ -40,53 +34,45 @@ public class AccountController(
     [HttpPost]
     public async Task<IActionResult> Register(RegisterViewModel model)
     {
-        if (!ModelState.IsValid)
+        if (!ModelState.IsValid) return View(model);
+
+        var (result, error) = await api.RegisterAsync(
+            model.Email, model.Password, model.DisplayName, model.OrganizationName);
+
+        if (result is null)
         {
+            ModelState.AddModelError(string.Empty, error ?? "Erreur lors de l'inscription.");
             return View(model);
         }
 
-        var organization = new Organization { Name = model.OrganizationName, Slug = model.OrganizationName.ToLowerInvariant().Replace(" ", "-") };
-        dbContext.Organizations.Add(organization);
-        await dbContext.SaveChangesAsync();
-
-        var user = new AppIdentityUser
-        {
-            UserName = model.Email,
-            Email = model.Email,
-            DisplayName = model.DisplayName,
-            OrganizationId = organization.Id,
-            EmailConfirmed = true
-        };
-        var createResult = await userManager.CreateAsync(user, model.Password);
-        if (!createResult.Succeeded)
-        {
-            ModelState.AddModelError(string.Empty, string.Join(", ", createResult.Errors.Select(x => x.Description)));
-            return View(model);
-        }
-
-        await userManager.AddToRoleAsync(user, SystemRoles.Admin);
-        dbContext.ApplicationUsers.Add(new ApplicationUser
-        {
-            OrganizationId = organization.Id,
-            Email = model.Email,
-            DisplayName = model.DisplayName,
-            IdentityUserId = user.Id.ToString()
-        });
-        dbContext.OrganizationSubscriptions.Add(new OrganizationSubscription
-        {
-            OrganizationId = organization.Id,
-            SubscriptionPlanId = dbContext.SubscriptionPlans.First().Id,
-            IsActive = true
-        });
-        await dbContext.SaveChangesAsync();
-        await signInManager.SignInAsync(user, false);
+        await SignInWithCookieAsync(result);
         return RedirectToAction("Index", "Dashboard");
     }
 
     [HttpPost]
     public async Task<IActionResult> Logout()
     {
-        await signInManager.SignOutAsync();
+        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         return RedirectToAction(nameof(Login));
+    }
+
+    private async Task SignInWithCookieAsync(AuthResponse auth)
+    {
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.Email,            auth.Email),
+            new(ClaimTypes.Name,             auth.FullName),
+            new(ClaimTypes.Role,             auth.Role),
+            new("OrganizationId",            auth.OrganizationId),
+            new("ApiToken",                  auth.Token)
+        };
+
+        var identity  = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        var principal = new ClaimsPrincipal(identity);
+
+        await HttpContext.SignInAsync(
+            CookieAuthenticationDefaults.AuthenticationScheme,
+            principal,
+            new AuthenticationProperties { IsPersistent = false });
     }
 }
