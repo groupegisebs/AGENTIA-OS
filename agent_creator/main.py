@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from agent_creator import __version__
 from agent_creator.config import get_settings
-from agent_creator.db.session import init_db
+from agent_creator.db.session import close_engine, init_db
 from agent_creator.routers import architect, auth, billing, conversations, organizations, os_runtime, plans
 from agent_creator.routers.agents import marketplace_router, router as agents_router
 from agent_creator.routers.publishing import router as publishing_router
@@ -95,6 +95,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     await cache.close()
     if arq_pool:
         await arq_pool.aclose()
+    await close_engine()
 
 
 app = FastAPI(

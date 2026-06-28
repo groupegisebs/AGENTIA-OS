@@ -10,6 +10,7 @@ os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 os.environ.setdefault("JWT_SECRET", "test-secret-key-for-tests-only")
 
 import pytest
+import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from agent_creator.config import get_settings
@@ -22,19 +23,17 @@ def anyio_backend() -> str:
     return "asyncio"
 
 
-@pytest.fixture(autouse=True)
+@pytest_asyncio.fixture(autouse=True)
 async def setup_database():
-    import agent_creator.db.session as db_session
+    from agent_creator.db.session import close_engine, init_db
 
-    db_session._engine = None
-    db_session._async_session_factory = None
-    from agent_creator.db.session import init_db
-
+    await close_engine()
     await init_db()
     yield
+    await close_engine()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def client():
     from agent_creator.main import app
 

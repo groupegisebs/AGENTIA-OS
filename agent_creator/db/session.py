@@ -35,6 +35,15 @@ def async_session_factory() -> async_sessionmaker[AsyncSession]:
     return _async_session_factory
 
 
+async def close_engine() -> None:
+    """Dispose the global async engine and clear cached factory."""
+    global _engine, _async_session_factory
+    if _engine is not None:
+        await _engine.dispose()
+    _engine = None
+    _async_session_factory = None
+
+
 async def init_db() -> None:
     engine = get_engine()
     async with engine.begin() as conn:
