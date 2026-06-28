@@ -71,6 +71,10 @@
               "target": "Package",
               "version": "[10.0.8, )"
             },
+            "Microsoft.OpenApi": {
+              "target": "Package",
+              "version": "[3.7.0, )"
+            },
             "OpenTelemetry.Exporter.Console": {
               "target": "Package",
               "version": "[1.16.0, )"

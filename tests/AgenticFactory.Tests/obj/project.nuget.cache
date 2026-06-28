@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "c6YbskjtRR8=",
+  "dgSpecHash": "HrrAhsVBqgs=",
   "success": true,
   "projectFilePath": "C:\\Users\\bedig\\source\\repos\\GISEEnterpriseEcosystemSolution\\AGENTIA-OS\\tests\\AgenticFactory.Tests\\AgenticFactory.Tests.csproj",
   "expectedPackageFiles": [
@@ -68,7 +68,7 @@
     "C:\\Users\\bedig\\.nuget\\packages\\microsoft.identitymodel.protocols.openidconnect\\8.0.1\\microsoft.identitymodel.protocols.openidconnect.8.0.1.nupkg.sha512",
     "C:\\Users\\bedig\\.nuget\\packages\\microsoft.identitymodel.tokens\\8.0.1\\microsoft.identitymodel.tokens.8.0.1.nupkg.sha512",
     "C:\\Users\\bedig\\.nuget\\packages\\microsoft.net.test.sdk\\17.14.1\\microsoft.net.test.sdk.17.14.1.nupkg.sha512",
-    "C:\\Users\\bedig\\.nuget\\packages\\microsoft.openapi\\2.7.5\\microsoft.openapi.2.7.5.nupkg.sha512",
+    "C:\\Users\\bedig\\.nuget\\packages\\microsoft.openapi\\3.7.0\\microsoft.openapi.3.7.0.nupkg.sha512",
     "C:\\Users\\bedig\\.nuget\\packages\\microsoft.sqlserver.server\\1.0.0\\microsoft.sqlserver.server.1.0.0.nupkg.sha512",
     "C:\\Users\\bedig\\.nuget\\packages\\microsoft.testplatform.objectmodel\\17.14.1\\microsoft.testplatform.objectmodel.17.14.1.nupkg.sha512",
     "C:\\Users\\bedig\\.nuget\\packages\\microsoft.testplatform.testhost\\17.14.1\\microsoft.testplatform.testhost.17.14.1.nupkg.sha512",

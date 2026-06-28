@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("AgenticFactory.Runtime.WindowsService")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4ead5dec320a2f49dd87effe450e35205ffeddf3")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+10c6a6a084bd91bd8ca6edb080dafa94ef96b982")]
 [assembly: System.Reflection.AssemblyProductAttribute("AgenticFactory.Runtime.WindowsService")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AgenticFactory.Runtime.WindowsService")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
