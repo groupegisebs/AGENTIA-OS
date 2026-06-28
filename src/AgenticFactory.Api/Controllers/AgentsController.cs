@@ -30,13 +30,19 @@ public class AgentsController(
     [AllowAnonymous]
     public async Task<IActionResult> Invoke(string endpointSlug, InvokeAgentRequest request, CancellationToken cancellationToken)
     {
+        var organizationId = tenantService.OrganizationId;
+        if (organizationId == Guid.Empty)
+        {
+            return BadRequest("Missing organization context.");
+        }
+
         var apiKey = Request.Headers["X-Agent-Key"].FirstOrDefault();
         if (string.IsNullOrWhiteSpace(apiKey))
         {
             return Unauthorized("Missing X-Agent-Key header.");
         }
 
-        var result = await invocationService.InvokeAsync(endpointSlug, apiKey, request, cancellationToken);
+        var result = await invocationService.InvokeAsync(organizationId, endpointSlug, apiKey, request, cancellationToken);
         return Ok(result);
     }
 }

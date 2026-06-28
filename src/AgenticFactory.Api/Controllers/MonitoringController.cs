@@ -1,3 +1,4 @@
+using AgenticFactory.Application;
 using AgenticFactory.Infrastructure.Persistence;
 using AgenticFactory.Shared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -10,19 +11,35 @@ namespace AgenticFactory.Api.Controllers;
 [ApiController]
 [Route("api/monitoring")]
 [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Policy = "CanViewDashboard")]
-public class MonitoringController(AgenticFactoryDbContext dbContext) : ControllerBase
+public class MonitoringController(
+    AgenticFactoryDbContext dbContext,
+    ICurrentTenantService tenantService) : ControllerBase
 {
     [HttpGet("dashboard")]
     public async Task<IActionResult> Dashboard(CancellationToken cancellationToken)
     {
-        var stats = new DashboardStatsDto(
-            await dbContext.Agents.CountAsync(cancellationToken),
-            await dbContext.AgentRuns.CountAsync(cancellationToken),
-            await dbContext.AgentRuns.CountAsync(x => x.Status == Domain.RunStatus.Failed, cancellationToken),
-            await dbContext.AgentRuns.SumAsync(x => x.PromptTokens + x.CompletionTokens, cancellationToken),
-            await dbContext.AgentRuns.SumAsync(x => x.EstimatedCostUsd, cancellationToken));
+        var organizationId = tenantService.OrganizationId;
+        if (organizationId == Guid.Empty)
+        {
+            return BadRequest("Missing organization context.");
+        }
 
-        var recentRuns = await dbContext.AgentRuns
+        var startOfDayUtc = DateTime.UtcNow.Date;
+        var runsQuery = dbContext.AgentRuns.Where(x => x.OrganizationId == organizationId);
+        var runsTodayQuery = runsQuery.Where(x => x.CreatedAtUtc >= startOfDayUtc);
+
+        var stats = new DashboardStatsDto(
+            await dbContext.Agents.CountAsync(x => x.OrganizationId == organizationId, cancellationToken),
+            await runsQuery.CountAsync(cancellationToken),
+            await runsQuery.CountAsync(x => x.Status == Domain.RunStatus.Failed, cancellationToken),
+            await runsQuery.SumAsync(x => x.PromptTokens + x.CompletionTokens, cancellationToken),
+            await runsQuery.SumAsync(x => x.EstimatedCostUsd, cancellationToken),
+            await runsTodayQuery.CountAsync(cancellationToken),
+            await runsTodayQuery.CountAsync(x => x.Status == Domain.RunStatus.Failed, cancellationToken),
+            await runsTodayQuery.SumAsync(x => x.PromptTokens + x.CompletionTokens, cancellationToken),
+            await runsTodayQuery.SumAsync(x => x.EstimatedCostUsd, cancellationToken));
+
+        var recentRuns = await runsQuery
             .OrderByDescending(x => x.CreatedAtUtc)
             .Take(20)
             .Select(x => new { x.Id, x.Status, x.CreatedAtUtc, x.EstimatedCostUsd, x.PromptTokens, x.CompletionTokens })

@@ -14,4 +14,8 @@ public sealed record DashboardStatsDto(
     int TotalRuns,
     int FailedRuns,
     int TotalTokens,
-    decimal EstimatedCostUsd);
+    decimal EstimatedCostUsd,
+    int RunsToday,
+    int FailedRunsToday,
+    int TokensToday,
+    decimal EstimatedCostTodayUsd);

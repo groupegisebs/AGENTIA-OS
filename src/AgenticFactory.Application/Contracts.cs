@@ -8,6 +8,14 @@ public sealed record DeployAgentRequest(Guid AgentId, Guid BlueprintId, string E
 public sealed record DeployAgentResponse(Guid AgentId, Guid AgentVersionId, Guid DeploymentId, string EndpointSlug, string PlainApiKey);
 public sealed record InvokeAgentRequest(Dictionary<string, object?> Input);
 public sealed record InvokeAgentResponse(Guid RunId, string Status, Dictionary<string, object?> Output, int PromptTokens, int CompletionTokens, decimal EstimatedCostUsd);
+public sealed record ModelGenerationRequest(Guid OrganizationId, string Prompt, string? SystemPrompt);
+public sealed record ModelGenerationResult(
+    string Output,
+    int PromptTokens,
+    int CompletionTokens,
+    decimal EstimatedCostUsd,
+    string Provider,
+    bool UsedFallback);
 
 public interface IBlueprintGenerator
 {
@@ -28,7 +36,7 @@ public interface IAgentDeploymentService
 
 public interface IAgentInvocationService
 {
-    Task<InvokeAgentResponse> InvokeAsync(string endpointSlug, string apiKey, InvokeAgentRequest request, CancellationToken cancellationToken);
+    Task<InvokeAgentResponse> InvokeAsync(Guid organizationId, string endpointSlug, string apiKey, InvokeAgentRequest request, CancellationToken cancellationToken);
 }
 
 public interface ICurrentTenantService
@@ -63,5 +71,5 @@ public interface IAgentMemoryService
 
 public interface IAgentModelProvider
 {
-    Task<(string output, int promptTokens, int completionTokens, decimal cost)> GenerateAsync(string prompt, CancellationToken cancellationToken);
+    Task<ModelGenerationResult> GenerateAsync(ModelGenerationRequest request, CancellationToken cancellationToken);
 }

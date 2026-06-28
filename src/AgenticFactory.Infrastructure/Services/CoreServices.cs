@@ -1,8 +1,11 @@
 using System.IdentityModel.Tokens.Jwt;
+using System.Globalization;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Collections.Concurrent;
+using System.Net.Http.Json;
 using AgenticFactory.Application;
 using AgenticFactory.Domain;
 using AgenticFactory.Infrastructure.Identity;
@@ -13,6 +16,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 
 namespace AgenticFactory.Infrastructure.Services;
@@ -27,6 +31,25 @@ public sealed class CurrentTenantService(IHttpContextAccessor accessor) : ICurre
                 ?? accessor.HttpContext?.Request.Headers["X-Organization-Id"].FirstOrDefault();
 
             return Guid.TryParse(claim, out var id) ? id : Guid.Empty;
+        }
+    }
+}
+
+public static class TenantGuard
+{
+    public static void RequireOrganization(Guid organizationId)
+    {
+        if (organizationId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException("Missing organization context.");
+        }
+    }
+
+    public static void EnsureMatch(Guid expectedOrganizationId, Guid resourceOrganizationId, string resourceName)
+    {
+        if (expectedOrganizationId != resourceOrganizationId)
+        {
+            throw new UnauthorizedAccessException($"{resourceName} does not belong to the current organization.");
         }
     }
 }
@@ -74,6 +97,7 @@ public sealed class AgentCreationService(
 {
     public async Task<AgentBlueprint> CreateBlueprintFromChatAsync(Guid organizationId, ChatMessageRequest request, CancellationToken cancellationToken)
     {
+        TenantGuard.RequireOrganization(organizationId);
         var generated = await blueprintGenerator.GenerateAsync(organizationId, request.Message, cancellationToken);
         var agent = request.ExistingAgentId.HasValue
             ? await dbContext.Agents.FirstAsync(x => x.Id == request.ExistingAgentId.Value && x.OrganizationId == organizationId, cancellationToken)
@@ -115,6 +139,7 @@ public sealed class AgentDeploymentService(
 {
     public async Task<DeployAgentResponse> DeployAsync(Guid organizationId, DeployAgentRequest request, CancellationToken cancellationToken)
     {
+        TenantGuard.RequireOrganization(organizationId);
         var subscription = await dbContext.OrganizationSubscriptions
             .Include(x => x.SubscriptionPlan)
             .FirstOrDefaultAsync(x => x.OrganizationId == organizationId && x.IsActive, cancellationToken)
@@ -179,15 +204,17 @@ public sealed class AgentInvocationService(
     IAgentExecutor executor,
     IHubContext<RunStatusHub> runHub) : IAgentInvocationService
 {
-    public async Task<InvokeAgentResponse> InvokeAsync(string endpointSlug, string apiKey, InvokeAgentRequest request, CancellationToken cancellationToken)
+    public async Task<InvokeAgentResponse> InvokeAsync(Guid organizationId, string endpointSlug, string apiKey, InvokeAgentRequest request, CancellationToken cancellationToken)
     {
+        TenantGuard.RequireOrganization(organizationId);
         var agent = await dbContext.Agents
             .FirstOrDefaultAsync(x => x.EndpointSlug == endpointSlug && x.Status == AgentStatus.Active, cancellationToken)
             ?? throw new InvalidOperationException("Agent not found.");
+        TenantGuard.EnsureMatch(organizationId, agent.OrganizationId, "Agent");
 
         var deployment = await dbContext.AgentDeployments
             .Include(x => x.AgentVersion)
-            .FirstOrDefaultAsync(x => x.AgentId == agent.Id && x.Status == DeploymentStatus.Active, cancellationToken)
+            .FirstOrDefaultAsync(x => x.AgentId == agent.Id && x.Status == DeploymentStatus.Active && x.OrganizationId == organizationId, cancellationToken)
             ?? throw new InvalidOperationException("No active deployment.");
 
         if (!string.Equals(deployment.ApiKeyHash, ApiKeyHasher.Hash(apiKey), StringComparison.Ordinal))
@@ -210,6 +237,10 @@ public sealed class AgentExecutor(
 {
     public async Task<InvokeAgentResponse> ExecuteAsync(Guid organizationId, Agent agent, AgentVersion version, Dictionary<string, object?> input, CancellationToken cancellationToken)
     {
+        TenantGuard.RequireOrganization(organizationId);
+        TenantGuard.EnsureMatch(organizationId, agent.OrganizationId, "Agent");
+        TenantGuard.EnsureMatch(organizationId, version.OrganizationId, "Agent version");
+
         var run = new AgentRun
         {
             OrganizationId = organizationId,
@@ -226,14 +257,19 @@ public sealed class AgentExecutor(
         {
             var toolOutput = await toolExecutor.ExecuteToolsAsync(organizationId, agent, input, cancellationToken);
             var prompt = $"Agent: {agent.Name}\nInput:{JsonSerializer.Serialize(input)}\nTools:{JsonSerializer.Serialize(toolOutput)}";
-            var (output, promptTokens, completionTokens, cost) = await modelProvider.GenerateAsync(prompt, cancellationToken);
-            var combinedOutput = new Dictionary<string, object?>(toolOutput) { ["modelResponse"] = output };
+            var generation = await modelProvider.GenerateAsync(new ModelGenerationRequest(organizationId, prompt, null), cancellationToken);
+            var combinedOutput = new Dictionary<string, object?>(toolOutput)
+            {
+                ["modelResponse"] = generation.Output,
+                ["modelProvider"] = generation.Provider,
+                ["usedFallback"] = generation.UsedFallback
+            };
 
             run.Status = RunStatus.Completed;
             run.OutputJson = JsonSerializer.Serialize(combinedOutput);
-            run.PromptTokens = promptTokens;
-            run.CompletionTokens = completionTokens;
-            run.EstimatedCostUsd = cost;
+            run.PromptTokens = generation.PromptTokens;
+            run.CompletionTokens = generation.CompletionTokens;
+            run.EstimatedCostUsd = generation.EstimatedCostUsd;
             run.CompletedAtUtc = DateTime.UtcNow;
             await memoryService.RememberAsync(run.Id, run.OutputJson, cancellationToken);
 
@@ -245,7 +281,7 @@ public sealed class AgentExecutor(
             }
 
             await dbContext.SaveChangesAsync(cancellationToken);
-            return new InvokeAgentResponse(run.Id, run.Status.ToString(), combinedOutput, promptTokens, completionTokens, cost);
+            return new InvokeAgentResponse(run.Id, run.Status.ToString(), combinedOutput, generation.PromptTokens, generation.CompletionTokens, generation.EstimatedCostUsd);
         }
         catch (Exception ex)
         {
@@ -274,20 +310,164 @@ public sealed class AgentMemoryService : IAgentMemoryService
     public Task RememberAsync(Guid runId, string data, CancellationToken cancellationToken) => Task.CompletedTask;
 }
 
-public sealed class AgentModelProvider(IConfiguration configuration) : IAgentModelProvider
+public sealed class AgentModelProvider(
+    IConfiguration configuration,
+    IHttpClientFactory httpClientFactory,
+    ILogger<AgentModelProvider> logger) : IAgentModelProvider
 {
-    public Task<(string output, int promptTokens, int completionTokens, decimal cost)> GenerateAsync(string prompt, CancellationToken cancellationToken)
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    public async Task<ModelGenerationResult> GenerateAsync(ModelGenerationRequest request, CancellationToken cancellationToken)
     {
-        var mode = configuration["AI:Mode"] ?? "mock";
+        TenantGuard.RequireOrganization(request.OrganizationId);
+
+        var mode = (configuration["AI:Mode"] ?? "mock").ToLowerInvariant();
         if (string.Equals(mode, "mock", StringComparison.OrdinalIgnoreCase))
         {
-            var promptTokens = Math.Max(30, prompt.Length / 4);
-            var completionTokens = 120;
-            var cost = Math.Round((promptTokens + completionTokens) * 0.00001m, 6);
-            return Task.FromResult<(string, int, int, decimal)>(($"mock-response::{prompt[..Math.Min(40, prompt.Length)]}", promptTokens, completionTokens, cost));
+            return GenerateMock(request.Prompt, "mock", usedFallback: false);
         }
 
-        return Task.FromResult<(string, int, int, decimal)>(("provider-not-configured-fallback", 80, 50, 0.0020m));
+        var provider = (configuration["AI:Provider"] ?? mode).ToLowerInvariant();
+        try
+        {
+            return provider switch
+            {
+                "openai" => await CallOpenAiAsync(request, cancellationToken),
+                "azureopenai" => await CallAzureOpenAiAsync(request, cancellationToken),
+                _ => GenerateMock(request.Prompt, "mock", usedFallback: true)
+            };
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "AI provider failed for organization {OrganizationId}. Falling back to mock.", request.OrganizationId);
+            return GenerateMock(request.Prompt, "mock-fallback", usedFallback: true);
+        }
+    }
+
+    private async Task<ModelGenerationResult> CallOpenAiAsync(ModelGenerationRequest request, CancellationToken cancellationToken)
+    {
+        var apiKey = configuration["AI:OpenAI:ApiKey"] ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+        var model = configuration["AI:OpenAI:Model"] ?? "gpt-4o-mini";
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            logger.LogInformation("OpenAI API key is missing. Using mock fallback.");
+            return GenerateMock(request.Prompt, "mock-fallback", usedFallback: true);
+        }
+
+        var endpoint = configuration["AI:OpenAI:Endpoint"] ?? "https://api.openai.com/v1/chat/completions";
+        var body = new
+        {
+            model,
+            messages = new object[]
+            {
+                new { role = "system", content = request.SystemPrompt ?? "You are a concise enterprise agent runtime model." },
+                new { role = "user", content = request.Prompt }
+            },
+            temperature = 0.2
+        };
+
+        var httpClient = httpClientFactory.CreateClient();
+        using var message = new HttpRequestMessage(HttpMethod.Post, endpoint)
+        {
+            Content = JsonContent.Create(body, options: JsonOptions)
+        };
+        message.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+        return await SendAndParseResponseAsync(httpClient, message, "openai", cancellationToken);
+    }
+
+    private async Task<ModelGenerationResult> CallAzureOpenAiAsync(ModelGenerationRequest request, CancellationToken cancellationToken)
+    {
+        var apiKey = configuration["AI:AzureOpenAI:ApiKey"] ?? Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY");
+        var endpoint = configuration["AI:AzureOpenAI:Endpoint"];
+        var deployment = configuration["AI:AzureOpenAI:Deployment"];
+        var apiVersion = configuration["AI:AzureOpenAI:ApiVersion"] ?? "2024-10-21";
+        if (string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(endpoint) || string.IsNullOrWhiteSpace(deployment))
+        {
+            logger.LogInformation("Azure OpenAI configuration is incomplete. Using mock fallback.");
+            return GenerateMock(request.Prompt, "mock-fallback", usedFallback: true);
+        }
+
+        var endpointUri = $"{endpoint.TrimEnd('/')}/openai/deployments/{deployment}/chat/completions?api-version={apiVersion}";
+        var body = new
+        {
+            messages = new object[]
+            {
+                new { role = "system", content = request.SystemPrompt ?? "You are a concise enterprise agent runtime model." },
+                new { role = "user", content = request.Prompt }
+            },
+            temperature = 0.2
+        };
+
+        var httpClient = httpClientFactory.CreateClient();
+        using var message = new HttpRequestMessage(HttpMethod.Post, endpointUri)
+        {
+            Content = JsonContent.Create(body, options: JsonOptions)
+        };
+        message.Headers.Add("api-key", apiKey);
+        return await SendAndParseResponseAsync(httpClient, message, "azureopenai", cancellationToken);
+    }
+
+    private async Task<ModelGenerationResult> SendAndParseResponseAsync(HttpClient client, HttpRequestMessage request, string provider, CancellationToken cancellationToken)
+    {
+        using var response = await client.SendAsync(request, cancellationToken);
+        var payload = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException($"Provider {provider} returned {(int)response.StatusCode}: {payload}");
+        }
+
+        using var json = JsonDocument.Parse(payload);
+        var root = json.RootElement;
+        var output = root.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString() ?? string.Empty;
+        var promptTokens = ReadInt(root, "usage", "prompt_tokens");
+        var completionTokens = ReadInt(root, "usage", "completion_tokens");
+        if (promptTokens == 0)
+        {
+            promptTokens = Math.Max(30, output.Length / 5);
+        }
+        if (completionTokens == 0)
+        {
+            completionTokens = Math.Max(20, output.Length / 6);
+        }
+
+        var cost = EstimateCostUsd(promptTokens, completionTokens);
+        return new ModelGenerationResult(output, promptTokens, completionTokens, cost, provider, UsedFallback: false);
+    }
+
+    private int ReadInt(JsonElement root, string parent, string child)
+    {
+        if (!root.TryGetProperty(parent, out var parentProperty) || !parentProperty.TryGetProperty(child, out var value))
+        {
+            return 0;
+        }
+
+        return value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var intValue)
+            ? intValue
+            : 0;
+    }
+
+    private decimal EstimateCostUsd(int promptTokens, int completionTokens)
+    {
+        var promptRate = ParseDecimal(configuration["AI:Pricing:PromptPer1kUsd"], 0.00015m);
+        var completionRate = ParseDecimal(configuration["AI:Pricing:CompletionPer1kUsd"], 0.0006m);
+        var promptCost = (promptTokens / 1000m) * promptRate;
+        var completionCost = (completionTokens / 1000m) * completionRate;
+        return Math.Round(promptCost + completionCost, 6);
+    }
+
+    private static decimal ParseDecimal(string? value, decimal fallback)
+    {
+        return decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : fallback;
+    }
+
+    private static ModelGenerationResult GenerateMock(string prompt, string provider, bool usedFallback)
+    {
+        var promptTokens = Math.Max(30, prompt.Length / 4);
+        var completionTokens = 120;
+        var cost = Math.Round((promptTokens + completionTokens) * 0.00001m, 6);
+        return new ModelGenerationResult($"mock-response::{prompt[..Math.Min(40, prompt.Length)]}", promptTokens, completionTokens, cost, provider, usedFallback);
     }
 }
 

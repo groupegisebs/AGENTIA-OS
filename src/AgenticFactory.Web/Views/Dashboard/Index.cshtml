@@ -6,11 +6,11 @@
 <div class="container py-4">
     <h2 class="mb-4">Agentic Factory Monitoring</h2>
     <div class="row g-3 mb-4">
-        <div class="col-md-2"><div class="card"><div class="card-body"><strong>Agents</strong><div>@Model.Stats.TotalAgents</div></div></div></div>
-        <div class="col-md-2"><div class="card"><div class="card-body"><strong>Runs</strong><div>@Model.Stats.TotalRuns</div></div></div></div>
-        <div class="col-md-2"><div class="card"><div class="card-body"><strong>Failed</strong><div>@Model.Stats.FailedRuns</div></div></div></div>
-        <div class="col-md-3"><div class="card"><div class="card-body"><strong>Tokens</strong><div>@Model.Stats.TotalTokens</div></div></div></div>
-        <div class="col-md-3"><div class="card"><div class="card-body"><strong>Cost (USD)</strong><div>@Model.Stats.EstimatedCostUsd.ToString("0.0000")</div></div></div></div>
+        <div class="col-md-2"><div class="card h-100"><div class="card-body"><strong>Agents</strong><div>@Model.Stats.TotalAgents</div></div></div></div>
+        <div class="col-md-2"><div class="card h-100"><div class="card-body"><strong>Runs (today)</strong><div>@Model.Stats.RunsToday</div></div></div></div>
+        <div class="col-md-2"><div class="card h-100"><div class="card-body"><strong>Errors (today)</strong><div>@Model.Stats.FailedRunsToday</div></div></div></div>
+        <div class="col-md-3"><div class="card h-100"><div class="card-body"><strong>Tokens (today)</strong><div>@Model.Stats.TokensToday</div></div></div></div>
+        <div class="col-md-3"><div class="card h-100"><div class="card-body"><strong>Cost (today, USD)</strong><div>@Model.Stats.EstimatedCostTodayUsd.ToString("0.0000")</div></div></div></div>
     </div>
 
     <h4>Runtime Status</h4>
@@ -19,7 +19,13 @@
         <tbody>
         @foreach (var rt in Model.RuntimeStatuses)
         {
-            <tr><td>@rt.NodeName</td><td>@rt.Status</td><td>@rt.LastSeenUtc.ToLocalTime()</td><td>@rt.ActiveTriggerCount</td></tr>
+            var stale = DateTime.UtcNow - rt.LastSeenUtc > TimeSpan.FromMinutes(2);
+            <tr>
+                <td>@rt.NodeName</td>
+                <td><span class="badge @(stale ? "text-bg-warning" : "text-bg-success")">@rt.Status</span></td>
+                <td>@rt.LastSeenUtc.ToLocalTime()</td>
+                <td>@rt.ActiveTriggerCount</td>
+            </tr>
         }
         </tbody>
     </table>
