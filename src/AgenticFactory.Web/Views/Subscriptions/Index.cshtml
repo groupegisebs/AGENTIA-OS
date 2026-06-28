@@ -35,6 +35,22 @@
         </div>
     </div>
 
+    @if (!string.IsNullOrWhiteSpace(Model.FlashMessage))
+    {
+        <div class="billing-alert info">
+            <i class="bi bi-check-circle me-1"></i>
+            @Model.FlashMessage
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Model.FlashError))
+    {
+        <div class="billing-alert warn">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            @Model.FlashError
+        </div>
+    }
+
     @if (!Model.ApiAvailable)
     {
         <div class="billing-alert warn">
@@ -124,6 +140,26 @@
                         @if (plan.IsCurrent)
                         {
                             <button class="billing-btn-primary disabled" disabled>Plan actuel</button>
+                        }
+                        else if (plan.MonthlyPriceUsd > 0 && Model.PaymentConfigured)
+                        {
+                            <form asp-action="Checkout" asp-controller="Subscriptions" method="post">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="planId" value="@plan.Id" />
+                                <button type="submit" class="billing-btn-outline">
+                                    <i class="bi bi-credit-card"></i> Passer au plan @plan.Name
+                                </button>
+                            </form>
+                        }
+                        else if (plan.MonthlyPriceUsd > 0)
+                        {
+                            <button class="billing-btn-outline disabled" disabled title="@(Model.PaymentMessage ?? "Paiement non configuré")">
+                                <i class="bi bi-credit-card"></i> Paiement indisponible
+                            </button>
+                            @if (!string.IsNullOrWhiteSpace(Model.PaymentMessage))
+                            {
+                                <p style="color:#64748b;font-size:0.8rem;margin-top:8px;">@Model.PaymentMessage</p>
+                            }
                         }
                         else
                         {

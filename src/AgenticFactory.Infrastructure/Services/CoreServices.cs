@@ -841,6 +841,43 @@ public sealed class IdentitySeedService(
                 MaxRunsPerMonth = 5000,
                 MonthlyPriceUsd = 99
             });
+            dbContext.SubscriptionPlans.Add(new SubscriptionPlan
+            {
+                Name = "Pro",
+                MaxAgents = 100,
+                MaxRunsPerMonth = 50000,
+                MonthlyPriceUsd = 299,
+                BlueprintCreationFeeUsd = 0,
+                DeployFeeUsd = 0
+            });
+            dbContext.SubscriptionPlans.Add(new SubscriptionPlan
+            {
+                Name = "Enterprise",
+                MaxAgents = 500,
+                MaxRunsPerMonth = 500000,
+                MonthlyPriceUsd = 999,
+                BlueprintCreationFeeUsd = 0,
+                DeployFeeUsd = 0
+            });
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        if (!await dbContext.SubscriptionPlans.AnyAsync(x => x.Name == "Pro", cancellationToken))
+        {
+            dbContext.SubscriptionPlans.Add(new SubscriptionPlan
+            {
+                Name = "Pro",
+                MaxAgents = 100,
+                MaxRunsPerMonth = 50000,
+                MonthlyPriceUsd = 299
+            });
+            dbContext.SubscriptionPlans.Add(new SubscriptionPlan
+            {
+                Name = "Enterprise",
+                MaxAgents = 500,
+                MaxRunsPerMonth = 500000,
+                MonthlyPriceUsd = 999
+            });
             await dbContext.SaveChangesAsync(cancellationToken);
         }
 

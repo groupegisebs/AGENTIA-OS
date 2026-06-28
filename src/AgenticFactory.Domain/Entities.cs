@@ -58,6 +58,14 @@ public enum DomainRequestStatus
     Rejected = 4
 }
 
+public enum SubscriptionCheckoutStatus
+{
+    Pending = 1,
+    Completed = 2,
+    Failed = 3,
+    Cancelled = 4
+}
+
 public enum ExecutionProviderType
 {
     InternalRuntime = 1,
@@ -276,6 +284,23 @@ public class OrganizationSubscription : BaseEntity, ITenantEntity
     public int UsedRunsThisMonth { get; set; }
     public DateTime PeriodStartUtc { get; set; } = DateTime.UtcNow.Date;
     public DateTime PeriodEndUtc { get; set; } = DateTime.UtcNow.Date.AddMonths(1);
+    [MaxLength(64)]
+    public string? PayGatewayPaymentCode { get; set; }
+
+    public Organization? Organization { get; set; }
+    public SubscriptionPlan? SubscriptionPlan { get; set; }
+}
+
+public class SubscriptionCheckout : BaseEntity, ITenantEntity
+{
+    public Guid OrganizationId { get; set; }
+    public Guid SubscriptionPlanId { get; set; }
+    [MaxLength(64)]
+    public required string PaymentCode { get; set; }
+    public SubscriptionCheckoutStatus Status { get; set; } = SubscriptionCheckoutStatus.Pending;
+    [MaxLength(320)]
+    public required string CustomerEmail { get; set; }
+    public DateTime? PaidAtUtc { get; set; }
 
     public Organization? Organization { get; set; }
     public SubscriptionPlan? SubscriptionPlan { get; set; }

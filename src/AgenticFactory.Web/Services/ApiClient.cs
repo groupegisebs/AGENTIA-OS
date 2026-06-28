@@ -243,6 +243,17 @@ public record BillingInvoiceResponse(
     decimal AmountUsd,
     string Status);
 
+public record BillingCheckoutResponse(
+    Guid CheckoutId,
+    string PaymentCode,
+    string CheckoutUrl,
+    string SessionId,
+    string Status);
+
+public record BillingConfirmResponse(bool Activated, string PlanName, string? Message);
+
+public record BillingPaymentConfigResponse(bool IsConfigured, string? Message);
+
 public class ApiClient(HttpClient http)
 {
     private static readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
@@ -526,5 +537,61 @@ public class ApiClient(HttpClient http)
         if (!response.IsSuccessStatusCode) return null;
         var content = await response.Content.ReadAsStringAsync();
         return JsonSerializer.Deserialize<BillingSummaryResponse>(content, _json);
+    }
+
+    public async Task<BillingPaymentConfigResponse?> GetBillingPaymentConfigAsync()
+    {
+        var response = await http.GetAsync("/api/billing/payment-config");
+        if (!response.IsSuccessStatusCode) return null;
+        var content = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<BillingPaymentConfigResponse>(content, _json);
+    }
+
+    public async Task<(BillingCheckoutResponse? Result, string? Error)> StartBillingCheckoutAsync(
+        Guid subscriptionPlanId,
+        string successUrl,
+        string cancelUrl)
+    {
+        var body = JsonSerializer.Serialize(new
+        {
+            subscriptionPlanId,
+            successUrl,
+            cancelUrl
+        }, _json);
+        var response = await http.PostAsync("/api/billing/checkout",
+            new StringContent(body, Encoding.UTF8, "application/json"));
+        var content = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+        {
+            try
+            {
+                var err = JsonSerializer.Deserialize<JsonElement>(content, _json);
+                return (null, err.TryGetProperty("message", out var m) ? m.GetString() : content);
+            }
+            catch { return (null, content); }
+        }
+
+        return (JsonSerializer.Deserialize<BillingCheckoutResponse>(content, _json), null);
+    }
+
+    public async Task<(BillingConfirmResponse? Result, string? Error)> ConfirmBillingPaymentAsync(
+        Guid? checkoutId,
+        string? paymentCode = null)
+    {
+        var body = JsonSerializer.Serialize(new { checkoutId, paymentCode }, _json);
+        var response = await http.PostAsync("/api/billing/payments/confirm",
+            new StringContent(body, Encoding.UTF8, "application/json"));
+        var content = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+        {
+            try
+            {
+                var err = JsonSerializer.Deserialize<JsonElement>(content, _json);
+                return (null, err.TryGetProperty("message", out var m) ? m.GetString() : content);
+            }
+            catch { return (null, content); }
+        }
+
+        return (JsonSerializer.Deserialize<BillingConfirmResponse>(content, _json), null);
     }
 }

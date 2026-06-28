@@ -1,6 +1,7 @@
 using System.Text;
 using AgenticFactory.Application;
 using AgenticFactory.Domain;
+using AgenticFactory.Infrastructure.Billing;
 using AgenticFactory.Infrastructure.Identity;
 using AgenticFactory.Infrastructure.Persistence;
 using AgenticFactory.Infrastructure.Services;
@@ -45,6 +46,10 @@ public static class DependencyInjection
 
         services.AddHttpContextAccessor();
         services.AddHttpClient();
+        services.Configure<GisebsApiPayGatewayOptions>(configuration.GetSection(GisebsApiPayGatewayOptions.SectionName));
+        services.AddHttpClient(nameof(GisebsPayGatewayClient));
+        services.AddScoped<IGisebsPayGatewayClient, GisebsPayGatewayClient>();
+        services.AddScoped<ISubscriptionBillingService, SubscriptionBillingService>();
         services.AddIdentity<AppIdentityUser, IdentityRole<Guid>>(options =>
             {
                 options.Password.RequireDigit = true;

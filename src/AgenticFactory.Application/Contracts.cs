@@ -98,3 +98,62 @@ public interface IAgentModelProvider
 {
     Task<ModelGenerationResult> GenerateAsync(ModelGenerationRequest request, CancellationToken cancellationToken);
 }
+
+public sealed record BillingCheckoutRequest(
+    Guid SubscriptionPlanId,
+    string CustomerEmail,
+    string? CustomerName,
+    string SuccessUrl,
+    string CancelUrl);
+
+public sealed record BillingCheckoutResult(
+    Guid CheckoutId,
+    string PaymentCode,
+    string CheckoutUrl,
+    string SessionId,
+    string Status);
+
+public sealed record BillingConfirmResult(
+    bool Activated,
+    string PlanName,
+    string? Message);
+
+public sealed record GisebsCheckoutSessionRequest(
+    string CustomerCode,
+    string Email,
+    string? FullName,
+    string? ExternalUserId,
+    string ProductCode,
+    string PlanCode,
+    string SuccessUrl,
+    string CancelUrl,
+    string? MetadataJson);
+
+public interface IGisebsPayGatewayClient
+{
+    bool IsConfigured { get; }
+    Task<BillingCheckoutResult> CreateCheckoutSessionAsync(GisebsCheckoutSessionRequest request, CancellationToken cancellationToken);
+    Task<GisebsPaymentStatus?> GetPaymentStatusAsync(string paymentCode, CancellationToken cancellationToken);
+}
+
+public sealed record GisebsPaymentStatus(
+    string PaymentCode,
+    string Status,
+    string CustomerCode,
+    string ProductCode,
+    string PlanCode,
+    DateTime? PaidAt);
+
+public interface ISubscriptionBillingService
+{
+    Task<(BillingCheckoutResult? Result, string? Error)> StartCheckoutAsync(
+        Guid organizationId,
+        BillingCheckoutRequest request,
+        CancellationToken cancellationToken);
+
+    Task<(BillingConfirmResult? Result, string? Error)> ConfirmPaymentAsync(
+        Guid organizationId,
+        string? paymentCode,
+        Guid? checkoutId,
+        CancellationToken cancellationToken);
+}

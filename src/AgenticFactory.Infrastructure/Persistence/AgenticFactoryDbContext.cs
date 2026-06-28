@@ -24,6 +24,7 @@ public class AgenticFactoryDbContext
     public DbSet<AgentTrigger> AgentTriggers => Set<AgentTrigger>();
     public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
     public DbSet<OrganizationSubscription> OrganizationSubscriptions => Set<OrganizationSubscription>();
+    public DbSet<SubscriptionCheckout> SubscriptionCheckouts => Set<SubscriptionCheckout>();
     public DbSet<RuntimeHeartbeat> RuntimeHeartbeats => Set<RuntimeHeartbeat>();
     public DbSet<StudioDomainRequest> StudioDomainRequests => Set<StudioDomainRequest>();
     public DbSet<StudioObjectiveRequest> StudioObjectiveRequests => Set<StudioObjectiveRequest>();
@@ -109,6 +110,17 @@ public class AgenticFactoryDbContext
         builder.Entity<OrganizationSubscription>(entity =>
         {
             entity.HasIndex(x => new { x.OrganizationId, x.IsActive });
+            entity.HasOne(x => x.Organization).WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.SubscriptionPlan).WithMany().HasForeignKey(x => x.SubscriptionPlanId).OnDelete(DeleteBehavior.Restrict);
+            entity.Property(x => x.PayGatewayPaymentCode).HasMaxLength(64);
+        });
+
+        builder.Entity<SubscriptionCheckout>(entity =>
+        {
+            entity.HasIndex(x => x.PaymentCode).IsUnique();
+            entity.HasIndex(x => new { x.OrganizationId, x.Status, x.CreatedAtUtc });
+            entity.Property(x => x.PaymentCode).HasMaxLength(64);
+            entity.Property(x => x.CustomerEmail).HasMaxLength(320);
             entity.HasOne(x => x.Organization).WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(x => x.SubscriptionPlan).WithMany().HasForeignKey(x => x.SubscriptionPlanId).OnDelete(DeleteBehavior.Restrict);
         });

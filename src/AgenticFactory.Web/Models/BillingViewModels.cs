@@ -13,6 +13,10 @@ public sealed class SubscriptionsIndexViewModel
     public DateTime? PeriodEndUtc { get; set; }
     public List<SubscriptionPlanItem> AvailablePlans { get; set; } = [];
     public bool ApiAvailable { get; set; } = true;
+    public bool PaymentConfigured { get; set; }
+    public string? PaymentMessage { get; set; }
+    public string? FlashMessage { get; set; }
+    public string? FlashError { get; set; }
     public string UserDisplayName { get; set; } = "Utilisateur";
     public string UserRole { get; set; } = "Membre";
 }

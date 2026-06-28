@@ -115,6 +115,34 @@ public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.Equal(System.Net.HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    [Fact]
+    public async Task BillingCheckout_ReturnsError_WhenPayGatewayNotConfigured()
+    {
+        var client = _factory.CreateClient();
+        var (token, orgId) = await RegisterAndLoginAsync(client);
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        client.DefaultRequestHeaders.Remove("X-Organization-Id");
+        client.DefaultRequestHeaders.Add("X-Organization-Id", orgId);
+
+        var plansResponse = await client.GetAsync("/api/billing/plans");
+        plansResponse.EnsureSuccessStatusCode();
+        var plans = await plansResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var planId = plans.EnumerateArray().First().GetProperty("id").GetGuid();
+
+        var checkout = await client.PostAsJsonAsync("/api/billing/checkout", new
+        {
+            subscriptionPlanId = planId,
+            successUrl = "http://localhost/Subscriptions/Success",
+            cancelUrl = "http://localhost/Subscriptions/Cancel"
+        });
+
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, checkout.StatusCode);
+        var body = await checkout.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(body.TryGetProperty("message", out var message));
+        Assert.Contains("pas encore configuré", message.GetString(), StringComparison.OrdinalIgnoreCase);
+    }
+
     private async Task<(string Token, string OrganizationId)> RegisterAndLoginAsync(HttpClient client)
     {
         var email = $"creator-{Guid.NewGuid():N}@example.com";

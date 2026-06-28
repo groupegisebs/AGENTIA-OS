@@ -1,20 +1,25 @@
 using AgenticFactory.Application;
+using AgenticFactory.Infrastructure.Billing;
 using AgenticFactory.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using System.Security.Claims;
 
 namespace AgenticFactory.Api.Controllers;
 
 [ApiController]
 [Route("api/billing")]
-[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Policy = "CanViewDashboard")]
 public class BillingController(
     AgenticFactoryDbContext dbContext,
-    ICurrentTenantService tenantService) : ControllerBase
+    ICurrentTenantService tenantService,
+    ISubscriptionBillingService billingService,
+    IOptions<GisebsApiPayGatewayOptions> payGatewayOptions) : ControllerBase
 {
     [HttpGet("subscription")]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Policy = "CanViewDashboard")]
     public async Task<IActionResult> Subscription(CancellationToken cancellationToken)
     {
         var organizationId = tenantService.OrganizationId;
@@ -60,6 +65,7 @@ public class BillingController(
     }
 
     [HttpGet("plans")]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Policy = "CanViewDashboard")]
     public async Task<IActionResult> Plans(CancellationToken cancellationToken)
     {
         var plans = await dbContext.SubscriptionPlans
@@ -81,6 +87,7 @@ public class BillingController(
     }
 
     [HttpGet("usage")]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Policy = "CanViewDashboard")]
     public async Task<IActionResult> Usage(CancellationToken cancellationToken)
     {
         var organizationId = tenantService.OrganizationId;
@@ -183,6 +190,7 @@ public class BillingController(
     }
 
     [HttpGet("summary")]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Policy = "CanViewDashboard")]
     public async Task<IActionResult> Summary(CancellationToken cancellationToken)
     {
         var organizationId = tenantService.OrganizationId;
@@ -210,4 +218,139 @@ public class BillingController(
             invoices = Array.Empty<object>()
         });
     }
+
+    [HttpGet("payment-config")]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Policy = "CanViewDashboard")]
+    public IActionResult PaymentConfig()
+    {
+        var configured = payGatewayOptions.Value.IsConfigured;
+        return Ok(new
+        {
+            isConfigured = configured,
+            message = configured
+                ? (string?)null
+                : "Le paiement en ligne n'est pas configuré. Contactez support@agentia.io."
+        });
+    }
+
+    [HttpPost("checkout")]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Policy = "CanViewDashboard")]
+    public async Task<IActionResult> Checkout([FromBody] CheckoutRequest request, CancellationToken cancellationToken)
+    {
+        var organizationId = tenantService.OrganizationId;
+        if (organizationId == Guid.Empty)
+            return BadRequest(new { message = "Contexte organisation manquant." });
+
+        if (request.SubscriptionPlanId == Guid.Empty)
+            return BadRequest(new { message = "Plan d'abonnement requis." });
+
+        if (string.IsNullOrWhiteSpace(request.SuccessUrl) || string.IsNullOrWhiteSpace(request.CancelUrl))
+            return BadRequest(new { message = "URLs de retour requises." });
+
+        var email = User.FindFirstValue(ClaimTypes.Email)
+            ?? await dbContext.ApplicationUsers
+                .Where(x => x.OrganizationId == organizationId)
+                .Select(x => x.Email)
+                .FirstOrDefaultAsync(cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(email))
+            return BadRequest(new { message = "Adresse courriel introuvable pour l'utilisateur." });
+
+        var displayName = User.FindFirstValue(ClaimTypes.Name) ?? User.Identity?.Name;
+
+        var (result, error) = await billingService.StartCheckoutAsync(
+            organizationId,
+            new BillingCheckoutRequest(
+                request.SubscriptionPlanId,
+                email,
+                displayName,
+                request.SuccessUrl,
+                request.CancelUrl),
+            cancellationToken);
+
+        if (error is not null)
+            return BadRequest(new { message = error });
+
+        return Ok(new
+        {
+            checkoutId = result!.CheckoutId,
+            paymentCode = result.PaymentCode,
+            checkoutUrl = result.CheckoutUrl,
+            sessionId = result.SessionId,
+            status = result.Status
+        });
+    }
+
+    [HttpPost("payments/confirm")]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Policy = "CanViewDashboard")]
+    public async Task<IActionResult> ConfirmPayment([FromBody] ConfirmPaymentRequest request, CancellationToken cancellationToken)
+    {
+        var organizationId = tenantService.OrganizationId;
+        if (organizationId == Guid.Empty)
+            return BadRequest(new { message = "Contexte organisation manquant." });
+
+        var (result, error) = await billingService.ConfirmPaymentAsync(
+            organizationId,
+            request.PaymentCode,
+            request.CheckoutId,
+            cancellationToken);
+
+        if (error is not null)
+            return BadRequest(new { message = error });
+
+        return Ok(new
+        {
+            activated = result!.Activated,
+            planName = result.PlanName,
+            message = result.Message
+        });
+    }
+
+    /// <summary>
+    /// Webhook interne (retour Stripe / automation). Pay Gateway ne pousse pas vers les clients — cet endpoint
+    /// valide un secret partagé puis confirme le paiement auprès du gateway.
+    /// </summary>
+    [HttpPost("webhook")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Webhook([FromBody] ConfirmPaymentRequest request, CancellationToken cancellationToken)
+    {
+        var configuredSecret = payGatewayOptions.Value.WebhookSecret;
+        if (string.IsNullOrWhiteSpace(configuredSecret))
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = "WebhookSecret non configuré." });
+
+        if (!Request.Headers.TryGetValue("X-Webhook-Secret", out var provided)
+            || !string.Equals(provided.ToString(), configuredSecret, StringComparison.Ordinal))
+        {
+            return Unauthorized(new { message = "Secret webhook invalide." });
+        }
+
+        var checkout = await dbContext.SubscriptionCheckouts
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x =>
+                (request.CheckoutId != null && request.CheckoutId != Guid.Empty && x.Id == request.CheckoutId)
+                || (!string.IsNullOrWhiteSpace(request.PaymentCode) && x.PaymentCode == request.PaymentCode),
+                cancellationToken);
+
+        if (checkout is null)
+            return NotFound(new { message = "Session de paiement introuvable." });
+
+        var (result, error) = await billingService.ConfirmPaymentAsync(
+            checkout.OrganizationId,
+            request.PaymentCode,
+            request.CheckoutId,
+            cancellationToken);
+
+        if (error is not null)
+            return BadRequest(new { message = error });
+
+        return Ok(new
+        {
+            activated = result!.Activated,
+            planName = result.PlanName,
+            message = result.Message
+        });
+    }
+
+    public sealed record CheckoutRequest(Guid SubscriptionPlanId, string SuccessUrl, string CancelUrl);
+    public sealed record ConfirmPaymentRequest(string? PaymentCode, Guid? CheckoutId);
 }
