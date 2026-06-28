@@ -59,7 +59,9 @@ public class AuthController(
         }, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return Ok(new { organizationId = organization.Id, userId = user.Id });
+        var roles = await userManager.GetRolesAsync(user);
+        var token = tokenService.CreateToken(user.Id, user.OrganizationId, user.Email ?? request.Email, roles);
+        return Ok(BuildAuthResponse(token, user, roles));
     }
 
     [HttpPost("login")]
@@ -74,8 +76,17 @@ public class AuthController(
 
         var roles = await userManager.GetRolesAsync(user);
         var token = tokenService.CreateToken(user.Id, user.OrganizationId, user.Email ?? request.Email, roles);
-        return Ok(new { accessToken = token, organizationId = user.OrganizationId, roles });
+        return Ok(BuildAuthResponse(token, user, roles));
     }
+
+    private static object BuildAuthResponse(string token, AppIdentityUser user, IList<string> roles) => new
+    {
+        accessToken = token,
+        email = user.Email ?? user.UserName ?? string.Empty,
+        fullName = user.DisplayName,
+        organizationId = user.OrganizationId,
+        role = roles.FirstOrDefault() ?? SystemRoles.Viewer
+    };
 }
 
 public sealed record RegisterRequest(string OrganizationName, string Email, string DisplayName, string Password);

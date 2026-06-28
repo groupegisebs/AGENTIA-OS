@@ -13,6 +13,13 @@ public class HomeController : Controller
         if (User.Identity?.IsAuthenticated == true)
             return RedirectToAction("Index", "Dashboard");
 
-        return View(new LoginViewModel());
+        var model = new LoginViewModel
+        {
+            Email = TempData["LoginEmail"] as string ?? ""
+        };
+        if (TempData["LoginError"] is string err)
+            ModelState.AddModelError(string.Empty, err);
+
+        return View(model);
     }
 }

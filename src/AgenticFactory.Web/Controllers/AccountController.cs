@@ -18,20 +18,29 @@ public class AccountController(ApiClient api) : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Login(LoginViewModel model)
     {
         if (!ModelState.IsValid)
-            return View("~/Views/Home/Index.cshtml", model);
+            return RedirectToHomeWithLoginModel(model);
 
         var result = await api.LoginAsync(model.Email, model.Password);
         if (result is null)
         {
             ModelState.AddModelError(string.Empty, "Email ou mot de passe incorrect.");
-            return View("~/Views/Home/Index.cshtml", model);
+            return RedirectToHomeWithLoginModel(model);
         }
 
         await SignInWithCookieAsync(result);
         return RedirectToAction("Index", "Dashboard");
+    }
+
+    private IActionResult RedirectToHomeWithLoginModel(LoginViewModel model)
+    {
+        TempData["LoginEmail"] = model.Email;
+        TempData["LoginError"] = ModelState[string.Empty]?.Errors.FirstOrDefault()?.ErrorMessage
+            ?? "Veuillez corriger les champs du formulaire.";
+        return RedirectToAction("Index", "Home");
     }
 
     [HttpGet]
@@ -64,13 +73,16 @@ public class AccountController(ApiClient api) : Controller
 
     private async Task SignInWithCookieAsync(AuthResponse auth)
     {
+        if (string.IsNullOrWhiteSpace(auth.Token))
+            throw new InvalidOperationException("Réponse d'authentification invalide (token manquant).");
+
         var claims = new List<Claim>
         {
-            new(ClaimTypes.Email,            auth.Email),
-            new(ClaimTypes.Name,             auth.FullName),
-            new(ClaimTypes.Role,             auth.Role),
-            new("OrganizationId",            auth.OrganizationId),
-            new("ApiToken",                  auth.Token)
+            new(ClaimTypes.Email, auth.Email ?? string.Empty),
+            new(ClaimTypes.Name,  auth.FullName ?? auth.Email ?? string.Empty),
+            new(ClaimTypes.Role,  auth.Role ?? string.Empty),
+            new("OrganizationId", auth.OrganizationId ?? string.Empty),
+            new("ApiToken",       auth.Token)
         };
 
         var identity  = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);

@@ -1,12 +1,18 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace AgenticFactory.Web.Services;
 
 public record LoginRequest(string Email, string Password);
 public record RegisterRequest(string Email, string Password, string FullName, string OrganizationName);
-public record AuthResponse(string Token, string Email, string FullName, string OrganizationId, string Role);
+public record AuthResponse(
+    [property: JsonPropertyName("accessToken")] string Token,
+    string Email,
+    string FullName,
+    string OrganizationId,
+    string Role);
 public record DashboardStatsResponse(
     int TotalAgents, int TotalRuns, int TotalErrors,
     long TotalTokens, double TotalCostUsd,
@@ -29,7 +35,8 @@ public class ApiClient(HttpClient http)
             new StringContent(body, Encoding.UTF8, "application/json"));
         if (!response.IsSuccessStatusCode) return null;
         var content = await response.Content.ReadAsStringAsync();
-        return JsonSerializer.Deserialize<AuthResponse>(content, _json);
+        var auth = JsonSerializer.Deserialize<AuthResponse>(content, _json);
+        return string.IsNullOrWhiteSpace(auth?.Token) ? null : auth;
     }
 
     public async Task<(AuthResponse? Result, string? Error)> RegisterAsync(string email, string password, string fullName, string orgName)
