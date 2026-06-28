@@ -4,7 +4,7 @@ After=network.target agentia-os-api.service
 Wants=agentia-os-api.service
 
 [Service]
-Type=notify
+Type=exec
 WorkingDirectory=/opt/apps/agentia-os/web
 ExecStart=/usr/bin/dotnet /opt/apps/agentia-os/web/AgenticFactory.Web.dll
 Restart=on-failure

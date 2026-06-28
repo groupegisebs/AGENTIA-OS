@@ -4,7 +4,7 @@ After=network.target postgresql.service
 Wants=postgresql.service
 
 [Service]
-Type=notify
+Type=exec
 WorkingDirectory=/opt/apps/agentia-os/api
 ExecStart=/usr/bin/dotnet /opt/apps/agentia-os/api/AgenticFactory.Api.dll
 Restart=on-failure

@@ -229,12 +229,27 @@ jobs:
           name: artifact-api
           path: publish/api/
 
-      - name: "4.4 Préparer serveur + installer services systemd"
+      - name: "4.4 Préparer serveur (.NET + dossiers + services systemd)"
         run: |
           # Créer dossiers applicatifs
           ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
             "${SSH_USER}@${SSH_HOST}" \
             "mkdir -p ${APP_ROOT}/api ${APP_ROOT}/web ${APP_ROOT}/runtime"
+
+          # Installer .NET 10 si absent
+          ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
+            "${SSH_USER}@${SSH_HOST}" bash <<'DOTNET'
+            if ! command -v dotnet &>/dev/null || ! dotnet --list-runtimes 2>/dev/null | grep -q "10\."; then
+              echo "=== Installation .NET 10 ==="
+              wget -q https://dot.net/v1/dotnet-install.sh -O /tmp/dotnet-install.sh
+              chmod +x /tmp/dotnet-install.sh
+              sudo /tmp/dotnet-install.sh --channel 10.0 --install-dir /usr/share/dotnet --no-path
+              sudo ln -sf /usr/share/dotnet/dotnet /usr/bin/dotnet
+              echo "dotnet version: $(dotnet --version)"
+            else
+              echo "=== .NET déjà installé: $(dotnet --version) ==="
+            fi
+          DOTNET
 
           # Copier les fichiers .service vers le serveur
           scp -i "$HOME/.ssh/deploy_key" -P "$SSH_PORT" \
@@ -284,8 +299,19 @@ jobs:
       - name: "4.7 Redémarrer service API"
         run: |
           ssh -i "$HOME/.ssh/deploy_key" -p "$SSH_PORT" -o BatchMode=yes \
-            "${SSH_USER}@${SSH_HOST}" \
-            "sudo systemctl restart $SERVICE_API && sleep 8 && systemctl is-active $SERVICE_API"
+            "${SSH_USER}@${SSH_HOST}" bash <<'RESTART'
+            sudo systemctl restart agentia-os-api
+            sleep 10
+            if ! systemctl is-active --quiet agentia-os-api; then
+              echo "=== ERREUR : service non démarré ==="
+              echo "--- Status ---"
+              sudo systemctl status agentia-os-api --no-pager -l || true
+              echo "--- Logs (30 dernières lignes) ---"
+              sudo journalctl -u agentia-os-api --no-pager -n 30 || true
+              exit 1
+            fi
+            echo "✓ Service API actif"
+          RESTART
 
       - name: "4.8 Health check API"
         run: |
