@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AgenticFactory.Api/AgenticFactory.Api.csproj" />
+    <Project Path="src/AgenticFactory.Application/AgenticFactory.Application.csproj" />
+    <Project Path="src/AgenticFactory.Domain/AgenticFactory.Domain.csproj" />
+    <Project Path="src/AgenticFactory.Infrastructure/AgenticFactory.Infrastructure.csproj" />
+    <Project Path="src/AgenticFactory.Runtime.WindowsService/AgenticFactory.Runtime.WindowsService.csproj" />
+    <Project Path="src/AgenticFactory.Shared/AgenticFactory.Shared.csproj" />
+    <Project Path="src/AgenticFactory.Web/AgenticFactory.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AgenticFactory.Tests/AgenticFactory.Tests.csproj" />
+  </Folder>
+</Solution>
