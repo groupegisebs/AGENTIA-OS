@@ -17,6 +17,8 @@ public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
         {
             builder.UseSetting("Database:Provider", "inmemory");
             builder.UseSetting("Billing:SkipPublishPaymentGate", "true");
+            builder.UseSetting("GisebsApiPayGateway:BaseUrl", "");
+            builder.UseSetting("GisebsApiPayGateway:ApiKey", "");
             builder.UseEnvironment("Development");
         });
     }

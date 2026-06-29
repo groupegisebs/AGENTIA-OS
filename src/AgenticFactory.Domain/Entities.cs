@@ -192,6 +192,8 @@ public class Agent : BaseEntity, ITenantEntity
     public required string EndpointSlug { get; set; }
     public AgentStatus Status { get; set; } = AgentStatus.Draft;
     public Guid? ActiveVersionId { get; set; }
+    /// <summary>Code produit consommable Pay Gateway (ex. AGENTIA-AGENT-A1B2C3D4).</summary>
+    public string? PayGatewayProductCode { get; set; }
 
     public Organization? Organization { get; set; }
     public ICollection<AgentVersion> Versions { get; set; } = new List<AgentVersion>();

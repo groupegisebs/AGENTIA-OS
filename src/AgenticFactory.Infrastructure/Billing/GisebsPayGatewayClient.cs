@@ -1,6 +1,8 @@
+using System.Net;
 using System.Net.Http.Json;
 using AgenticFactory.Application;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace AgenticFactory.Infrastructure.Billing;
@@ -8,7 +10,8 @@ namespace AgenticFactory.Infrastructure.Billing;
 public sealed class GisebsPayGatewayClient(
     IHttpClientFactory httpClientFactory,
     IOptions<GisebsApiPayGatewayOptions> options,
-    IHostEnvironment environment) : IGisebsPayGatewayClient
+    IHostEnvironment environment,
+    ILogger<GisebsPayGatewayClient> logger) : IGisebsPayGatewayClient
 {
     private static readonly string[] SucceededStatuses =
     [
@@ -95,6 +98,100 @@ public sealed class GisebsPayGatewayClient(
         payment.PaidAt.HasValue
         || SucceededStatuses.Any(s => string.Equals(s, payment.Status, StringComparison.OrdinalIgnoreCase));
 
+    public async Task<GisebsCatalogItemResult> TryCreateCatalogItemAsync(
+        GisebsCatalogItemRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!IsConfigured)
+            return new GisebsCatalogItemResult(GisebsCatalogItemOutcome.NotConfigured);
+
+        GisebsApiPayGatewayOptions config;
+        try
+        {
+            config = EnsureConfigured();
+        }
+        catch (InvalidOperationException ex)
+        {
+            logger.LogWarning(ex, "Pay Gateway : configuration invalide, création catalogue ignorée.");
+            return new GisebsCatalogItemResult(GisebsCatalogItemOutcome.NotConfigured, Detail: ex.Message);
+        }
+
+        var client = CreateClient(config);
+        var payload = new CreateCatalogItemRequest(
+            request.ProductCode,
+            request.ProductName,
+            request.Description,
+            request.PlanCode,
+            request.PlanName,
+            request.Amount,
+            request.Currency,
+            request.SyncToStripe);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await client.PostAsJsonAsync(
+                "api/products/catalog", payload, GisebsPayGatewayJson.Options, cancellationToken);
+        }
+        catch (HttpRequestException ex)
+        {
+            logger.LogWarning(ex,
+                "Pay Gateway injoignable — création catalogue ignorée pour {ProductCode}.",
+                request.ProductCode);
+            return new GisebsCatalogItemResult(
+                GisebsCatalogItemOutcome.Failed,
+                request.ProductCode,
+                ex.Message);
+        }
+
+        if (response.IsSuccessStatusCode)
+        {
+            logger.LogInformation("Catalogue Pay Gateway créé pour {ProductCode} / {PlanCode}.",
+                request.ProductCode, request.PlanCode);
+            return new GisebsCatalogItemResult(GisebsCatalogItemOutcome.Created, request.ProductCode);
+        }
+
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (response.StatusCode == HttpStatusCode.BadRequest && LooksLikeAlreadyExists(body))
+        {
+            logger.LogDebug("Catalogue Pay Gateway déjà présent pour {ProductCode}.", request.ProductCode);
+            return new GisebsCatalogItemResult(GisebsCatalogItemOutcome.AlreadyExists, request.ProductCode);
+        }
+
+        if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+        {
+            logger.LogWarning(
+                "Pay Gateway a refusé l'authentification ({Status}) pour {ProductCode}.",
+                (int)response.StatusCode,
+                request.ProductCode);
+        }
+        else
+        {
+            logger.LogWarning(
+                "Pay Gateway a refusé la création catalogue pour {ProductCode} ({Status}) : {Detail}",
+                request.ProductCode,
+                (int)response.StatusCode,
+                body.Length > 200 ? body[..200] : body);
+        }
+
+        return new GisebsCatalogItemResult(
+            GisebsCatalogItemOutcome.Failed,
+            request.ProductCode,
+            body.Length > 200 ? body[..200] : body);
+    }
+
+    private static bool LooksLikeAlreadyExists(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+            return false;
+
+        var text = body.ToLowerInvariant();
+        return text.Contains("exist", StringComparison.Ordinal)
+            || text.Contains("déjà", StringComparison.Ordinal)
+            || text.Contains("deja", StringComparison.Ordinal)
+            || text.Contains("duplicate", StringComparison.Ordinal);
+    }
+
     private HttpClient CreateClient(GisebsApiPayGatewayOptions config)
     {
         var client = httpClientFactory.CreateClient(nameof(GisebsPayGatewayClient));
@@ -130,4 +227,14 @@ public sealed class GisebsPayGatewayClient(
         string ProductCode,
         string PlanCode,
         DateTime? PaidAt);
+
+    private sealed record CreateCatalogItemRequest(
+        string ProductCode,
+        string ProductName,
+        string? Description,
+        string PlanCode,
+        string PlanName,
+        decimal Amount,
+        string Currency,
+        bool SyncToStripe);
 }

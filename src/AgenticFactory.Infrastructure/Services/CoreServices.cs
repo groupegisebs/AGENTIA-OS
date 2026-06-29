@@ -169,7 +169,8 @@ public sealed class MockBlueprintGenerator(IConfiguration configuration) : IBlue
 
 public sealed class AgentCreationService(
     AgenticFactoryDbContext dbContext,
-    IBlueprintGenerator blueprintGenerator) : IAgentCreationService
+    IBlueprintGenerator blueprintGenerator,
+    IAgentPayGatewayProductService agentPayGatewayProduct) : IAgentCreationService
 {
     public async Task<AgentBlueprint> CreateBlueprintFromChatAsync(Guid organizationId, ChatMessageRequest request, CancellationToken cancellationToken)
     {
@@ -198,6 +199,13 @@ public sealed class AgentCreationService(
         if (!request.ExistingAgentId.HasValue)
         {
             dbContext.Agents.Add(agent);
+
+            var productCode = await agentPayGatewayProduct.TryEnsureAgentProductAsync(
+                agent, organizationId, cancellationToken);
+            if (productCode is not null)
+            {
+                agent.PayGatewayProductCode = productCode;
+            }
         }
 
         var blueprint = new AgentBlueprint

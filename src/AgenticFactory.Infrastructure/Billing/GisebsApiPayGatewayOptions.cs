@@ -11,7 +11,9 @@ public sealed class GisebsApiPayGatewayOptions
     public string ApiKey { get; set; } = string.Empty;
     public string WebhookSecret { get; set; } = string.Empty;
     public string DefaultPlanCode { get; set; } = "MONTHLY";
+    public string ConsumablePlanCode { get; set; } = "ONE-TIME";
     public string ProductCodePrefix { get; set; } = "AGENTIA";
+    public decimal DefaultAgentConsumableAmountUsd { get; set; } = 49m;
     public bool RequireHttps { get; set; } = true;
 
     public bool IsConfigured =>
@@ -43,6 +45,9 @@ public sealed class GisebsApiPayGatewayOptions
 
     public string BuildProductCode(string planName) =>
         $"{ProductCodePrefix}-{planName.Trim().Replace(' ', '-').ToUpperInvariant()}";
+
+    public string BuildAgentProductCode(Guid agentId) =>
+        $"{ProductCodePrefix}-AGENT-{agentId.ToString("N")[..8].ToUpperInvariant()}";
 
     public string PublishCreditProductCode => $"{ProductCodePrefix}-PUBLISH-CREDIT";
     public string RunPackProductCode => $"{ProductCodePrefix}-RUN-PACK";

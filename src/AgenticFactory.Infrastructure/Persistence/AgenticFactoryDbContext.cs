@@ -67,6 +67,7 @@ public class AgenticFactoryDbContext
         {
             entity.HasIndex(x => x.EndpointSlug).IsUnique();
             entity.HasIndex(x => new { x.OrganizationId, x.Name });
+            entity.Property(x => x.PayGatewayProductCode).HasMaxLength(64);
             entity.HasOne(x => x.Organization)
                 .WithMany(x => x.Agents)
                 .HasForeignKey(x => x.OrganizationId)

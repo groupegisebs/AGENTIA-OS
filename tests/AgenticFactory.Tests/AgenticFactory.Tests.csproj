@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\AgenticFactory.Api\AgenticFactory.Api.csproj" />
+    <ProjectReference Include="..\..\src\AgenticFactory.Infrastructure\AgenticFactory.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

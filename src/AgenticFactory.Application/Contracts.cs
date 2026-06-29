@@ -129,11 +129,40 @@ public sealed record GisebsCheckoutSessionRequest(
     string CancelUrl,
     string? MetadataJson);
 
+public sealed record GisebsCatalogItemRequest(
+    string ProductCode,
+    string ProductName,
+    string? Description,
+    string PlanCode,
+    string PlanName,
+    decimal Amount,
+    string Currency,
+    bool SyncToStripe = true);
+
+public enum GisebsCatalogItemOutcome
+{
+    Created,
+    AlreadyExists,
+    NotConfigured,
+    Failed
+}
+
+public sealed record GisebsCatalogItemResult(
+    GisebsCatalogItemOutcome Outcome,
+    string? ProductCode = null,
+    string? Detail = null);
+
 public interface IGisebsPayGatewayClient
 {
     bool IsConfigured { get; }
     Task<BillingCheckoutResult> CreateCheckoutSessionAsync(GisebsCheckoutSessionRequest request, CancellationToken cancellationToken);
     Task<GisebsPaymentStatus?> GetPaymentStatusAsync(string paymentCode, CancellationToken cancellationToken);
+    Task<GisebsCatalogItemResult> TryCreateCatalogItemAsync(GisebsCatalogItemRequest request, CancellationToken cancellationToken);
+}
+
+public interface IAgentPayGatewayProductService
+{
+    Task<string?> TryEnsureAgentProductAsync(Agent agent, Guid organizationId, CancellationToken cancellationToken);
 }
 
 public sealed record GisebsPaymentStatus(
