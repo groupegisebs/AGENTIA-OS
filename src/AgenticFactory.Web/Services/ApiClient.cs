@@ -7,7 +7,7 @@ using AgenticFactory.Shared;
 namespace AgenticFactory.Web.Services;
 
 public record LoginRequest(string Email, string Password);
-public record RegisterRequest(string Email, string Password, string FullName, string OrganizationName);
+public record RegisterRequest(string OrganizationName, string Email, string DisplayName, string Password);
 public record AuthResponse(
     [property: JsonPropertyName("accessToken")] string Token,
     string Email,
@@ -297,7 +297,7 @@ public class ApiClient(HttpClient http)
 
     public async Task<(AuthResponse? Result, string? Error)> RegisterAsync(string email, string password, string fullName, string orgName)
     {
-        var body = JsonSerializer.Serialize(new RegisterRequest(email, password, fullName, orgName), _json);
+        var body = JsonSerializer.Serialize(new RegisterRequest(orgName, email, fullName, password), _json);
         var response = await http.PostAsync("/api/auth/register",
             new StringContent(body, Encoding.UTF8, "application/json"));
         var content = await response.Content.ReadAsStringAsync();
