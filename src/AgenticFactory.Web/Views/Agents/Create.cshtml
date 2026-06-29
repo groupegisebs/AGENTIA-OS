@@ -306,94 +306,187 @@
     <div class="designer-container" id="designerContainer">
         <div id="designerValidationBanner" class="designer-validation-banner"></div>
         <div class="designer-layout">
-            <!-- Palette -->
+
+            <!-- ── Palette (left, dark) ─────────────────────── -->
             <div class="designer-palette" id="designerPaletteContainer">
-                <div class="designer-palette-header">Composants</div>
+                <div class="designer-palette-header">
+                    <span class="designer-palette-header-icon">⚡</span>
+                    Ajouter une capacité
+                </div>
                 <div class="designer-palette-search">
-                    <input type="text" id="paletteSearchInput" placeholder="Rechercher…" />
+                    <input type="text" id="paletteSearchInput" placeholder="Rechercher une capacité…" />
                 </div>
                 <div class="designer-palette-sections"></div>
             </div>
-            <!-- Canvas area -->
+
+            <!-- ── Canvas area (center) ─────────────────────── -->
             <div class="designer-canvas-area">
-                <!-- Agent meta fields -->
-                <div class="designer-canvas-meta">
-                    <div class="designer-canvas-meta-row">
-                        <input type="text" id="designerAgentName" placeholder="Nom de l'agent" />
-                        <textarea id="designerMission" placeholder="Mission de l'agent" rows="2"></textarea>
+
+                <!-- Agent Identity Card -->
+                <div class="designer-agent-card">
+                    <div style="position:relative">
+                        <div class="designer-agent-card-row1">
+                            <button class="designer-agent-avatar-btn" id="designerAgentAvatarBtn" title="Changer l'avatar">🤖</button>
+                            <div class="designer-agent-name-wrap">
+                                <input type="text" class="designer-agent-name-input" id="designerAgentName"
+                                       placeholder="Nom de votre agent…" autocomplete="off" />
+                            </div>
+                            <div class="designer-agent-state-badge">🟡 Brouillon</div>
+                        </div>
+                        <!-- Emoji picker -->
+                        <div class="designer-emoji-picker" id="designerEmojiPicker"></div>
                     </div>
-                    <div class="designer-canvas-meta-domains" id="designerDomainsRow"></div>
+                    <textarea class="designer-agent-desc-input" id="designerAgentDesc" rows="1"
+                              placeholder="Description — que fait cet agent ? (ex: Extrait automatiquement les données des passeports reçus par email)"></textarea>
+                    <div class="designer-agent-card-meta">
+                        <div class="designer-agent-meta-item"><b>Auteur</b> Votre équipe</div>
+                        <div class="designer-agent-meta-item"><b>Version</b> 1.0</div>
+                        <div class="designer-agent-meta-item"><b>Domaine</b>
+                            <div class="designer-domains-row" id="designerDomainsRow" style="display:inline-flex;margin-left:4px"></div>
+                        </div>
+                    </div>
+                    <div class="designer-agent-card-stats">
+                        <div class="designer-agent-stat">
+                            <span class="designer-agent-stat-value" id="agentStatTotal">0</span>
+                            <span class="designer-agent-stat-label">Capacités</span>
+                        </div>
+                        <div class="designer-agent-stat-divider"></div>
+                        <div class="designer-agent-stat">
+                            <span class="designer-agent-stat-value" id="agentStatConfigured">0</span>
+                            <span class="designer-agent-stat-label">Configurées</span>
+                        </div>
+                        <div class="designer-agent-stat-divider"></div>
+                        <div class="designer-agent-stat">
+                            <span class="designer-agent-stat-value" id="agentStatEdges">0</span>
+                            <span class="designer-agent-stat-label">Connexions</span>
+                        </div>
+                    </div>
                 </div>
-                <!-- Toolbar -->
+
+                <!-- Floating Toolbar -->
                 <div class="designer-canvas-toolbar">
-                    <button class="designer-toolbar-btn" id="designerBtnDeselect" title="Annuler la sélection">
-                        <i class="bi bi-cursor"></i> Déselect.
-                    </button>
-                    <button class="designer-toolbar-btn" id="designerBtnDelete" title="Supprimer nœud(s)">
-                        <i class="bi bi-trash"></i> Supprimer
-                    </button>
-                    <div class="designer-toolbar-divider"></div>
-                    <button class="designer-toolbar-btn" id="designerBtnZoomIn" title="Zoom +">
-                        <i class="bi bi-zoom-in"></i>
-                    </button>
-                    <button class="designer-toolbar-btn" id="designerBtnZoomOut" title="Zoom -">
-                        <i class="bi bi-zoom-out"></i>
-                    </button>
-                    <button class="designer-toolbar-btn" id="designerBtnFit" title="Ajuster la vue">
-                        <i class="bi bi-fullscreen"></i> Ajuster
-                    </button>
-                    <div class="designer-toolbar-divider"></div>
-                    <button class="designer-toolbar-btn danger" id="designerBtnClear" title="Vider le canvas">
-                        <i class="bi bi-eraser"></i> Vider
-                    </button>
-                    <button class="designer-toolbar-btn primary" id="designerBtnBlueprint">
-                        <i class="bi bi-stars"></i> Générer le Blueprint
-                    </button>
-                    <span class="designer-toolbar-stats" id="designerToolbarStats">0 nœuds · 0 connexions</span>
+                    <div class="designer-toolbar-pill">
+                        <button class="designer-toolbar-btn" id="designerBtnZoomOut" title="Zoom −">−</button>
+                        <span class="designer-toolbar-zoom-display" id="designerToolbarZoom">100%</span>
+                        <button class="designer-toolbar-btn" id="designerBtnZoomIn" title="Zoom +">+</button>
+                        <div class="designer-toolbar-divider"></div>
+                        <button class="designer-toolbar-btn" id="designerBtnFit" title="Ajuster la vue">
+                            <i class="bi bi-fullscreen"></i>
+                        </button>
+                    </div>
+                    <div class="designer-toolbar-right">
+                        <span class="designer-toolbar-stats" id="designerToolbarStats">0 capacités</span>
+                        <div class="designer-toolbar-divider" style="height:14px"></div>
+                        <button class="designer-toolbar-btn danger" id="designerBtnClear" title="Vider le compositeur">
+                            <i class="bi bi-eraser"></i>
+                        </button>
+                        <button class="designer-toolbar-btn primary" id="designerBtnBlueprint">
+                            <i class="bi bi-stars"></i> Créer l'agent
+                        </button>
+                    </div>
                 </div>
-                <!-- Canvas -->
+
+                <!-- Canvas wrap (dark, infinite) -->
                 <div class="designer-canvas-wrap" id="designerCanvasWrap">
                     <svg class="designer-canvas-svg" id="designerCanvasSvg" xmlns="http://www.w3.org/2000/svg"></svg>
                     <div class="designer-canvas-nodes" id="designerCanvasNodes"></div>
-                    <!-- Minimap -->
+
+                    <!-- Minimap (bottom-right) -->
                     <div class="designer-minimap" id="designerMinimap">
                         <svg class="designer-minimap-svg" id="designerMinimapSvg" xmlns="http://www.w3.org/2000/svg"></svg>
-                        <span class="designer-minimap-label">Minimap</span>
+                        <span class="designer-minimap-label">Vue d'ensemble</span>
+                    </div>
+
+                    <!-- AI Suggestions FAB -->
+                    <button class="designer-ai-fab" id="designerAiFab">
+                        <span class="designer-ai-fab-icon">✨</span>
+                        Améliorer mon agent
+                    </button>
+
+                    <!-- AI Suggestions Drawer -->
+                    <div class="designer-ai-drawer" id="designerAiDrawer">
+                        <div class="designer-ai-drawer-header">
+                            <div class="designer-ai-drawer-title">✨ Suggestions IA</div>
+                            <button class="designer-ai-drawer-close" id="designerAiDrawerClose" title="Fermer">✕</button>
+                        </div>
+                        <div class="designer-ai-drawer-body">
+                            <div class="designer-ai-drawer-intro">
+                                Votre agent peut être optimisé. Cochez les améliorations souhaitées puis cliquez sur "Appliquer".
+                            </div>
+                            <!-- Suggestions injected by JS -->
+                        </div>
+                        <div class="designer-ai-drawer-footer">
+                            <div class="designer-ai-savings" id="designerAiSavings"></div>
+                            <button class="designer-ai-apply-btn" id="designerAiApplyBtn">Appliquer la sélection</button>
+                        </div>
                     </div>
                 </div>
             </div>
-            <!-- Properties panel -->
-            <div class="designer-properties">
-                <div class="designer-properties-header">
-                    <span class="designer-properties-title"><i class="bi bi-sliders"></i> Propriétés</span>
+
+            <!-- ── Inspector panel (right, dark) ─────────────── -->
+            <div class="designer-inspector">
+                <div class="designer-inspector-header">
+                    <div class="designer-inspector-title">⚙ Inspecteur</div>
                 </div>
-                <div class="designer-properties-empty" id="designerPropEmpty">
-                    <div class="designer-properties-empty-icon"><i class="bi bi-cursor-text"></i></div>
-                    <div class="designer-properties-empty-text">Sélectionnez un nœud pour configurer ses propriétés</div>
+                <!-- Empty state (no node selected) -->
+                <div class="designer-inspector-empty" id="designerInspectorEmpty" style="display:flex">
+                    <div class="designer-inspector-empty-icon">🎯</div>
+                    <div class="designer-inspector-empty-title">Composition de l'agent</div>
+                    <div class="designer-inspector-empty-text">Cliquez sur une capacité pour l'inspecter et la configurer.</div>
+                    <div class="designer-inspector-empty-stats">
+                        <div class="designer-inspector-empty-stat">
+                            <span class="designer-inspector-empty-stat-label">Capacités</span>
+                            <span class="designer-inspector-empty-stat-value">0</span>
+                        </div>
+                        <div class="designer-inspector-empty-stat">
+                            <span class="designer-inspector-empty-stat-label">Connexions</span>
+                            <span class="designer-inspector-empty-stat-value">0</span>
+                        </div>
+                        <div class="designer-inspector-empty-stat">
+                            <span class="designer-inspector-empty-stat-label">Configurées</span>
+                            <span class="designer-inspector-empty-stat-value">0</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="designer-properties-body" id="designerPropBody" style="display:none;flex-direction:column;gap:12px;"></div>
+                <!-- Node inspector content (filled by JS) -->
+                <div id="designerInspectorContent" style="display:none"></div>
             </div>
         </div>
     </div>
 
-    <!-- Blueprint review overlay (designer mode) -->
+    <!-- ── Add Step Popup ───────────────────────────────────── -->
+    <div class="designer-add-popup" id="designerAddPopup">
+        <div class="designer-add-popup-header">
+            <span class="designer-add-popup-title">Que souhaitez-vous ajouter ?</span>
+            <button class="designer-add-popup-close" title="Fermer">✕</button>
+        </div>
+        <input class="designer-add-popup-search" type="text" placeholder="Rechercher une capacité…" />
+        <button class="designer-add-popup-back-btn" style="display:none">
+            <i class="bi bi-arrow-left"></i> Retour aux catégories
+        </button>
+        <div class="designer-add-popup-grid"></div>
+        <div class="designer-add-popup-subcats"></div>
+        <div class="designer-add-popup-divider"></div>
+        <div class="designer-add-popup-recents-label">Récemment utilisés</div>
+        <div class="designer-add-popup-recents"></div>
+    </div>
+
+    <!-- ── Blueprint Review Overlay ────────────────────────── -->
     <div class="designer-blueprint-overlay" id="designerBlueprintOverlay">
         <div class="designer-blueprint-modal">
             <div class="designer-blueprint-modal-header">
                 <div class="designer-blueprint-modal-title">
-                    <i class="bi bi-diagram-3"></i> Blueprint — Révision finale
+                    🚀 Votre agent — Révision finale
                 </div>
-                <button type="button" class="designer-blueprint-modal-close" id="designerBlueprintClose">
-                    <i class="bi bi-x-lg"></i>
-                </button>
+                <button type="button" class="designer-blueprint-modal-close" id="designerBlueprintClose">✕</button>
             </div>
             <div class="designer-blueprint-modal-body" id="designerBlueprintBody"></div>
             <div class="designer-blueprint-modal-footer">
                 <button type="button" class="designer-toolbar-btn" id="designerBlueprintEdit">
-                    <i class="bi bi-pencil"></i> Modifier le designer
+                    <i class="bi bi-pencil"></i> Modifier la composition
                 </button>
                 <button type="button" class="designer-toolbar-btn primary" id="designerBlueprintSubmit">
-                    <i class="bi bi-stars"></i> Générer l'agent
+                    <i class="bi bi-stars"></i> Créer l'agent
                 </button>
             </div>
         </div>
