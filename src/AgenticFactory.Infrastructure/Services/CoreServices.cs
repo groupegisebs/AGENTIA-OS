@@ -61,11 +61,14 @@ public sealed class MockBlueprintGenerator(IConfiguration configuration) : IBlue
     public Task<BlueprintResponse> GenerateAsync(Guid organizationId, string message, CancellationToken cancellationToken)
     {
         var mode = configuration["AI:Mode"] ?? "mock";
+        var metadata = AgentMessageParser.Parse(message);
         var executionProviders = ExtractExecutionProviders(message);
         var definition = new
         {
             provider = mode,
-            name = "Chat Generated Agent",
+            name = metadata.Name,
+            domain = metadata.DomainId,
+            category = metadata.DomainLabel,
             orchestrator = "WindowsService",
             steps = new[]
             {
@@ -91,7 +94,7 @@ public sealed class MockBlueprintGenerator(IConfiguration configuration) : IBlue
         var estimate = AiPricingHelper.EstimateFromPrompt(message, configuration);
         return Task.FromResult(new BlueprintResponse(
             json,
-            $"Blueprint generated from '{message}'",
+            metadata.Description,
             true,
             "Blueprint appears valid in mock mode.",
             estimate.EstimatedCostUsd,
@@ -176,6 +179,7 @@ public sealed class AgentCreationService(
     {
         TenantGuard.RequireOrganization(organizationId);
         var generated = await blueprintGenerator.GenerateAsync(organizationId, request.Message, cancellationToken);
+        var metadata = AgentMessageParser.Parse(request.Message);
 
         var planFee = await dbContext.OrganizationSubscriptions
             .AsNoTracking()
@@ -190,8 +194,8 @@ public sealed class AgentCreationService(
             : new Agent
             {
                 OrganizationId = organizationId,
-                Name = $"Agent {DateTime.UtcNow:yyyyMMddHHmmss}",
-                Description = generated.Summary,
+                Name = metadata.Name,
+                Description = string.IsNullOrWhiteSpace(generated.Summary) ? metadata.Description : generated.Summary,
                 EndpointSlug = $"agent-{Guid.NewGuid():N}"[..18],
                 Status = AgentStatus.Draft
             };

@@ -467,32 +467,28 @@ public class AgentsController(ApiClient api) : AuthenticatedController
         new(e.CanPublish, e.BlockReason, e.Message, e.CtaLabel, e.CheckoutAction,
             e.RequiredAmountUsd, e.SubscriptionPlanId, e.PublishCreditsBalance, e.DeployedAgents, e.MaxAgents);
 
-    private static AgentListItem MapAgent(AgentListItemResponse a) => new(
-        a.Id,
-        a.Name,
-        a.Description,
-        a.EndpointSlug,
-        a.Status,
-        a.DisplayStatus,
-        GuessCategory(a.Name, a.Description),
-        a.CreatedAtUtc,
-        a.LatestBlueprintId,
-        a.VersionNumber.HasValue ? $"v1.{a.VersionNumber}.0" : "—",
-        a.Environment,
-        a.LastRunAt,
-        a.RunsLast7Days,
-        a.RunsLast30Days,
-        a.CostLast30Days,
-        a.RunsSparkline ?? []);
-
-    private static string GuessCategory(string name, string description)
+    private static AgentListItem MapAgent(AgentListItemResponse a)
     {
-        var text = $"{name} {description}".ToLowerInvariant();
-        if (text.Contains("email") || text.Contains("mail")) return "Productivité";
-        if (text.Contains("document") || text.Contains("pdf")) return "Documents";
-        if (text.Contains("support") || text.Contains("client")) return "Support";
-        if (text.Contains("data") || text.Contains("analyt")) return "Analytics";
-        if (text.Contains("security") || text.Contains("sécurit")) return "Sécurité";
-        return "Automation";
+        var presentation = AgentIconResolver.Resolve(a.Name, a.Description);
+        return new(
+            a.Id,
+            a.Name,
+            a.Description,
+            a.EndpointSlug,
+            a.Status,
+            a.DisplayStatus,
+            presentation.Category,
+            presentation.IconClass,
+            presentation.IconBg,
+            presentation.IconColor,
+            a.CreatedAtUtc,
+            a.LatestBlueprintId,
+            a.VersionNumber.HasValue ? $"v1.{a.VersionNumber}.0" : "—",
+            a.Environment,
+            a.LastRunAt,
+            a.RunsLast7Days,
+            a.RunsLast30Days,
+            a.CostLast30Days,
+            a.RunsSparkline ?? []);
     }
 }

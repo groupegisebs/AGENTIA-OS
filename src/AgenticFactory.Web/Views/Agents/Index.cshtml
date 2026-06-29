@@ -41,18 +41,6 @@
         char.ToUpper(env[0]) + env[1..].ToLowerInvariant();
     string EnvClass(string env) => env.Equals("production", StringComparison.OrdinalIgnoreCase) ? "prod"
         : env.Equals("staging", StringComparison.OrdinalIgnoreCase) ? "staging" : "other";
-    string CategoryIcon(string cat) => cat switch
-    {
-        "Productivité" => "bi-envelope",
-        "Documents" => "bi-file-earmark-text",
-        "Support" => "bi-headset",
-        "Analytics" => "bi-graph-up",
-        "Sécurité" => "bi-shield-check",
-        _ => "bi-robot"
-    };
-    string[] iconBgs = ["#eef2ff", "#fce7f3", "#dcfce7", "#fef3c7", "#dbeafe", "#f3e8ff"];
-    string[] iconColors = ["#6366f1", "#db2777", "#16a34a", "#d97706", "#2563eb", "#9333ea"];
-
     string SparkSvg(int[] data, string stroke, string fill)
     {
         var max = Math.Max(1, data.DefaultIfEmpty(0).Max());
@@ -242,7 +230,6 @@
                     <tbody>
                     @foreach (var agent in Model.Agents)
                     {
-                        var idx = Math.Abs(agent.Name.GetHashCode()) % iconBgs.Length;
                         var maxSpark = Math.Max(1, agent.RunsSparkline.DefaultIfEmpty(0).Max());
                         var canDeploy = agent.DisplayStatus is "Draft" or "Disabled" && agent.LatestBlueprintId.HasValue;
                         var deployBlocked = canDeploy && Model.PublishEligibility is { CanPublish: false };
@@ -252,12 +239,15 @@
                             data-env="@agent.Environment">
                             <td>
                                 <div class="agent-cell">
-                                    <div class="agent-icon" style="background:@iconBgs[idx];color:@iconColors[idx]">
-                                        <i class="bi @CategoryIcon(agent.Category)"></i>
+                                    <div class="agent-icon agent-icon-premium" style="background:@agent.IconBg;color:@agent.IconColor">
+                                        <i class="bi @agent.IconClass"></i>
                                     </div>
-                                    <div>
+                                    <div class="agent-cell-text">
                                         <div class="agent-name">@agent.Name</div>
-                                        <div class="agent-desc">@agent.Description</div>
+                                        @if (!string.IsNullOrWhiteSpace(agent.Description))
+                                        {
+                                            <div class="agent-desc" title="@agent.Description">@agent.Description</div>
+                                        }
                                     </div>
                                 </div>
                             </td>
