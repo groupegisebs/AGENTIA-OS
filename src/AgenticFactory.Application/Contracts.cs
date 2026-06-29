@@ -151,9 +151,66 @@ public interface ISubscriptionBillingService
         BillingCheckoutRequest request,
         CancellationToken cancellationToken);
 
+    Task<(BillingCheckoutResult? Result, string? Error)> StartConsumableCheckoutAsync(
+        Guid organizationId,
+        ConsumableCheckoutRequest request,
+        CancellationToken cancellationToken);
+
     Task<(BillingConfirmResult? Result, string? Error)> ConfirmPaymentAsync(
         Guid organizationId,
         string? paymentCode,
         Guid? checkoutId,
         CancellationToken cancellationToken);
+}
+
+public sealed record ConsumableCheckoutRequest(
+    CheckoutKind Kind,
+    string CustomerEmail,
+    string? CustomerName,
+    string SuccessUrl,
+    string CancelUrl,
+    int Quantity = 1);
+
+public sealed record PublishEligibilityResult(
+    bool CanPublish,
+    string? BlockReason,
+    string MessageFr,
+    string? CtaLabelFr,
+    string? CheckoutAction,
+    decimal? RequiredAmountUsd,
+    Guid? SubscriptionPlanId,
+    int PublishCreditsBalance,
+    int DeployedAgents,
+    int MaxAgents,
+    bool ConsumesPublishCredit,
+    string? PlanName = null,
+    decimal MonthlyPriceUsd = 0)
+{
+    public static PublishEligibilityResult Eligible(
+        string? planName = null,
+        decimal monthlyPriceUsd = 0,
+        int publishCredits = 0,
+        int deployedAgents = 0,
+        int maxAgents = 0,
+        bool consumesPublishCredit = false) =>
+        new(true, null, "Publication autorisée.", null, null, null, null,
+            publishCredits, deployedAgents, maxAgents, consumesPublishCredit, planName, monthlyPriceUsd);
+
+    public static PublishEligibilityResult Blocked(
+        string blockReason,
+        string messageFr,
+        string ctaLabelFr,
+        string checkoutAction,
+        decimal? requiredAmountUsd,
+        Guid? subscriptionPlanId,
+        int publishCreditsBalance,
+        int deployedAgents,
+        int maxAgents) =>
+        new(false, blockReason, messageFr, ctaLabelFr, checkoutAction, requiredAmountUsd, subscriptionPlanId,
+            publishCreditsBalance, deployedAgents, maxAgents, false);
+}
+
+public interface IPublishEligibilityService
+{
+    Task<PublishEligibilityResult> EvaluateAsync(Guid organizationId, Guid? agentIdToDeploy, CancellationToken cancellationToken);
 }

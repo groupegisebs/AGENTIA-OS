@@ -9,6 +9,7 @@ using System.Net.Http.Json;
 using AgenticFactory.Application;
 using AgenticFactory.Domain;
 using AgenticFactory.Infrastructure.Identity;
+using AgenticFactory.Infrastructure.Billing;
 using AgenticFactory.Infrastructure.Persistence;
 using AgenticFactory.Infrastructure.Services.ExecutionProviders;
 using AgenticFactory.Shared;
@@ -222,23 +223,34 @@ public sealed class AgentCreationService(
 }
 
 public sealed class AgentDeploymentService(
-    AgenticFactoryDbContext dbContext) : IAgentDeploymentService
+    AgenticFactoryDbContext dbContext,
+    IPublishEligibilityService publishEligibility) : IAgentDeploymentService
 {
     public async Task<DeployAgentResponse> DeployAsync(Guid organizationId, DeployAgentRequest request, CancellationToken cancellationToken)
     {
         TenantGuard.RequireOrganization(organizationId);
+
+        var eligibility = await publishEligibility.EvaluateAsync(organizationId, request.AgentId, cancellationToken);
+        if (!eligibility.CanPublish)
+        {
+            throw new PublishPaymentRequiredException(eligibility);
+        }
+
         var subscription = await dbContext.OrganizationSubscriptions
             .Include(x => x.SubscriptionPlan)
             .FirstOrDefaultAsync(x => x.OrganizationId == organizationId && x.IsActive, cancellationToken)
             ?? throw new InvalidOperationException("No active subscription.");
 
-        var currentAgents = await dbContext.Agents.CountAsync(x => x.OrganizationId == organizationId, cancellationToken);
-        if (currentAgents > subscription.SubscriptionPlan!.MaxAgents)
+        var deployedAgents = await dbContext.Agents.CountAsync(
+            x => x.OrganizationId == organizationId && x.Status == AgentStatus.Active, cancellationToken);
+
+        if (eligibility.ConsumesPublishCredit)
         {
-            throw new InvalidOperationException("Quota agents dépassé pour ce plan.");
+            subscription.PublishCredits -= 1;
+            subscription.UpdatedAtUtc = DateTime.UtcNow;
         }
 
-        var deployFeeUsd = subscription.SubscriptionPlan.DeployFeeUsd;
+        var deployFeeUsd = subscription.SubscriptionPlan!.DeployFeeUsd;
 
         var agent = await dbContext.Agents.FirstAsync(x => x.Id == request.AgentId && x.OrganizationId == organizationId, cancellationToken);
         var blueprint = await dbContext.AgentBlueprints.FirstAsync(x => x.Id == request.BlueprintId && x.OrganizationId == organizationId, cancellationToken);
@@ -283,7 +295,7 @@ public sealed class AgentDeploymentService(
             agent.EndpointSlug,
             apiKey,
             deployFeeUsd,
-            currentAgents,
+            deployedAgents + (agent.Status == AgentStatus.Active ? 0 : 1),
             subscription.SubscriptionPlan.MaxAgents);
     }
 }
@@ -808,7 +820,8 @@ public class RunStatusHub : Hub;
 public sealed class IdentitySeedService(
     AgenticFactoryDbContext dbContext,
     UserManager<AppIdentityUser> userManager,
-    RoleManager<IdentityRole<Guid>> roleManager)
+    RoleManager<IdentityRole<Guid>> roleManager,
+    Billing.GisebsPayGatewayCatalogSync payGatewayCatalogSync)
 {
     public async Task SeedAsync(CancellationToken cancellationToken)
     {
@@ -924,5 +937,6 @@ public sealed class IdentitySeedService(
         }
 
         await ExecutionProviderSeed.SeedAsync(dbContext, cancellationToken);
+        await payGatewayCatalogSync.TrySyncSubscriptionPlansAsync(cancellationToken);
     }
 }

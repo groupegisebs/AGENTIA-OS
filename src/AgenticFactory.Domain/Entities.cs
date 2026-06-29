@@ -66,6 +66,21 @@ public enum SubscriptionCheckoutStatus
     Cancelled = 4
 }
 
+public enum PublishModel
+{
+    /// <summary>Publication incluse dans l'abonnement mensuel (quota MaxAgents).</summary>
+    SubscriptionIncluded = 1,
+    /// <summary>Agents supplémentaires via crédits de publication consommables.</summary>
+    ConsumableExtra = 2
+}
+
+public enum CheckoutKind
+{
+    Subscription = 1,
+    PublishCredits = 2,
+    RunPack = 3
+}
+
 public enum ExecutionProviderType
 {
     InternalRuntime = 1,
@@ -274,6 +289,13 @@ public class SubscriptionPlan : BaseEntity
     public decimal BlueprintCreationFeeUsd { get; set; }
     /// <summary>Frais forfaitaire par déploiement (0 = inclus dans l'abonnement).</summary>
     public decimal DeployFeeUsd { get; set; }
+    public PublishModel PublishModel { get; set; } = PublishModel.SubscriptionIncluded;
+    /// <summary>Prix d'un pack de crédits de publication (1 crédit = 1 agent publié au-delà du quota).</summary>
+    public decimal PublishCreditPriceUsd { get; set; }
+    public int PublishCreditPackSize { get; set; } = 1;
+    /// <summary>Prix d'un pack de runs consommables (au-delà du quota mensuel).</summary>
+    public decimal RunPackPriceUsd { get; set; }
+    public int RunPackSize { get; set; } = 1000;
 }
 
 public class OrganizationSubscription : BaseEntity, ITenantEntity
@@ -286,6 +308,10 @@ public class OrganizationSubscription : BaseEntity, ITenantEntity
     public DateTime PeriodEndUtc { get; set; } = DateTime.UtcNow.Date.AddMonths(1);
     [MaxLength(64)]
     public string? PayGatewayPaymentCode { get; set; }
+    /// <summary>Crédits de publication consommables (1 crédit = 1 agent publié au-delà du quota inclus).</summary>
+    public int PublishCredits { get; set; }
+    /// <summary>Runs supplémentaires achetés via packs consommables.</summary>
+    public int ConsumableRunsBalance { get; set; }
 
     public Organization? Organization { get; set; }
     public SubscriptionPlan? SubscriptionPlan { get; set; }
@@ -295,6 +321,8 @@ public class SubscriptionCheckout : BaseEntity, ITenantEntity
 {
     public Guid OrganizationId { get; set; }
     public Guid SubscriptionPlanId { get; set; }
+    public CheckoutKind Kind { get; set; } = CheckoutKind.Subscription;
+    public int Quantity { get; set; } = 1;
     [MaxLength(64)]
     public required string PaymentCode { get; set; }
     public SubscriptionCheckoutStatus Status { get; set; } = SubscriptionCheckoutStatus.Pending;

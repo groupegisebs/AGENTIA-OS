@@ -1,6 +1,4 @@
 using System.Net.Http.Json;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using AgenticFactory.Application;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -12,11 +10,6 @@ public sealed class GisebsPayGatewayClient(
     IOptions<GisebsApiPayGatewayOptions> options,
     IHostEnvironment environment) : IGisebsPayGatewayClient
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
-    {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
-
     private static readonly string[] SucceededStatuses =
     [
         "Succeeded", "2", "Paid", "Complete", "Active", "1"
@@ -34,7 +27,8 @@ public sealed class GisebsPayGatewayClient(
         HttpResponseMessage response;
         try
         {
-            response = await client.PostAsJsonAsync("api/checkout/session", request, JsonOptions, cancellationToken);
+            response = await client.PostAsJsonAsync(
+                "api/checkout/session", request, GisebsPayGatewayJson.Options, cancellationToken);
         }
         catch (HttpRequestException ex)
         {
@@ -42,7 +36,9 @@ public sealed class GisebsPayGatewayClient(
                 $"Impossible de joindre GISEBS Pay Gateway ({config.BaseUrl}). Vérifiez GisebsApiPayGateway:BaseUrl.", ex);
         }
 
-        var session = await ReadSuccessJsonAsync<CheckoutSessionResponse>(response, "la session de paiement", cancellationToken);
+        var session = await GisebsPayGatewayHttp.ReadSuccessJsonAsync<CheckoutSessionResponse>(
+            response, "la session de paiement", cancellationToken);
+
         if (string.IsNullOrWhiteSpace(session.PaymentCode))
             throw new InvalidOperationException("Pay Gateway n'a pas renvoyé de code de paiement.");
 
@@ -66,20 +62,33 @@ public sealed class GisebsPayGatewayClient(
         var config = options.Value;
         var client = CreateClient(config);
 
-        using var response = await client.GetAsync(
-            $"api/payments/{Uri.EscapeDataString(paymentCode)}", cancellationToken);
+        try
+        {
+            using var response = await client.GetAsync(
+                $"api/payments/{Uri.EscapeDataString(paymentCode)}", cancellationToken);
 
-        if (!response.IsSuccessStatusCode)
+            if (!response.IsSuccessStatusCode)
+                return null;
+
+            var payment = await GisebsPayGatewayHttp.ReadSuccessJsonAsync<PaymentResponse>(
+                response, "le paiement", cancellationToken);
+
+            return new GisebsPaymentStatus(
+                payment.PaymentCode,
+                payment.Status,
+                payment.CustomerCode,
+                payment.ProductCode,
+                payment.PlanCode,
+                payment.PaidAt);
+        }
+        catch (InvalidOperationException)
+        {
             return null;
-
-        var payment = await ReadSuccessJsonAsync<PaymentResponse>(response, "le paiement", cancellationToken);
-        return new GisebsPaymentStatus(
-            payment.PaymentCode,
-            payment.Status,
-            payment.CustomerCode,
-            payment.ProductCode,
-            payment.PlanCode,
-            payment.PaidAt);
+        }
+        catch (HttpRequestException)
+        {
+            return null;
+        }
     }
 
     public static bool IsPaymentSuccessful(GisebsPaymentStatus payment) =>
@@ -106,65 +115,6 @@ public sealed class GisebsPayGatewayClient(
 
         config.EnsureSecureEndpoint(environment.IsDevelopment());
         return config;
-    }
-
-    private static async Task<T> ReadSuccessJsonAsync<T>(
-        HttpResponseMessage response,
-        string operationName,
-        CancellationToken cancellationToken)
-    {
-        var body = await response.Content.ReadAsStringAsync(cancellationToken);
-        if (!response.IsSuccessStatusCode)
-        {
-            var detail = TryExtractErrorMessage(body) ?? Truncate(body);
-            throw new InvalidOperationException($"Pay Gateway a refusé {operationName} ({(int)response.StatusCode}). {detail}");
-        }
-
-        try
-        {
-            return JsonSerializer.Deserialize<T>(body, JsonOptions)
-                ?? throw new InvalidOperationException($"Réponse Pay Gateway vide ({operationName}).");
-        }
-        catch (JsonException ex)
-        {
-            throw new InvalidOperationException($"Réponse Pay Gateway illisible ({operationName}). {Truncate(body)}", ex);
-        }
-    }
-
-    private static string? TryExtractErrorMessage(string body)
-    {
-        if (string.IsNullOrWhiteSpace(body))
-            return null;
-
-        try
-        {
-            using var doc = JsonDocument.Parse(body);
-            var root = doc.RootElement;
-            foreach (var key in new[] { "error", "title", "detail", "message" })
-            {
-                if (root.TryGetProperty(key, out var prop) && prop.ValueKind == JsonValueKind.String)
-                {
-                    var text = prop.GetString();
-                    if (!string.IsNullOrWhiteSpace(text))
-                        return text;
-                }
-            }
-        }
-        catch (JsonException)
-        {
-            // ignore
-        }
-
-        return null;
-    }
-
-    private static string Truncate(string? value, int max = 280)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return string.Empty;
-
-        var trimmed = value.Trim();
-        return trimmed.Length <= max ? trimmed : trimmed[..max] + "…";
     }
 
     private sealed record CheckoutSessionResponse(

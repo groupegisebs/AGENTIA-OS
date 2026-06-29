@@ -137,9 +137,21 @@ public sealed class SubscriptionBillingService(
         if (!payGatewayClient.IsConfigured)
             return (null, "GisebsApiPayGateway n'est pas configuré.");
 
-        var payment = await payGatewayClient.GetPaymentStatusAsync(paymentCode, cancellationToken);
+        GisebsPaymentStatus? payment = null;
+        const int maxAttempts = 5;
+        const int retryDelayMs = 2000;
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            payment = await payGatewayClient.GetPaymentStatusAsync(paymentCode, cancellationToken);
+            if (payment is not null && GisebsPayGatewayClient.IsPaymentSuccessful(payment))
+                break;
+
+            if (attempt < maxAttempts)
+                await Task.Delay(retryDelayMs, cancellationToken);
+        }
+
         if (payment is null)
-            return (null, "Paiement introuvable ou en attente de confirmation.");
+            return (null, "Paiement introuvable ou en attente de confirmation. Réessayez dans quelques instants.");
 
         if (!string.Equals(payment.CustomerCode, BuildCustomerCode(organizationId), StringComparison.OrdinalIgnoreCase))
             return (null, "Ce paiement ne correspond pas à votre organisation.");
