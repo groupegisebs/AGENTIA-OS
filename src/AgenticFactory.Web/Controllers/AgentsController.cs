@@ -203,6 +203,44 @@ public class AgentsController(ApiClient api) : AuthenticatedController
             using var doc = JsonDocument.Parse(model.WizardJson);
             var root = doc.RootElement;
             var sb = new StringBuilder();
+
+            // Designer workflow mode
+            if (root.TryGetProperty("designerWorkflow", out var dw) && dw.ValueKind == JsonValueKind.Object)
+            {
+                sb.AppendLine("Créer un agent IA via Workflow Designer :");
+                AppendLine(sb, "Nom", root, "agentName");
+                AppendLine(sb, "Mission", root, "mission");
+                AppendLine(sb, "Domaine", root, "businessDomain");
+
+                if (dw.TryGetProperty("nodes", out var nodes) && nodes.ValueKind == JsonValueKind.Array)
+                {
+                    var nodeList  = nodes.EnumerateArray().ToList();
+                    var nodeCount = nodeList.Count;
+                    var types = nodeList
+                        .Select(n => n.TryGetProperty("type", out var t) ? t.GetString() : null)
+                        .Where(t => !string.IsNullOrWhiteSpace(t))
+                        .Select(t => t!.Split('-')[0])
+                        .Distinct()
+                        .ToList();
+                    sb.AppendLine($"- Nœuds : {nodeCount} nœud{(nodeCount != 1 ? "s" : "")} ({string.Join(", ", types)})");
+                }
+
+                if (dw.TryGetProperty("edges", out var edges) && edges.ValueKind == JsonValueKind.Array)
+                {
+                    var edgeCount = edges.EnumerateArray().Count();
+                    sb.AppendLine($"- Connexions : {edgeCount} connexion{(edgeCount != 1 ? "s" : "")}");
+                }
+
+                AppendArray(sb, "Sensors",   root, "sensors");
+                AppendArray(sb, "Skills",    root, "skills");
+                AppendArray(sb, "Tools",     root, "tools");
+                AppendArray(sb, "Actuators", root, "actuators");
+                AppendDecision(sb, root);
+                AppendMemory(sb, root);
+                AppendLine(sb, "Déclencheur", root, "trigger");
+                return sb.ToString().Trim();
+            }
+
             sb.AppendLine("Créer un agent IA Runtime Agentic via Agent Factory Studio :");
 
             if (IsModernWizardSchema(root))

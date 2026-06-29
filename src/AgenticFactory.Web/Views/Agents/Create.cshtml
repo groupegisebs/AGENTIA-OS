@@ -45,7 +45,30 @@
         @Html.AntiForgeryToken()
         <input type="hidden" asp-for="Message" id="hiddenMessage" />
         <input type="hidden" asp-for="WizardJson" id="hiddenWizardJson" />
+        <input type="hidden" asp-for="DesignerWorkflow" id="hiddenDesignerWorkflow" />
+        <input type="hidden" id="creationModeInput" name="creationModeInput" value="guided" />
 
+        <div class="creation-mode-selector">
+            <div class="creation-mode-selector-intro">Choisissez votre méthode de création</div>
+            <div class="creation-mode-card active" data-mode="guided">
+                <div class="creation-mode-card-icon"><i class="bi bi-list-ol"></i></div>
+                <div class="creation-mode-card-body">
+                    <div class="creation-mode-card-title">Assistant guidé</div>
+                    <div class="creation-mode-card-desc">Configurez votre agent étape par étape avec le wizard 10 phases : Mission, Sensors, Skills, Tools, Actuators, Decision, Memory, Runtime, Sécurité, Blueprint.</div>
+                    <span class="creation-mode-card-badge">Recommandé</span>
+                </div>
+            </div>
+            <div class="creation-mode-card" data-mode="designer">
+                <div class="creation-mode-card-icon"><i class="bi bi-diagram-3"></i></div>
+                <div class="creation-mode-card-body">
+                    <div class="creation-mode-card-title">Designer visuel</div>
+                    <div class="creation-mode-card-desc">Dessinez votre workflow agent sur un canvas interactif. Glissez-déposez des nœuds, connectez-les et configurez chaque composant visuellement.</div>
+                    <span class="creation-mode-card-badge">Nouveau</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="wizardContainer">
         <div class="studio-layout">
             <div class="studio-main">
                 <div class="studio-stepper-wrap">
@@ -276,7 +299,105 @@
                 </div>
             </aside>
         </div>
+    </div>
     </form>
+
+    <!-- ── Visual Designer Container ─────────────────────────── -->
+    <div class="designer-container" id="designerContainer">
+        <div id="designerValidationBanner" class="designer-validation-banner"></div>
+        <div class="designer-layout">
+            <!-- Palette -->
+            <div class="designer-palette" id="designerPaletteContainer">
+                <div class="designer-palette-header">Composants</div>
+                <div class="designer-palette-search">
+                    <input type="text" id="paletteSearchInput" placeholder="Rechercher…" />
+                </div>
+                <div class="designer-palette-sections"></div>
+            </div>
+            <!-- Canvas area -->
+            <div class="designer-canvas-area">
+                <!-- Agent meta fields -->
+                <div class="designer-canvas-meta">
+                    <div class="designer-canvas-meta-row">
+                        <input type="text" id="designerAgentName" placeholder="Nom de l'agent" />
+                        <textarea id="designerMission" placeholder="Mission de l'agent" rows="2"></textarea>
+                    </div>
+                    <div class="designer-canvas-meta-domains" id="designerDomainsRow"></div>
+                </div>
+                <!-- Toolbar -->
+                <div class="designer-canvas-toolbar">
+                    <button class="designer-toolbar-btn" id="designerBtnDeselect" title="Annuler la sélection">
+                        <i class="bi bi-cursor"></i> Déselect.
+                    </button>
+                    <button class="designer-toolbar-btn" id="designerBtnDelete" title="Supprimer nœud(s)">
+                        <i class="bi bi-trash"></i> Supprimer
+                    </button>
+                    <div class="designer-toolbar-divider"></div>
+                    <button class="designer-toolbar-btn" id="designerBtnZoomIn" title="Zoom +">
+                        <i class="bi bi-zoom-in"></i>
+                    </button>
+                    <button class="designer-toolbar-btn" id="designerBtnZoomOut" title="Zoom -">
+                        <i class="bi bi-zoom-out"></i>
+                    </button>
+                    <button class="designer-toolbar-btn" id="designerBtnFit" title="Ajuster la vue">
+                        <i class="bi bi-fullscreen"></i> Ajuster
+                    </button>
+                    <div class="designer-toolbar-divider"></div>
+                    <button class="designer-toolbar-btn danger" id="designerBtnClear" title="Vider le canvas">
+                        <i class="bi bi-eraser"></i> Vider
+                    </button>
+                    <button class="designer-toolbar-btn primary" id="designerBtnBlueprint">
+                        <i class="bi bi-stars"></i> Générer le Blueprint
+                    </button>
+                    <span class="designer-toolbar-stats" id="designerToolbarStats">0 nœuds · 0 connexions</span>
+                </div>
+                <!-- Canvas -->
+                <div class="designer-canvas-wrap" id="designerCanvasWrap">
+                    <svg class="designer-canvas-svg" id="designerCanvasSvg" xmlns="http://www.w3.org/2000/svg"></svg>
+                    <div class="designer-canvas-nodes" id="designerCanvasNodes"></div>
+                    <!-- Minimap -->
+                    <div class="designer-minimap" id="designerMinimap">
+                        <svg class="designer-minimap-svg" id="designerMinimapSvg" xmlns="http://www.w3.org/2000/svg"></svg>
+                        <span class="designer-minimap-label">Minimap</span>
+                    </div>
+                </div>
+            </div>
+            <!-- Properties panel -->
+            <div class="designer-properties">
+                <div class="designer-properties-header">
+                    <span class="designer-properties-title"><i class="bi bi-sliders"></i> Propriétés</span>
+                </div>
+                <div class="designer-properties-empty" id="designerPropEmpty">
+                    <div class="designer-properties-empty-icon"><i class="bi bi-cursor-text"></i></div>
+                    <div class="designer-properties-empty-text">Sélectionnez un nœud pour configurer ses propriétés</div>
+                </div>
+                <div class="designer-properties-body" id="designerPropBody" style="display:none;flex-direction:column;gap:12px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Blueprint review overlay (designer mode) -->
+    <div class="designer-blueprint-overlay" id="designerBlueprintOverlay">
+        <div class="designer-blueprint-modal">
+            <div class="designer-blueprint-modal-header">
+                <div class="designer-blueprint-modal-title">
+                    <i class="bi bi-diagram-3"></i> Blueprint — Révision finale
+                </div>
+                <button type="button" class="designer-blueprint-modal-close" id="designerBlueprintClose">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="designer-blueprint-modal-body" id="designerBlueprintBody"></div>
+            <div class="designer-blueprint-modal-footer">
+                <button type="button" class="designer-toolbar-btn" id="designerBlueprintEdit">
+                    <i class="bi bi-pencil"></i> Modifier le designer
+                </button>
+                <button type="button" class="designer-toolbar-btn primary" id="designerBlueprintSubmit">
+                    <i class="bi bi-stars"></i> Générer l'agent
+                </button>
+            </div>
+        </div>
+    </div>
 
     <div class="studio-draft-toast" id="draftToast">Brouillon enregistré localement</div>
 </div>
@@ -305,6 +426,7 @@
 </div>
 
 @section Scripts {
+    <link rel="stylesheet" href="~/css/agentia-designer.css" asp-append-version="true" />
     <script>
         window.STUDIO_DOMAINS = @Html.Raw(JsonSerializer.Serialize(studioDomains.Select(d => new {
             id = d.Id, icon = d.Icon, bg = d.Bg, color = d.Color,
@@ -320,4 +442,5 @@
     <script src="~/js/agentia-studio-memory.js" asp-append-version="true"></script>
     <script src="~/js/agentia-studio-runtime.js" asp-append-version="true"></script>
     <script src="~/js/agentia-studio.js" asp-append-version="true"></script>
+    <script src="~/js/agentia-studio-designer.js" asp-append-version="true"></script>
 }

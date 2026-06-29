@@ -49,6 +49,9 @@ public sealed class CreateAgentViewModel
 {
     public string Message { get; set; } = string.Empty;
     public string? WizardJson { get; set; }
+
+    [Microsoft.AspNetCore.Mvc.BindProperty]
+    public string? DesignerWorkflow { get; set; }
 }
 
 public sealed class StudioDomainRequestModel
