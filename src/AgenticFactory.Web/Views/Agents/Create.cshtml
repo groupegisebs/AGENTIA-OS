@@ -48,24 +48,13 @@
         <input type="hidden" asp-for="DesignerWorkflow" id="hiddenDesignerWorkflow" />
         <input type="hidden" id="creationModeInput" name="creationModeInput" value="guided" />
 
-        <div class="creation-mode-selector">
-            <div class="creation-mode-selector-intro">Choisissez votre méthode de création</div>
-            <div class="creation-mode-card active" data-mode="guided">
-                <div class="creation-mode-card-icon"><i class="bi bi-list-ol"></i></div>
-                <div class="creation-mode-card-body">
-                    <div class="creation-mode-card-title">Assistant guidé</div>
-                    <div class="creation-mode-card-desc">Configurez votre agent étape par étape avec le wizard 10 phases : Mission, Sensors, Skills, Tools, Actuators, Decision, Memory, Runtime, Sécurité, Blueprint.</div>
-                    <span class="creation-mode-card-badge">Recommandé</span>
-                </div>
-            </div>
-            <div class="creation-mode-card" data-mode="designer">
-                <div class="creation-mode-card-icon"><i class="bi bi-diagram-3"></i></div>
-                <div class="creation-mode-card-body">
-                    <div class="creation-mode-card-title">Designer visuel</div>
-                    <div class="creation-mode-card-desc">Dessinez votre workflow agent sur un canvas interactif. Glissez-déposez des nœuds, connectez-les et configurez chaque composant visuellement.</div>
-                    <span class="creation-mode-card-badge">Nouveau</span>
-                </div>
-            </div>
+        <div class="creation-mode-toggle">
+            <button type="button" class="mode-btn creation-mode-card active" data-mode="guided">
+                <i class="bi bi-list-check"></i> Assistant guidé
+            </button>
+            <button type="button" class="mode-btn creation-mode-card" data-mode="designer">
+                <i class="bi bi-diagram-3"></i> Designer visuel
+            </button>
         </div>
 
         <div id="wizardContainer">
@@ -322,45 +311,15 @@
             <!-- ── Canvas area (center) ─────────────────────── -->
             <div class="designer-canvas-area">
 
-                <!-- Agent Identity Card -->
+                <!-- Agent Identity Card (compact single row) -->
                 <div class="designer-agent-card">
-                    <div style="position:relative">
-                        <div class="designer-agent-card-row1">
-                            <button class="designer-agent-avatar-btn" id="designerAgentAvatarBtn" title="Changer l'avatar">🤖</button>
-                            <div class="designer-agent-name-wrap">
-                                <input type="text" class="designer-agent-name-input" id="designerAgentName"
-                                       placeholder="Nom de votre agent…" autocomplete="off" />
-                            </div>
-                            <div class="designer-agent-state-badge">🟡 Brouillon</div>
-                        </div>
-                        <!-- Emoji picker -->
+                    <div style="position:relative;flex-shrink:0">
+                        <button class="designer-agent-avatar-btn" id="designerAgentAvatarBtn" title="Changer l'avatar">🤖</button>
                         <div class="designer-emoji-picker" id="designerEmojiPicker"></div>
                     </div>
-                    <textarea class="designer-agent-desc-input" id="designerAgentDesc" rows="1"
-                              placeholder="Description — que fait cet agent ? (ex: Extrait automatiquement les données des passeports reçus par email)"></textarea>
-                    <div class="designer-agent-card-meta">
-                        <div class="designer-agent-meta-item"><b>Auteur</b> Votre équipe</div>
-                        <div class="designer-agent-meta-item"><b>Version</b> 1.0</div>
-                        <div class="designer-agent-meta-item"><b>Domaine</b>
-                            <div class="designer-domains-row" id="designerDomainsRow" style="display:inline-flex;margin-left:4px"></div>
-                        </div>
-                    </div>
-                    <div class="designer-agent-card-stats">
-                        <div class="designer-agent-stat">
-                            <span class="designer-agent-stat-value" id="agentStatTotal">0</span>
-                            <span class="designer-agent-stat-label">Capacités</span>
-                        </div>
-                        <div class="designer-agent-stat-divider"></div>
-                        <div class="designer-agent-stat">
-                            <span class="designer-agent-stat-value" id="agentStatConfigured">0</span>
-                            <span class="designer-agent-stat-label">Configurées</span>
-                        </div>
-                        <div class="designer-agent-stat-divider"></div>
-                        <div class="designer-agent-stat">
-                            <span class="designer-agent-stat-value" id="agentStatEdges">0</span>
-                            <span class="designer-agent-stat-label">Connexions</span>
-                        </div>
-                    </div>
+                    <input type="text" class="designer-agent-name-input" id="designerAgentName"
+                           placeholder="Nom de votre agent…" autocomplete="off" />
+                    <div class="designer-agent-state-badge">🟡 Brouillon</div>
                 </div>
 
                 <!-- Floating Toolbar -->

@@ -292,7 +292,8 @@
     /* ── State ───────────────────────────────────────────────── */
     const DRAFT_KEY = 'agentia-designer-draft';
     const MODE_KEY  = 'agentia-creation-mode';
-    const NODE_W    = 320;
+    const NODE_W    = 180;
+    const NODE_H    = 64;
 
     let state = {
         version: 2,
@@ -370,7 +371,7 @@
 
     /* ── Port positions (vertical flow: top/bottom center) ───── */
     function getNodeH(nodeId) {
-        return nodeHeights[nodeId] || 170;
+        return nodeHeights[nodeId] || NODE_H;
     }
     function portPos(node, side) {
         if (side === 'in')  return { x: node.x + NODE_W / 2, y: node.y };
@@ -447,11 +448,7 @@
     }
 
     function getEdgeFlowLabel(fromNode) {
-        const entry = getCatalogueEntry(fromNode.type);
-        if (!entry) return '→ En attente';
-        const isConfigured = isNodeConfigured(fromNode);
-        if (!isConfigured) return '→ En attente';
-        return '→ ' + (entry.output || 'Données');
+        return '→';
     }
 
     function isNodeConfigured(node) {
@@ -500,12 +497,10 @@
 
     function refreshNodeCard(node, el) {
         const configured = isNodeConfigured(node);
-        const dot = el.querySelector('.designer-node-status-dot');
-        if (dot) {
-            dot.className = 'designer-node-status-dot ' + (configured ? 'configured' : 'warning');
-        }
-        const body = el.querySelector('.designer-node-body');
-        if (body) body.innerHTML = buildNodeBodyHtml(node);
+        const dot = el.querySelector('.node-status-dot');
+        if (dot) dot.className = 'node-status-dot ' + (configured ? 'configured' : 'warning');
+        const labelEl = el.querySelector('.node-label');
+        if (labelEl) labelEl.textContent = node.label;
     }
 
     function createNodeElement(node) {
@@ -515,52 +510,42 @@
         const badge    = CAT_LABEL[category] || category.toUpperCase();
         const catColor = getCategoryColor(category);
         const configured = isNodeConfigured(node);
+        const isTrigger  = category === 'trigger';
 
         const el = document.createElement('div');
         el.className = `designer-node node-cat-${category}`;
         el.dataset.nodeId = node.id;
 
         el.innerHTML = `
-            <div class="designer-port designer-port-top" data-port="in" data-node="${node.id}"></div>
-            <div class="designer-node-header">
-                <div class="designer-node-icon-wrap">${escHtml(icon)}</div>
-                <div class="designer-node-header-text">
-                    <div class="designer-node-title" title="${escHtml(node.label)}">${escHtml(node.label)}</div>
-                    <span class="designer-node-type-badge" style="background:${catColor}">${escHtml(badge)}</span>
-                </div>
-                <div class="designer-node-header-right">
-                    <div class="designer-node-status-dot ${configured ? 'configured' : 'warning'}"></div>
-                    <button class="designer-node-delete" data-action="delete-node" data-node="${node.id}" title="Supprimer cette capacité">×</button>
-                </div>
+            ${!isTrigger ? `<div class="designer-port designer-port-top" data-port="in" data-node="${node.id}"></div>` : ''}
+            <div class="node-icon-circle" style="background:${catColor}2a;color:${catColor}">${escHtml(icon)}</div>
+            <div class="node-info">
+                <div class="node-label" title="${escHtml(node.label)}">${escHtml(node.label)}</div>
+                <div class="node-type-badge" style="color:${catColor}">${escHtml(badge)}</div>
             </div>
-            <div class="designer-node-divider"></div>
-            <div class="designer-node-body">${buildNodeBodyHtml(node)}</div>
-            <div class="designer-node-footer">
-                <button class="designer-node-action-btn primary-action" data-action="config-node" data-node="${node.id}">⚙ Configurer</button>
-                <button class="designer-node-action-btn" data-action="test-node" data-node="${node.id}">▶ Tester</button>
-            </div>
+            <div class="node-status-dot ${configured ? 'configured' : 'warning'}"></div>
+            <button class="node-delete-btn" data-action="delete-node" data-node="${node.id}" title="Supprimer">×</button>
             <div class="designer-port designer-port-bottom" data-port="out" data-node="${node.id}"></div>`;
 
-        // Drag on header
-        el.querySelector('.designer-node-header').addEventListener('mousedown', onNodeDragStart);
-        // Delete
-        el.querySelector('[data-action="delete-node"]').addEventListener('click', e => { e.stopPropagation(); deleteNode(node.id); });
-        // Config
-        el.querySelector('[data-action="config-node"]').addEventListener('click', e => { e.stopPropagation(); selectNode(node.id, false); });
-        // Test (placeholder)
-        el.querySelector('[data-action="test-node"]').addEventListener('click', e => { e.stopPropagation(); showToast('Test en cours…'); });
-        // Click to select
+        // Drag the whole node (excluding ports and buttons)
         el.addEventListener('mousedown', e => {
             if (e.target.closest('[data-port]') || e.target.closest('[data-action]')) return;
             if (e.button !== 0) return;
+            onNodeDragStart(e);
+        });
+        // Delete
+        el.querySelector('[data-action="delete-node"]').addEventListener('click', e => { e.stopPropagation(); deleteNode(node.id); });
+        // Click to select (mousedown already handles drag; click handles selection when not dragging)
+        el.addEventListener('click', e => {
+            if (e.target.closest('[data-port]') || e.target.closest('[data-action]')) return;
             selectNode(node.id, e.shiftKey);
             e.stopPropagation();
         });
         // Port connections
         const portTop = el.querySelector('[data-port="in"]');
         const portBot = el.querySelector('[data-port="out"]');
-        portBot.addEventListener('mousedown', e => { e.stopPropagation(); startConnect(node.id, e); });
-        portTop.addEventListener('mouseup',   e => { e.stopPropagation(); endConnect(node.id); });
+        if (portBot) portBot.addEventListener('mousedown', e => { e.stopPropagation(); startConnect(node.id, e); });
+        if (portTop) portTop.addEventListener('mouseup',   e => { e.stopPropagation(); endConnect(node.id); });
 
         return el;
     }
