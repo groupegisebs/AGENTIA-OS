@@ -1,9 +1,13 @@
+using AgenticFactory.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace AgenticFactory.Infrastructure.Persistence.Migrations
 {
+    [DbContext(typeof(AgenticFactoryDbContext))]
+    [Migration("20260628230000_BillingUsageTracking")]
     /// <inheritdoc />
     public partial class BillingUsageTracking : Migration
     {

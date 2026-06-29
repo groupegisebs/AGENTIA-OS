@@ -1,9 +1,13 @@
+using AgenticFactory.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace AgenticFactory.Infrastructure.Persistence.Migrations
 {
+    [DbContext(typeof(AgenticFactoryDbContext))]
+    [Migration("20260629120000_AgentPayGatewayProductCode")]
     /// <inheritdoc />
     public partial class AgentPayGatewayProductCode : Migration
     {

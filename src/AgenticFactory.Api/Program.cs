@@ -1,6 +1,7 @@
 using AgenticFactory.Infrastructure;
 using AgenticFactory.Infrastructure.Persistence;
 using AgenticFactory.Infrastructure.Services;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddAgenticInfrastructure(builder.Configuration);
@@ -12,6 +13,12 @@ builder.Services.AddSwaggerGen();
 var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
+    var db = scope.ServiceProvider.GetRequiredService<AgenticFactoryDbContext>();
+    if (string.Equals(app.Configuration["Database:Provider"], "postgres", StringComparison.OrdinalIgnoreCase))
+    {
+        await db.Database.MigrateAsync();
+    }
+
     var seeder = scope.ServiceProvider.GetRequiredService<IdentitySeedService>();
     await seeder.SeedAsync(CancellationToken.None);
 }
