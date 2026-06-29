@@ -4,10 +4,23 @@ public sealed class AgentsIndexViewModel
 {
     public AgentsSummary Summary { get; set; } = new(0, 0, 0, 0, 0);
     public List<AgentListItem> Agents { get; set; } = [];
+    public PublishEligibilityInfo? PublishEligibility { get; set; }
     public string UserDisplayName { get; set; } = "Utilisateur";
     public string UserRole { get; set; } = "Membre";
     public int[] WeeklyActivity { get; set; } = [0, 0, 0, 0, 0, 0, 0];
 }
+
+public sealed record PublishEligibilityInfo(
+    bool CanPublish,
+    string? BlockReason,
+    string Message,
+    string? CtaLabel,
+    string? CheckoutAction,
+    decimal? RequiredAmountUsd,
+    Guid? SubscriptionPlanId,
+    int PublishCreditsBalance,
+    int DeployedAgents,
+    int MaxAgents);
 
 public sealed record AgentsSummary(int Total, int Active, int Running, int Paused, int Disabled);
 
@@ -75,6 +88,7 @@ public sealed class RecommendExecutionProviderRequestModel
 public sealed class DeploymentsIndexViewModel
 {
     public List<DeploymentAgentGroup> AgentGroups { get; set; } = [];
+    public PublishEligibilityInfo? PublishEligibility { get; set; }
 }
 
 public sealed record DeploymentAgentGroup(
@@ -97,6 +111,7 @@ public sealed class DeploymentDetailViewModel
     public string VersionLabel { get; set; } = "—";
     public string AgentStatus { get; set; } = "";
     public Guid? LatestBlueprintId { get; set; }
+    public PublishEligibilityInfo? PublishEligibility { get; set; }
     public List<PipelineStageItem> Pipeline { get; set; } = [];
     public List<VersionRowItem> Versions { get; set; } = [];
     public ProductionDetailItem? Production { get; set; }

@@ -1,3 +1,5 @@
+using AgenticFactory.Application;
+
 namespace AgenticFactory.Infrastructure.Billing;
 
 public sealed class PublishPaymentRequiredException(PublishEligibilityResult eligibility) : InvalidOperationException(eligibility.MessageFr)

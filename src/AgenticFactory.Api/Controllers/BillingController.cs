@@ -1,4 +1,5 @@
 using AgenticFactory.Application;
+using AgenticFactory.Domain;
 using AgenticFactory.Infrastructure.Billing;
 using AgenticFactory.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -16,6 +17,7 @@ public class BillingController(
     AgenticFactoryDbContext dbContext,
     ICurrentTenantService tenantService,
     ISubscriptionBillingService billingService,
+    IPublishEligibilityService publishEligibility,
     IOptions<GisebsApiPayGatewayOptions> payGatewayOptions) : ControllerBase
 {
     [HttpGet("subscription")]
@@ -59,8 +61,39 @@ public class BillingController(
             monthlyPriceUsd = subscription.SubscriptionPlan.MonthlyPriceUsd,
             usedRunsThisMonth = subscription.UsedRunsThisMonth,
             currentAgents,
+            publishCredits = subscription.PublishCredits,
+            consumableRunsBalance = subscription.ConsumableRunsBalance,
+            publishModel = subscription.SubscriptionPlan.PublishModel.ToString(),
+            subscriptionPaid = subscription.SubscriptionPlan.MonthlyPriceUsd <= 0
+                || !string.IsNullOrWhiteSpace(subscription.PayGatewayPaymentCode),
             periodStartUtc = subscription.PeriodStartUtc,
             periodEndUtc = subscription.PeriodEndUtc
+        });
+    }
+
+    [HttpGet("publish-eligibility")]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Policy = "CanViewDashboard")]
+    public async Task<IActionResult> PublishEligibility([FromQuery] Guid? agentId, CancellationToken cancellationToken)
+    {
+        var organizationId = tenantService.OrganizationId;
+        if (organizationId == Guid.Empty)
+            return BadRequest(new { message = "Contexte organisation manquant." });
+
+        var result = await publishEligibility.EvaluateAsync(organizationId, agentId, cancellationToken);
+        return Ok(new
+        {
+            canPublish = result.CanPublish,
+            blockReason = result.BlockReason,
+            message = result.MessageFr,
+            ctaLabel = result.CtaLabelFr,
+            checkoutAction = result.CheckoutAction,
+            requiredAmountUsd = result.RequiredAmountUsd,
+            subscriptionPlanId = result.SubscriptionPlanId,
+            publishCreditsBalance = result.PublishCreditsBalance,
+            deployedAgents = result.DeployedAgents,
+            maxAgents = result.MaxAgents,
+            planName = result.PlanName,
+            monthlyPriceUsd = result.MonthlyPriceUsd
         });
     }
 
@@ -79,7 +112,12 @@ public class BillingController(
                 x.MaxRunsPerMonth,
                 x.MonthlyPriceUsd,
                 x.BlueprintCreationFeeUsd,
-                x.DeployFeeUsd
+                x.DeployFeeUsd,
+                publishModel = x.PublishModel.ToString(),
+                x.PublishCreditPriceUsd,
+                x.PublishCreditPackSize,
+                x.RunPackPriceUsd,
+                x.RunPackSize
             })
             .ToListAsync(cancellationToken);
 
@@ -241,22 +279,44 @@ public class BillingController(
         if (organizationId == Guid.Empty)
             return BadRequest(new { message = "Contexte organisation manquant." });
 
-        if (request.SubscriptionPlanId == Guid.Empty)
-            return BadRequest(new { message = "Plan d'abonnement requis." });
-
         if (string.IsNullOrWhiteSpace(request.SuccessUrl) || string.IsNullOrWhiteSpace(request.CancelUrl))
             return BadRequest(new { message = "URLs de retour requises." });
 
-        var email = User.FindFirstValue(ClaimTypes.Email)
-            ?? await dbContext.ApplicationUsers
-                .Where(x => x.OrganizationId == organizationId)
-                .Select(x => x.Email)
-                .FirstOrDefaultAsync(cancellationToken);
-
+        var email = await ResolveCustomerEmailAsync(organizationId, cancellationToken);
         if (string.IsNullOrWhiteSpace(email))
             return BadRequest(new { message = "Adresse courriel introuvable pour l'utilisateur." });
 
         var displayName = User.FindFirstValue(ClaimTypes.Name) ?? User.Identity?.Name;
+
+        if (request.Kind is CheckoutKind.PublishCredits or CheckoutKind.RunPack)
+        {
+            var (consumableResult, consumableError) = await billingService.StartConsumableCheckoutAsync(
+                organizationId,
+                new ConsumableCheckoutRequest(
+                    request.Kind,
+                    email,
+                    displayName,
+                    request.SuccessUrl,
+                    request.CancelUrl,
+                    Math.Max(1, request.Quantity)),
+                cancellationToken);
+
+            if (consumableError is not null)
+                return BadRequest(new { message = consumableError });
+
+            return Ok(new
+            {
+                checkoutId = consumableResult!.CheckoutId,
+                paymentCode = consumableResult.PaymentCode,
+                checkoutUrl = consumableResult.CheckoutUrl,
+                sessionId = consumableResult.SessionId,
+                status = consumableResult.Status,
+                kind = request.Kind.ToString()
+            });
+        }
+
+        if (request.SubscriptionPlanId == Guid.Empty)
+            return BadRequest(new { message = "Plan d'abonnement requis." });
 
         var (result, error) = await billingService.StartCheckoutAsync(
             organizationId,
@@ -277,9 +337,17 @@ public class BillingController(
             paymentCode = result.PaymentCode,
             checkoutUrl = result.CheckoutUrl,
             sessionId = result.SessionId,
-            status = result.Status
+            status = result.Status,
+            kind = CheckoutKind.Subscription.ToString()
         });
     }
+
+    private async Task<string?> ResolveCustomerEmailAsync(Guid organizationId, CancellationToken cancellationToken) =>
+        User.FindFirstValue(ClaimTypes.Email)
+        ?? await dbContext.ApplicationUsers
+            .Where(x => x.OrganizationId == organizationId)
+            .Select(x => x.Email)
+            .FirstOrDefaultAsync(cancellationToken);
 
     [HttpPost("payments/confirm")]
     [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Policy = "CanViewDashboard")]
@@ -351,6 +419,11 @@ public class BillingController(
         });
     }
 
-    public sealed record CheckoutRequest(Guid SubscriptionPlanId, string SuccessUrl, string CancelUrl);
+    public sealed record CheckoutRequest(
+        Guid SubscriptionPlanId,
+        string SuccessUrl,
+        string CancelUrl,
+        CheckoutKind Kind = CheckoutKind.Subscription,
+        int Quantity = 1);
     public sealed record ConfirmPaymentRequest(string? PaymentCode, Guid? CheckoutId);
 }

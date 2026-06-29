@@ -373,7 +373,14 @@ public sealed class AgentExecutor(
             AiPricingHelper.ResetBillingPeriodIfNeeded(subscription);
             if (subscription.UsedRunsThisMonth >= subscription.SubscriptionPlan.MaxRunsPerMonth)
             {
-                throw new InvalidOperationException("Quota de runs mensuel dépassé pour ce plan.");
+                if (subscription.ConsumableRunsBalance > 0)
+                {
+                    subscription.ConsumableRunsBalance -= 1;
+                }
+                else
+                {
+                    throw new InvalidOperationException("Quota de runs mensuel dépassé. Achetez un pack de runs.");
+                }
             }
         }
 
@@ -850,27 +857,34 @@ public sealed class IdentitySeedService(
             dbContext.SubscriptionPlans.Add(new SubscriptionPlan
             {
                 Name = "Starter",
-                MaxAgents = 20,
+                MaxAgents = 5,
                 MaxRunsPerMonth = 5000,
-                MonthlyPriceUsd = 99
+                MonthlyPriceUsd = 99,
+                PublishModel = PublishModel.SubscriptionIncluded
             });
             dbContext.SubscriptionPlans.Add(new SubscriptionPlan
             {
                 Name = "Pro",
-                MaxAgents = 100,
+                MaxAgents = 25,
                 MaxRunsPerMonth = 50000,
                 MonthlyPriceUsd = 299,
                 BlueprintCreationFeeUsd = 0,
-                DeployFeeUsd = 0
+                DeployFeeUsd = 0,
+                PublishModel = PublishModel.SubscriptionIncluded
             });
             dbContext.SubscriptionPlans.Add(new SubscriptionPlan
             {
                 Name = "Enterprise",
-                MaxAgents = 500,
+                MaxAgents = 50,
                 MaxRunsPerMonth = 500000,
                 MonthlyPriceUsd = 999,
                 BlueprintCreationFeeUsd = 0,
-                DeployFeeUsd = 0
+                DeployFeeUsd = 0,
+                PublishModel = PublishModel.ConsumableExtra,
+                PublishCreditPriceUsd = 49m,
+                PublishCreditPackSize = 1,
+                RunPackPriceUsd = 29m,
+                RunPackSize = 5000
             });
             await dbContext.SaveChangesAsync(cancellationToken);
         }

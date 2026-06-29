@@ -112,6 +112,60 @@ public sealed class GisebsPayGatewayCatalogSync(
                 synced,
                 plans.Count);
         }
+
+        await SyncConsumableCatalogAsync(client, config, cancellationToken);
+    }
+
+    private async Task SyncConsumableCatalogAsync(
+        HttpClient client,
+        GisebsApiPayGatewayOptions config,
+        CancellationToken cancellationToken)
+    {
+        var consumables = new[]
+        {
+            new CreateCatalogItemRequest(
+                config.PublishCreditProductCode,
+                "AGENTIA-OS Crédit de publication",
+                "1 crédit pour publier un agent au-delà du quota inclus",
+                config.DefaultPlanCode,
+                "Unitaire",
+                49m,
+                "USD",
+                SyncToStripe: true),
+            new CreateCatalogItemRequest(
+                config.RunPackProductCode,
+                "AGENTIA-OS Pack de runs",
+                "5000 runs supplémentaires consommables",
+                config.DefaultPlanCode,
+                "Pack",
+                29m,
+                "USD",
+                SyncToStripe: true)
+        };
+
+        foreach (var item in consumables)
+        {
+            try
+            {
+                var response = await client.PostAsJsonAsync(
+                    "api/products/catalog", item, GisebsPayGatewayJson.Options, cancellationToken);
+                if (response.IsSuccessStatusCode)
+                {
+                    logger.LogInformation("Catalogue Pay Gateway créé pour {ProductCode}.", item.ProductCode);
+                    continue;
+                }
+
+                var body = await response.Content.ReadAsStringAsync(cancellationToken);
+                if (response.StatusCode == HttpStatusCode.BadRequest && LooksLikeAlreadyExists(body))
+                {
+                    logger.LogDebug("Catalogue Pay Gateway déjà présent pour {ProductCode}.", item.ProductCode);
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                logger.LogWarning(ex, "Pay Gateway injoignable pour consommable {ProductCode}.", item.ProductCode);
+            }
+        }
     }
 
     private HttpClient CreateClient(GisebsApiPayGatewayOptions config)

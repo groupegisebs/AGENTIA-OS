@@ -1,4 +1,5 @@
 using AgenticFactory.Application;
+using AgenticFactory.Infrastructure.Billing;
 using AgenticFactory.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -320,8 +321,27 @@ public class AgentsController(
             return BadRequest("Missing organization context.");
         }
 
-        var result = await deploymentService.DeployAsync(organizationId, request, cancellationToken);
-        return Ok(result);
+        try
+        {
+            var result = await deploymentService.DeployAsync(organizationId, request, cancellationToken);
+            return Ok(result);
+        }
+        catch (PublishPaymentRequiredException ex)
+        {
+            var e = ex.Eligibility;
+            return StatusCode(StatusCodes.Status402PaymentRequired, new
+            {
+                code = e.BlockReason,
+                message = e.MessageFr,
+                ctaLabel = e.CtaLabelFr,
+                checkoutAction = e.CheckoutAction,
+                requiredAmountUsd = e.RequiredAmountUsd,
+                subscriptionPlanId = e.SubscriptionPlanId,
+                publishCreditsBalance = e.PublishCreditsBalance,
+                deployedAgents = e.DeployedAgents,
+                maxAgents = e.MaxAgents
+            });
+        }
     }
 
     [HttpPost("{endpointSlug}/invoke")]

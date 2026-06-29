@@ -38,7 +38,11 @@ public class DeploymentsController(ApiClient api) : AuthenticatedController
             .OrderByDescending(g => g.LastDeployedAt)
             .ToList();
 
-        return View(new DeploymentsIndexViewModel { AgentGroups = groups });
+        return View(new DeploymentsIndexViewModel
+        {
+            AgentGroups = groups,
+            PublishEligibility = MapPublishEligibility(await api.GetPublishEligibilityAsync())
+        });
     }
 
     public async Task<IActionResult> Detail(Guid id)
@@ -51,7 +55,9 @@ public class DeploymentsController(ApiClient api) : AuthenticatedController
         if (detail is null)
             return RedirectToAction(nameof(Index));
 
-        return View(BuildDetailViewModel(detail));
+        var vm = BuildDetailViewModel(detail);
+        vm.PublishEligibility = MapPublishEligibility(await api.GetPublishEligibilityAsync(id));
+        return View(vm);
     }
 
     [HttpPost]
@@ -134,9 +140,14 @@ public class DeploymentsController(ApiClient api) : AuthenticatedController
     public async Task<IActionResult> Redeploy(Guid agentId, Guid blueprintId, string environment = "production")
     {
         AuthenticateApi(api);
-        var (result, error) = await api.DeployAgentAsync(agentId, blueprintId, environment);
+        var (result, error, statusCode, paymentRequired) = await api.DeployAgentAsync(agentId, blueprintId, environment);
         if (result is null)
-            TempData["Error"] = string.IsNullOrWhiteSpace(error) ? "Échec du redéploiement." : error;
+        {
+            if (statusCode == 402 && paymentRequired is not null)
+                TempData["Error"] = paymentRequired.Message;
+            else
+                TempData["Error"] = string.IsNullOrWhiteSpace(error) ? "Échec du redéploiement." : error;
+        }
         else
         {
             TempData["Success"] = $"Redéploiement réussi — {result.EndpointSlug}";
@@ -144,6 +155,11 @@ public class DeploymentsController(ApiClient api) : AuthenticatedController
         }
         return RedirectToAction(nameof(Detail), new { id = agentId });
     }
+
+    private static PublishEligibilityInfo? MapPublishEligibility(PublishEligibilityResponse? e) =>
+        e is null ? null : new PublishEligibilityInfo(
+            e.CanPublish, e.BlockReason, e.Message, e.CtaLabel, e.CheckoutAction,
+            e.RequiredAmountUsd, e.SubscriptionPlanId, e.PublishCreditsBalance, e.DeployedAgents, e.MaxAgents);
 
     private static DeploymentDetailViewModel BuildDetailViewModel(DeploymentDetailResponse detail) =>
         new()

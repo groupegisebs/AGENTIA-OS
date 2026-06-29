@@ -42,6 +42,10 @@ public class AgentsController(ApiClient api) : AuthenticatedController
                 vm.WeeklyActivity = [0, 0, 0, 0, 0, 0, 0];
         }
 
+        var eligibility = await api.GetPublishEligibilityAsync();
+        if (eligibility is not null)
+            vm.PublishEligibility = MapPublishEligibility(eligibility);
+
         return View(vm);
     }
 
@@ -400,9 +404,16 @@ public class AgentsController(ApiClient api) : AuthenticatedController
     public async Task<IActionResult> Deploy(Guid agentId, Guid blueprintId)
     {
         AuthenticateApi(api);
-        var (result, error) = await api.DeployAgentAsync(agentId, blueprintId);
+        var (result, error, statusCode, paymentRequired) = await api.DeployAgentAsync(agentId, blueprintId);
         if (result is null)
         {
+            if (statusCode == 402 && paymentRequired is not null)
+            {
+                TempData["Error"] = paymentRequired.Message;
+                TempData["PublishPaymentAction"] = paymentRequired.CheckoutAction;
+                TempData["PublishPaymentPlanId"] = paymentRequired.SubscriptionPlanId?.ToString();
+                return RedirectToAction(nameof(Index));
+            }
             TempData["Error"] = string.IsNullOrWhiteSpace(error) ? "Échec du déploiement." : error;
         }
         else
@@ -415,6 +426,46 @@ public class AgentsController(ApiClient api) : AuthenticatedController
         }
         return RedirectToAction(nameof(Index));
     }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> PublishCheckout(string checkoutAction, Guid? planId)
+    {
+        AuthenticateApi(api);
+        var webBase = HttpContext.Request.Scheme + "://" + HttpContext.Request.Host;
+        var successUrl = $"{webBase}/Subscriptions/Success";
+        var cancelUrl = $"{webBase}/Agents";
+
+        if (string.Equals(checkoutAction, "publish_credits", StringComparison.OrdinalIgnoreCase))
+        {
+            var (result, error) = await api.StartConsumableCheckoutAsync("PublishCredits", successUrl, cancelUrl);
+            if (error is not null)
+            {
+                TempData["Error"] = error;
+                return RedirectToAction(nameof(Index));
+            }
+            if (!string.IsNullOrWhiteSpace(result?.CheckoutUrl))
+                return Redirect(result.CheckoutUrl);
+        }
+        else if (planId is Guid id && id != Guid.Empty)
+        {
+            var (result, error) = await api.StartBillingCheckoutAsync(id, successUrl, cancelUrl);
+            if (error is not null)
+            {
+                TempData["Error"] = error;
+                return RedirectToAction(nameof(Index));
+            }
+            if (!string.IsNullOrWhiteSpace(result?.CheckoutUrl))
+                return Redirect(result.CheckoutUrl);
+        }
+
+        TempData["Error"] = "Impossible de démarrer le paiement.";
+        return RedirectToAction(nameof(Index));
+    }
+
+    private static PublishEligibilityInfo MapPublishEligibility(PublishEligibilityResponse e) =>
+        new(e.CanPublish, e.BlockReason, e.Message, e.CtaLabel, e.CheckoutAction,
+            e.RequiredAmountUsd, e.SubscriptionPlanId, e.PublishCreditsBalance, e.DeployedAgents, e.MaxAgents);
 
     private static AgentListItem MapAgent(AgentListItemResponse a) => new(
         a.Id,

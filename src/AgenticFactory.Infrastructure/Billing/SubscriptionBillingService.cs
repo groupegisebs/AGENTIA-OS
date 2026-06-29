@@ -46,6 +46,8 @@ public sealed class SubscriptionBillingService(
         {
             OrganizationId = organizationId,
             SubscriptionPlanId = plan.Id,
+            Kind = CheckoutKind.Subscription,
+            Quantity = 1,
             PaymentCode = $"TMP-{Guid.NewGuid():N}"[..24],
             CustomerEmail = request.CustomerEmail,
             Status = SubscriptionCheckoutStatus.Pending
@@ -65,6 +67,107 @@ public sealed class SubscriptionBillingService(
 
         var gatewayRequest = new GisebsCheckoutSessionRequest(
             customerCode,
+            request.CustomerEmail,
+            request.CustomerName,
+            organizationId.ToString(),
+            productCode,
+            config.DefaultPlanCode,
+            AppendQuery(request.SuccessUrl, "checkoutId", checkout.Id.ToString()),
+            request.CancelUrl,
+            metadataJson);
+
+        BillingCheckoutResult checkoutResult;
+        try
+        {
+            checkoutResult = await payGatewayClient.CreateCheckoutSessionAsync(gatewayRequest, cancellationToken);
+        }
+        catch (InvalidOperationException ex)
+        {
+            dbContext.SubscriptionCheckouts.Remove(checkout);
+            await dbContext.SaveChangesAsync(cancellationToken);
+            return (null, ex.Message);
+        }
+
+        checkout.PaymentCode = checkoutResult.PaymentCode;
+        checkout.UpdatedAtUtc = DateTime.UtcNow;
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return (new BillingCheckoutResult(
+            checkout.Id,
+            checkoutResult.PaymentCode,
+            checkoutResult.CheckoutUrl,
+            checkoutResult.SessionId,
+            checkoutResult.Status), null);
+    }
+
+    public async Task<(BillingCheckoutResult? Result, string? Error)> StartConsumableCheckoutAsync(
+        Guid organizationId,
+        ConsumableCheckoutRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!payGatewayClient.IsConfigured)
+        {
+            return (null, "Le paiement en ligne n'est pas encore configuré. Contactez support@agentia.io.");
+        }
+
+        if (request.Kind is not (CheckoutKind.PublishCredits or CheckoutKind.RunPack))
+            return (null, "Type d'achat consommable invalide.");
+
+        var quantity = Math.Max(1, request.Quantity);
+
+        var subscription = await dbContext.OrganizationSubscriptions
+            .Include(x => x.SubscriptionPlan)
+            .FirstOrDefaultAsync(x => x.OrganizationId == organizationId && x.IsActive, cancellationToken);
+
+        if (subscription?.SubscriptionPlan is null)
+            return (null, "Abonnement actif requis avant d'acheter des crédits.");
+
+        var plan = subscription.SubscriptionPlan;
+        var config = options.Value;
+        string productCode;
+        decimal unitPrice;
+        int packSize;
+
+        if (request.Kind == CheckoutKind.PublishCredits)
+        {
+            productCode = config.PublishCreditProductCode;
+            unitPrice = plan.PublishCreditPriceUsd > 0 ? plan.PublishCreditPriceUsd : 49m;
+            packSize = Math.Max(1, plan.PublishCreditPackSize);
+        }
+        else
+        {
+            productCode = config.RunPackProductCode;
+            unitPrice = plan.RunPackPriceUsd > 0 ? plan.RunPackPriceUsd : 29m;
+            packSize = Math.Max(1, plan.RunPackSize);
+        }
+
+        _ = unitPrice;
+        _ = packSize;
+
+        var checkout = new SubscriptionCheckout
+        {
+            OrganizationId = organizationId,
+            SubscriptionPlanId = plan.Id,
+            Kind = request.Kind,
+            Quantity = quantity,
+            PaymentCode = $"TMP-{Guid.NewGuid():N}"[..24],
+            CustomerEmail = request.CustomerEmail,
+            Status = SubscriptionCheckoutStatus.Pending
+        };
+        dbContext.SubscriptionCheckouts.Add(checkout);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var metadataJson = JsonSerializer.Serialize(new
+        {
+            organizationId,
+            subscriptionPlanId = plan.Id,
+            kind = request.Kind.ToString(),
+            quantity,
+            packSize
+        }, MetadataJsonOptions);
+
+        var gatewayRequest = new GisebsCheckoutSessionRequest(
+            BuildCustomerCode(organizationId),
             request.CustomerEmail,
             request.CustomerName,
             organizationId.ToString(),
@@ -131,7 +234,13 @@ public sealed class SubscriptionBillingService(
 
         if (checkout.Status == SubscriptionCheckoutStatus.Completed && checkout.SubscriptionPlan is not null)
         {
-            return (new BillingConfirmResult(true, checkout.SubscriptionPlan.Name, "Abonnement déjà activé."), null);
+            var doneMessage = checkout.Kind switch
+            {
+                CheckoutKind.PublishCredits => "Crédits de publication déjà crédités.",
+                CheckoutKind.RunPack => "Pack de runs déjà crédité.",
+                _ => "Abonnement déjà activé."
+            };
+            return (new BillingConfirmResult(true, checkout.SubscriptionPlan.Name, doneMessage), null);
         }
 
         if (!payGatewayClient.IsConfigured)
@@ -167,14 +276,28 @@ public sealed class SubscriptionBillingService(
         var plan = checkout.SubscriptionPlan
             ?? await dbContext.SubscriptionPlans.FirstAsync(x => x.Id == checkout.SubscriptionPlanId, cancellationToken);
 
-        await ActivateSubscriptionAsync(organizationId, plan, paymentCode, payment.PaidAt, cancellationToken);
+        if (checkout.Kind == CheckoutKind.Subscription)
+        {
+            await ActivateSubscriptionAsync(organizationId, plan, paymentCode, payment.PaidAt, cancellationToken);
+        }
+        else
+        {
+            await CreditConsumablesAsync(organizationId, plan, checkout, cancellationToken);
+        }
 
         checkout.Status = SubscriptionCheckoutStatus.Completed;
         checkout.PaidAtUtc = payment.PaidAt ?? DateTime.UtcNow;
         checkout.UpdatedAtUtc = DateTime.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return (new BillingConfirmResult(true, plan.Name, "Votre abonnement a été activé avec succès."), null);
+        var message = checkout.Kind switch
+        {
+            CheckoutKind.PublishCredits => $"{checkout.Quantity * Math.Max(1, plan.PublishCreditPackSize)} crédit(s) de publication ajouté(s).",
+            CheckoutKind.RunPack => $"{checkout.Quantity * Math.Max(1, plan.RunPackSize):N0} runs ajoutés à votre solde.",
+            _ => "Votre abonnement a été activé avec succès."
+        };
+
+        return (new BillingConfirmResult(true, plan.Name, message), null);
     }
 
     private static string AppendQuery(string url, string key, string value)
@@ -195,6 +318,9 @@ public sealed class SubscriptionBillingService(
             .Where(x => x.OrganizationId == organizationId && x.IsActive)
             .ToListAsync(cancellationToken);
 
+        var preservedCredits = activeSubscriptions.Sum(x => x.PublishCredits);
+        var preservedRuns = activeSubscriptions.Sum(x => x.ConsumableRunsBalance);
+
         foreach (var existing in activeSubscriptions)
         {
             existing.IsActive = false;
@@ -209,9 +335,35 @@ public sealed class SubscriptionBillingService(
             UsedRunsThisMonth = 0,
             PeriodStartUtc = now.Date,
             PeriodEndUtc = now.Date.AddMonths(1),
-            PayGatewayPaymentCode = paymentCode
+            PayGatewayPaymentCode = paymentCode,
+            PublishCredits = preservedCredits,
+            ConsumableRunsBalance = preservedRuns
         });
 
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task CreditConsumablesAsync(
+        Guid organizationId,
+        SubscriptionPlan plan,
+        SubscriptionCheckout checkout,
+        CancellationToken cancellationToken)
+    {
+        var subscription = await dbContext.OrganizationSubscriptions
+            .FirstOrDefaultAsync(x => x.OrganizationId == organizationId && x.IsActive, cancellationToken)
+            ?? throw new InvalidOperationException("Abonnement actif introuvable.");
+
+        var quantity = Math.Max(1, checkout.Quantity);
+        if (checkout.Kind == CheckoutKind.PublishCredits)
+        {
+            subscription.PublishCredits += quantity * Math.Max(1, plan.PublishCreditPackSize);
+        }
+        else if (checkout.Kind == CheckoutKind.RunPack)
+        {
+            subscription.ConsumableRunsBalance += quantity * Math.Max(1, plan.RunPackSize);
+        }
+
+        subscription.UpdatedAtUtc = DateTime.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 

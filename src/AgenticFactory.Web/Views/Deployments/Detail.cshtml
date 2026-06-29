@@ -67,14 +67,24 @@
             @await Component.InvokeAsync("PlatformStatus")
             @if (Model.LatestBlueprintId.HasValue)
             {
-                <form asp-action="Redeploy" method="post" class="d-inline">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="agentId" value="@Model.AgentId" />
-                    <input type="hidden" name="blueprintId" value="@Model.LatestBlueprintId" />
-                    <button type="submit" class="deploy-btn-primary border-0">
-                        <i class="bi bi-plus-lg"></i> Nouveau déploiement
+                @if (Model.PublishEligibility is { CanPublish: false } pub)
+                {
+                    <button type="button" class="deploy-btn-primary border-0" disabled title="@pub.Message">
+                        <i class="bi bi-lock-fill"></i> Paiement requis
                     </button>
-                </form>
+                }
+                else
+                {
+                    <form asp-action="Redeploy" method="post" class="d-inline">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="agentId" value="@Model.AgentId" />
+                        <input type="hidden" name="blueprintId" value="@Model.LatestBlueprintId" />
+                        <button type="submit" class="deploy-btn-primary border-0"
+                                onclick="return confirm('Confirmer le redéploiement ? Des frais ou crédits peuvent s\'appliquer.');">
+                            <i class="bi bi-plus-lg"></i> Nouveau déploiement
+                        </button>
+                    </form>
+                }
             }
             else
             {

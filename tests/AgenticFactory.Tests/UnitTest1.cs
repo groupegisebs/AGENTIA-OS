@@ -16,6 +16,7 @@ public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
         _factory = factory.WithWebHostBuilder(builder =>
         {
             builder.UseSetting("Database:Provider", "inmemory");
+            builder.UseSetting("Billing:SkipPublishPaymentGate", "true");
             builder.UseEnvironment("Development");
         });
     }
@@ -113,6 +114,38 @@ public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
         var response = await client.SendAsync(invokeRequest);
 
         Assert.Equal(System.Net.HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Deploy_Returns402_WhenSubscriptionUnpaid_AndGateEnabled()
+    {
+        var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("Billing:SkipPublishPaymentGate", "false");
+        });
+        var client = factory.CreateClient();
+        var (token, orgId) = await RegisterAndLoginAsync(client);
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        client.DefaultRequestHeaders.Remove("X-Organization-Id");
+        client.DefaultRequestHeaders.Add("X-Organization-Id", orgId);
+
+        var chat = await client.PostAsJsonAsync("/api/agent-creation/chat", new { message = "Create an incident triage agent", existingAgentId = (Guid?)null });
+        chat.EnsureSuccessStatusCode();
+        var blueprint = await chat.Content.ReadFromJsonAsync<JsonElement>();
+        var blueprintId = blueprint.GetProperty("id").GetGuid();
+        var agentId = blueprint.GetProperty("agentId").GetGuid();
+
+        var eligibility = await client.GetAsync("/api/billing/publish-eligibility");
+        eligibility.EnsureSuccessStatusCode();
+        var eligibilityJson = await eligibility.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.False(eligibilityJson.GetProperty("canPublish").GetBoolean());
+        Assert.Equal("subscription_payment_required", eligibilityJson.GetProperty("blockReason").GetString());
+
+        var deploy = await client.PostAsJsonAsync("/api/agents/deploy", new { agentId, blueprintId, environment = "dev" });
+        Assert.Equal(System.Net.HttpStatusCode.PaymentRequired, deploy.StatusCode);
+        var deployBody = await deploy.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("subscription_payment_required", deployBody.GetProperty("code").GetString());
     }
 
     [Fact]

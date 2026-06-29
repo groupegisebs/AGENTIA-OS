@@ -48,6 +48,10 @@ public class SubscriptionsController(ApiClient api, IConfiguration configuration
             vm.CurrentAgents = subscription.CurrentAgents;
             vm.PeriodStartUtc = subscription.PeriodStartUtc;
             vm.PeriodEndUtc = subscription.PeriodEndUtc;
+            vm.PublishCredits = subscription.PublishCredits;
+            vm.ConsumableRunsBalance = subscription.ConsumableRunsBalance;
+            vm.SubscriptionPaid = subscription.SubscriptionPaid;
+            vm.PublishModel = subscription.PublishModel;
         }
 
         if (plans is not null)
@@ -61,7 +65,10 @@ public class SubscriptionsController(ApiClient api, IConfiguration configuration
                     p.MonthlyPriceUsd,
                     p.BlueprintCreationFeeUsd,
                     p.DeployFeeUsd,
-                    string.Equals(p.Name, vm.PlanName, StringComparison.OrdinalIgnoreCase)))
+                    string.Equals(p.Name, vm.PlanName, StringComparison.OrdinalIgnoreCase),
+                    p.PublishModel,
+                    p.PublishCreditPriceUsd,
+                    p.RunPackPriceUsd))
                 .ToList();
         }
 

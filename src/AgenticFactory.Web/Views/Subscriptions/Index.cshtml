@@ -107,6 +107,26 @@
         </div>
     </div>
 
+    <div class="billing-panel">
+        <h2 class="billing-panel-title">Publication des agents</h2>
+        <p style="color:#64748b;font-size:0.9rem;margin-bottom:12px;">
+            Les agents peuvent être créés en brouillon gratuitement. La <strong>publication</strong> (déploiement) nécessite un abonnement mensuel payant
+            ou, pour le plan Enterprise, des crédits de publication consommables au-delà du quota inclus.
+        </p>
+        <ul style="color:#475569;font-size:0.9rem;margin-bottom:16px;padding-left:1.2rem;">
+            <li><strong>Starter / Pro</strong> — abonnement mensuel : publication incluse jusqu'au quota d'agents.</li>
+            <li><strong>Enterprise</strong> — abonnement + crédits consommables pour agents supplémentaires (@Model.PublishCredits crédit(s) disponible(s)).</li>
+            <li><strong>Runs</strong> — solde consommable : @Model.ConsumableRunsBalance.ToString("N0") run(s) achetés en plus du quota mensuel.</li>
+        </ul>
+        @if (!Model.SubscriptionPaid && Model.MonthlyPriceUsd > 0)
+        {
+            <div class="billing-alert warn mb-0">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                Votre abonnement @Model.PlanName n'est pas encore payé — la publication est bloquée jusqu'au paiement.
+            </div>
+        }
+    </div>
+
     @if (upgradePlans.Count > 0)
     {
         <div class="billing-panel">
@@ -127,7 +147,12 @@
                         <ul>
                             <li><i class="bi bi-check-lg"></i> @plan.MaxAgents agents</li>
                             <li><i class="bi bi-check-lg"></i> @plan.MaxRunsPerMonth.ToString("N0") runs/mois</li>
-                            @if (plan.BlueprintCreationFeeUsd > 0 || plan.DeployFeeUsd > 0)
+                            @if (plan.PublishModel == "ConsumableExtra")
+                            {
+                                <li><i class="bi bi-check-lg"></i> Agents extra : crédits @plan.PublishCreditPriceUsd.ToString("0") $ / crédit</li>
+                                <li><i class="bi bi-check-lg"></i> Runs extra : packs @plan.RunPackPriceUsd.ToString("0") $</li>
+                            }
+                            else if (plan.BlueprintCreationFeeUsd > 0 || plan.DeployFeeUsd > 0)
                             {
                                 <li><i class="bi bi-check-lg"></i> Frais création : $@plan.BlueprintCreationFeeUsd.ToString("0.00")</li>
                                 <li><i class="bi bi-check-lg"></i> Frais déploiement : $@plan.DeployFeeUsd.ToString("0.00")</li>

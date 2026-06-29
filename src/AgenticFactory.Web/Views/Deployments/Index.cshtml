@@ -23,6 +23,14 @@
         </div>
     </div>
 
+    @if (Model.PublishEligibility is { CanPublish: false } pub)
+    {
+        <div class="deploy-alert alert alert-info">
+            <i class="bi bi-info-circle me-1"></i> @pub.Message
+            <a asp-controller="Agents" asp-action="Index" class="ms-2">Voir les options de paiement</a>
+        </div>
+    }
+
     @if (!Model.AgentGroups.Any())
     {
         <div class="deploy-panel text-center py-5">

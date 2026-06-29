@@ -191,7 +191,25 @@ public record SubscriptionResponse(
     int UsedRunsThisMonth,
     int CurrentAgents,
     DateTime? PeriodStartUtc,
-    DateTime? PeriodEndUtc);
+    DateTime? PeriodEndUtc,
+    int PublishCredits = 0,
+    int ConsumableRunsBalance = 0,
+    string? PublishModel = null,
+    bool SubscriptionPaid = false);
+
+public record PublishEligibilityResponse(
+    bool CanPublish,
+    string? BlockReason,
+    string Message,
+    string? CtaLabel,
+    string? CheckoutAction,
+    decimal? RequiredAmountUsd,
+    Guid? SubscriptionPlanId,
+    int PublishCreditsBalance,
+    int DeployedAgents,
+    int MaxAgents,
+    string? PlanName,
+    decimal MonthlyPriceUsd);
 
 public record SubscriptionPlanResponse(
     Guid Id,
@@ -200,7 +218,12 @@ public record SubscriptionPlanResponse(
     int MaxRunsPerMonth,
     decimal MonthlyPriceUsd,
     decimal BlueprintCreationFeeUsd = 0,
-    decimal DeployFeeUsd = 0);
+    decimal DeployFeeUsd = 0,
+    string? PublishModel = null,
+    decimal PublishCreditPriceUsd = 0,
+    int PublishCreditPackSize = 1,
+    decimal RunPackPriceUsd = 0,
+    int RunPackSize = 1000);
 
 public record UsageTotalsResponse(
     int TotalRuns,
@@ -428,16 +451,63 @@ public class ApiClient(HttpClient http)
         return null;
     }
 
-    public async Task<(DeployResponse? Result, string? Error)> DeployAgentAsync(
+    public async Task<(DeployResponse? Result, string? Error, int? StatusCode, PublishEligibilityResponse? PaymentRequired)> DeployAgentAsync(
         Guid agentId, Guid blueprintId, string environment = "production")
     {
         var body = JsonSerializer.Serialize(new DeployRequest(agentId, blueprintId, environment), _json);
         var response = await http.PostAsync("/api/agents/deploy",
             new StringContent(body, Encoding.UTF8, "application/json"));
         var content = await response.Content.ReadAsStringAsync();
+        var statusCode = (int)response.StatusCode;
+        if (response.StatusCode == System.Net.HttpStatusCode.PaymentRequired)
+        {
+            var payment = JsonSerializer.Deserialize<PublishEligibilityResponse>(content, _json);
+            return (null, payment?.Message ?? "Paiement requis pour publier.", statusCode, payment);
+        }
         if (!response.IsSuccessStatusCode)
-            return (null, content);
-        return (JsonSerializer.Deserialize<DeployResponse>(content, _json), null);
+            return (null, TryReadErrorMessage(content) ?? content, statusCode, null);
+        return (JsonSerializer.Deserialize<DeployResponse>(content, _json), null, statusCode, null);
+    }
+
+    public async Task<PublishEligibilityResponse?> GetPublishEligibilityAsync(Guid? agentId = null)
+    {
+        var url = agentId is Guid id
+            ? $"/api/billing/publish-eligibility?agentId={id}"
+            : "/api/billing/publish-eligibility";
+        var response = await http.GetAsync(url);
+        if (!response.IsSuccessStatusCode) return null;
+        var content = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<PublishEligibilityResponse>(content, _json);
+    }
+
+    public async Task<(BillingCheckoutResponse? Result, string? Error)> StartConsumableCheckoutAsync(
+        string kind,
+        string successUrl,
+        string cancelUrl,
+        int quantity = 1)
+    {
+        var body = JsonSerializer.Serialize(new
+        {
+            subscriptionPlanId = Guid.Empty,
+            successUrl,
+            cancelUrl,
+            kind = string.Equals(kind, "PublishCredits", StringComparison.OrdinalIgnoreCase) ? 2 : 3,
+            quantity
+        }, _json);
+        var response = await http.PostAsync("/api/billing/checkout",
+            new StringContent(body, Encoding.UTF8, "application/json"));
+        var content = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+        {
+            try
+            {
+                var err = JsonSerializer.Deserialize<JsonElement>(content, _json);
+                return (null, err.TryGetProperty("message", out var m) ? m.GetString() : content);
+            }
+            catch { return (null, content); }
+        }
+
+        return (JsonSerializer.Deserialize<BillingCheckoutResponse>(content, _json), null);
     }
 
     public async Task<(InvokeAgentResponse? Result, string? Error, int? StatusCode)> InvokeAgentAsync(

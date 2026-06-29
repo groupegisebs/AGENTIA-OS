@@ -47,11 +47,13 @@ public static class DependencyInjection
         services.AddHttpContextAccessor();
         services.AddHttpClient();
         services.Configure<GisebsApiPayGatewayOptions>(configuration.GetSection(GisebsApiPayGatewayOptions.SectionName));
+        services.Configure<BillingOptions>(configuration.GetSection(BillingOptions.SectionName));
         services.AddHttpClient(nameof(GisebsPayGatewayClient))
             .ConfigurePrimaryHttpMessageHandler(GisebsPayGatewayHttp.CreateHandler);
         services.AddScoped<IGisebsPayGatewayClient, GisebsPayGatewayClient>();
         services.AddScoped<GisebsPayGatewayCatalogSync>();
         services.AddScoped<ISubscriptionBillingService, SubscriptionBillingService>();
+        services.AddScoped<IPublishEligibilityService, PublishEligibilityService>();
         services.AddIdentity<AppIdentityUser, IdentityRole<Guid>>(options =>
             {
                 options.Password.RequireDigit = true;

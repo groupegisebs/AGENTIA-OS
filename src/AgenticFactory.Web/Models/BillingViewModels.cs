@@ -12,6 +12,10 @@ public sealed class SubscriptionsIndexViewModel
     public DateTime? PeriodStartUtc { get; set; }
     public DateTime? PeriodEndUtc { get; set; }
     public List<SubscriptionPlanItem> AvailablePlans { get; set; } = [];
+    public int PublishCredits { get; set; }
+    public int ConsumableRunsBalance { get; set; }
+    public bool SubscriptionPaid { get; set; }
+    public string? PublishModel { get; set; }
     public bool ApiAvailable { get; set; } = true;
     public bool PaymentConfigured { get; set; }
     public string? PaymentMessage { get; set; }
@@ -29,7 +33,10 @@ public sealed record SubscriptionPlanItem(
     decimal MonthlyPriceUsd,
     decimal BlueprintCreationFeeUsd,
     decimal DeployFeeUsd,
-    bool IsCurrent);
+    bool IsCurrent,
+    string? PublishModel = null,
+    decimal PublishCreditPriceUsd = 0,
+    decimal RunPackPriceUsd = 0);
 
 public sealed class BillingIndexViewModel
 {

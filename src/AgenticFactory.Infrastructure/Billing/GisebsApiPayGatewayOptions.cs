@@ -43,4 +43,7 @@ public sealed class GisebsApiPayGatewayOptions
 
     public string BuildProductCode(string planName) =>
         $"{ProductCodePrefix}-{planName.Trim().Replace(' ', '-').ToUpperInvariant()}";
+
+    public string PublishCreditProductCode => $"{ProductCodePrefix}-PUBLISH-CREDIT";
+    public string RunPackProductCode => $"{ProductCodePrefix}-RUN-PACK";
 }

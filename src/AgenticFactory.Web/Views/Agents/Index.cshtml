@@ -84,6 +84,36 @@
     {
         <div class="agents-alert alert alert-danger">@error</div>
     }
+    @if (TempData["PublishPaymentAction"] is string payAction)
+    {
+        <div class="agents-alert alert alert-warning d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <span><i class="bi bi-credit-card me-1"></i> Paiement requis pour publier cet agent.</span>
+            <form asp-action="PublishCheckout" method="post" class="m-0">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="checkoutAction" value="@payAction" />
+                <input type="hidden" name="planId" value="@(TempData["PublishPaymentPlanId"])" />
+                <button type="submit" class="btn btn-sm btn-warning">
+                    @(payAction == "publish_credits" ? "Acheter des crédits de publication" : "Payer l'abonnement")
+                </button>
+            </form>
+        </div>
+    }
+    @if (Model.PublishEligibility is { CanPublish: false } pub)
+    {
+        <div class="agents-alert alert alert-info">
+            <i class="bi bi-info-circle me-1"></i>
+            @pub.Message
+            @if (!string.IsNullOrWhiteSpace(pub.CtaLabel))
+            {
+                <form asp-action="PublishCheckout" method="post" class="d-inline ms-2">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="checkoutAction" value="@pub.CheckoutAction" />
+                    <input type="hidden" name="planId" value="@pub.SubscriptionPlanId" />
+                    <button type="submit" class="btn btn-sm btn-outline-primary">@pub.CtaLabel</button>
+                </form>
+            }
+        </div>
+    }
     @if (TempData["ApiKey"] is string apiKey)
     {
         <div class="agents-alert alert alert-warning">
@@ -215,6 +245,7 @@
                         var idx = Math.Abs(agent.Name.GetHashCode()) % iconBgs.Length;
                         var maxSpark = Math.Max(1, agent.RunsSparkline.DefaultIfEmpty(0).Max());
                         var canDeploy = agent.DisplayStatus is "Draft" or "Disabled" && agent.LatestBlueprintId.HasValue;
+                        var deployBlocked = canDeploy && Model.PublishEligibility is { CanPublish: false };
                         <tr data-name="@agent.Name.ToLowerInvariant() @agent.Description.ToLowerInvariant()"
                             data-status="@agent.DisplayStatus"
                             data-category="@agent.Category"
@@ -256,16 +287,24 @@
                             </td>
                             <td>
                                 <div class="agents-actions">
-                                    @if (canDeploy)
+                                    @if (canDeploy && !deployBlocked)
                                     {
-                                        <form asp-action="Deploy" method="post" class="d-inline">
+                                        <form asp-action="Deploy" method="post" class="d-inline deploy-confirm-form">
                                             @Html.AntiForgeryToken()
                                             <input type="hidden" name="agentId" value="@agent.Id" />
                                             <input type="hidden" name="blueprintId" value="@agent.LatestBlueprintId" />
-                                            <button type="submit" class="agents-action-btn primary" title="Déployer">
+                                            <button type="submit" class="agents-action-btn primary" title="Publier / Déployer"
+                                                    data-confirm="Confirmer la publication de cet agent ? Un abonnement actif ou des crédits peuvent être requis.">
                                                 <i class="bi bi-play-fill"></i>
                                             </button>
                                         </form>
+                                    }
+                                    else if (deployBlocked)
+                                    {
+                                        <button type="button" class="agents-action-btn" disabled
+                                                title="@Model.PublishEligibility!.Message">
+                                            <i class="bi bi-lock-fill"></i>
+                                        </button>
                                     }
                                     else
                                     {
@@ -283,16 +322,20 @@
                                         <ul class="dropdown-menu dropdown-menu-end shadow-sm">
                                             <li><span class="dropdown-item-text small text-muted font-monospace">@agent.EndpointSlug</span></li>
                                             <li><hr class="dropdown-divider" /></li>
-                                            @if (canDeploy)
+                                            @if (canDeploy && !deployBlocked)
                                             {
                                                 <li>
-                                                    <form asp-action="Deploy" method="post">
+                                                    <form asp-action="Deploy" method="post" class="deploy-confirm-form">
                                                         @Html.AntiForgeryToken()
                                                         <input type="hidden" name="agentId" value="@agent.Id" />
                                                         <input type="hidden" name="blueprintId" value="@agent.LatestBlueprintId" />
-                                                        <button type="submit" class="dropdown-item"><i class="bi bi-lightning me-2"></i>Déployer</button>
+                                                        <button type="submit" class="dropdown-item"><i class="bi bi-lightning me-2"></i>Publier / Déployer</button>
                                                     </form>
                                                 </li>
+                                            }
+                                            else if (deployBlocked)
+                                            {
+                                                <li><span class="dropdown-item-text text-muted"><i class="bi bi-lock me-2"></i>@Model.PublishEligibility!.CtaLabel</span></li>
                                             }
                                             <li><a class="dropdown-item" asp-controller="Executions" asp-action="Index"><i class="bi bi-activity me-2"></i>Voir les exécutions</a></li>
                                             <li><a class="dropdown-item" asp-action="Create"><i class="bi bi-plus-circle me-2"></i>Créer un agent similaire</a></li>
@@ -390,6 +433,13 @@
         page = 1; render();
     });
     render();
+    document.querySelectorAll('.deploy-confirm-form').forEach(form => {
+        form.addEventListener('submit', e => {
+            const btn = form.querySelector('button[data-confirm]');
+            const msg = btn?.dataset.confirm;
+            if (msg && !window.confirm(msg)) e.preventDefault();
+        });
+    });
 })();
 </script>
 }
