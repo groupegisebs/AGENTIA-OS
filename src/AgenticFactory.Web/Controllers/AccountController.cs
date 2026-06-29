@@ -47,6 +47,7 @@ public class AccountController(ApiClient api) : Controller
     public IActionResult Register() => View(new RegisterViewModel());
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Register(RegisterViewModel model)
     {
         if (!ModelState.IsValid) return View(model);
