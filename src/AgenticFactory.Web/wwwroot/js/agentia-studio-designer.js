@@ -8,51 +8,54 @@
 
     /* ── Catalogue des capacités (palette business) ─────────── */
     const NODE_CATALOGUE = {
-        'Déclencheurs': [
-            { type: 'trigger-cron',    label: 'Planifié (cron)',    icon: '📅', category: 'trigger', output: 'Événement' },
-            { type: 'trigger-email',   label: 'Email entrant',      icon: '📧', category: 'trigger', output: 'Email' },
-            { type: 'trigger-webhook', label: 'API / Webhook',      icon: '🌐', category: 'trigger', output: 'Données JSON' },
-            { type: 'trigger-folder',  label: 'Dossier surveillé',  icon: '📂', category: 'trigger', output: 'Fichier' },
+        'DÉCLENCHEURS': [
+            { type: 'trigger-cron',    label: 'Planifié (cron)',    icon: '📅', category: 'trigger',   output: 'Événement',     inputType: '—',      outputType: 'Événement',   desc: 'Exécute l\'agent selon une planification cron.' },
+            { type: 'trigger-email',   label: 'Email entrant',      icon: '📧', category: 'trigger',   output: 'Email',         inputType: '—',      outputType: 'Email',       desc: 'Déclenché à chaque email reçu dans la boîte.' },
+            { type: 'trigger-webhook', label: 'API / Webhook',      icon: '🌐', category: 'trigger',   output: 'Données JSON',  inputType: '—',      outputType: 'JSON',        desc: 'Déclenché par un appel HTTP entrant externe.' },
+            { type: 'trigger-folder',  label: 'Changement fichier', icon: '📂', category: 'trigger',   output: 'Fichier',       inputType: '—',      outputType: 'Fichier',     desc: 'Surveille un dossier et réagit aux nouveaux fichiers.' },
+            { type: 'trigger-event',   label: 'Événement système',  icon: '⚡', category: 'trigger',   output: 'Événement',     inputType: '—',      outputType: 'Payload',     desc: 'Déclenché par un événement applicatif ou système.' },
         ],
-        'Connecteurs': [
-            { type: 'connector-outlook',    label: 'Outlook',       icon: '📧', category: 'connector', output: 'Email/Fichier' },
-            { type: 'connector-teams',      label: 'Teams',         icon: '💬', category: 'connector', output: 'Message' },
-            { type: 'connector-sharepoint', label: 'SharePoint',    icon: '📁', category: 'connector', output: 'Document' },
-            { type: 'connector-gmail',      label: 'Gmail',         icon: '✉️',  category: 'connector', output: 'Email' },
-            { type: 'connector-gdrive',     label: 'Google Drive',  icon: '🗂',  category: 'connector', output: 'Fichier' },
-            { type: 'connector-sap',        label: 'SAP',           icon: '🏭', category: 'connector', output: 'Données ERP' },
-            { type: 'connector-dynamics',   label: 'Dynamics 365',  icon: '⚙️',  category: 'connector', output: 'Données CRM' },
-            { type: 'connector-dropbox',    label: 'Dropbox',       icon: '📦', category: 'connector', output: 'Fichier' },
+        'CONNECTEURS': [
+            { type: 'connector-outlook',    label: 'Outlook',        icon: '📧', category: 'connector', output: 'Email/Fichier', inputType: 'Credentials', outputType: 'Email',    desc: 'Lit et envoie des emails via Microsoft Outlook.' },
+            { type: 'connector-teams',      label: 'Teams',          icon: '💬', category: 'connector', output: 'Message',       inputType: 'Credentials', outputType: 'Message',  desc: 'Envoie un message ou fichier sur un canal Teams.' },
+            { type: 'connector-sharepoint', label: 'SharePoint',     icon: '📁', category: 'connector', output: 'Document',      inputType: 'Credentials', outputType: 'Document', desc: 'Lit et écrit des documents dans SharePoint.' },
+            { type: 'connector-gmail',      label: 'Gmail',          icon: '✉️', category: 'connector', output: 'Email',         inputType: 'OAuth',       outputType: 'Email',    desc: 'Surveille la boîte Gmail et récupère les pièces jointes.' },
+            { type: 'connector-gdrive',     label: 'Google Drive',   icon: '🗂', category: 'connector', output: 'Fichier',       inputType: 'OAuth',       outputType: 'Fichier',  desc: 'Accède aux fichiers et dossiers Google Drive.' },
+            { type: 'connector-sap',        label: 'SAP',            icon: '🏭', category: 'connector', output: 'Données ERP',   inputType: 'Credentials', outputType: 'ERP Data', desc: 'Intégration avec les modules SAP (FI, MM, SD).' },
+            { type: 'connector-dynamics',   label: 'Dynamics 365',   icon: '⚙️', category: 'connector', output: 'Données CRM',  inputType: 'OAuth',       outputType: 'CRM Data', desc: 'Connecté aux entités Dynamics CRM/ERP.' },
+            { type: 'connector-dropbox',    label: 'Dropbox',        icon: '📦', category: 'connector', output: 'Fichier',       inputType: 'OAuth',       outputType: 'Fichier',  desc: 'Synchronise et transfère des fichiers Dropbox.' },
         ],
-        'IA — Cognition': [
-            { type: 'skill-understand',   label: 'Compréhension',        icon: '🧠', category: 'ia', output: 'Classification' },
-            { type: 'skill-extraction',   label: 'Extraction',           icon: '🔍', category: 'ia', output: 'JSON structuré' },
-            { type: 'skill-summary',      label: 'Résumé',               icon: '📝', category: 'ia', output: 'Texte' },
-            { type: 'skill-classify',     label: 'Classification',       icon: '🏷', category: 'ia', output: 'Catégorie' },
-            { type: 'skill-vision',       label: 'Vision / OCR',         icon: '👁', category: 'ia', output: 'Texte extrait' },
-            { type: 'skill-rag',          label: 'Recherche sémantique', icon: '🔎', category: 'ia', output: 'Résultats' },
+        'IA — COGNITION': [
+            { type: 'skill-understand',   label: 'Compréhension IA',     icon: '🧠', category: 'ia', output: 'Classification', inputType: 'Texte',    outputType: 'Classification', desc: 'Analyse et classe le contenu avec un modèle LLM.' },
+            { type: 'skill-extraction',   label: 'Extraction IA',        icon: '🔍', category: 'ia', output: 'JSON structuré', inputType: 'Document', outputType: 'JSON structuré', desc: 'Extraction intelligente de données depuis documents.' },
+            { type: 'skill-summary',      label: 'Résumé IA',            icon: '📝', category: 'ia', output: 'Texte',          inputType: 'Texte',    outputType: 'Résumé',         desc: 'Génère un résumé concis du contenu fourni.' },
+            { type: 'skill-classify',     label: 'Classification IA',    icon: '🏷', category: 'ia', output: 'Catégorie',      inputType: 'Texte',    outputType: 'Catégorie',      desc: 'Classe selon des catégories métier prédéfinies.' },
+            { type: 'skill-vision',       label: 'Vision / OCR',         icon: '👁', category: 'ia', output: 'Texte extrait',  inputType: 'Image',    outputType: 'Texte',          desc: 'Extrait le texte d\'images et documents scannés.' },
+            { type: 'skill-rag',          label: 'Recherche sémantique', icon: '🔎', category: 'ia', output: 'Résultats',      inputType: 'Requête',  outputType: 'Résultats',      desc: 'Recherche dans une base vectorielle par sémantique.' },
         ],
-        'Actions': [
-            { type: 'action-email',    label: 'Email',          icon: '📤', category: 'action', output: 'Email envoyé' },
-            { type: 'action-api',      label: 'API / Webhook',  icon: '🔗', category: 'api',    output: 'Réponse HTTP' },
-            { type: 'action-database', label: 'Base de données',icon: '🗄', category: 'database', output: 'Résultat SQL' },
-            { type: 'action-file',     label: 'Fichier / Excel',icon: '📁', category: 'action', output: 'Fichier' },
-            { type: 'action-ticket',   label: 'Ticket / Tâche', icon: '🎫', category: 'action', output: 'Ticket créé' },
+        'ACTIONS': [
+            { type: 'action-email',    label: 'Envoi email',       icon: '📤', category: 'action',   output: 'Email envoyé', inputType: 'Données', outputType: 'Email envoyé', desc: 'Envoie un email formaté vers les destinataires.' },
+            { type: 'action-api',      label: 'Appel API',         icon: '🔗', category: 'api',      output: 'Réponse HTTP', inputType: 'Payload', outputType: 'Réponse HTTP', desc: 'Effectue un appel HTTP vers une API externe.' },
+            { type: 'action-database', label: 'Base de données',   icon: '🗄', category: 'database', output: 'Résultat SQL', inputType: 'Requête', outputType: 'Résultat SQL', desc: 'Exécute des requêtes SQL en lecture ou écriture.' },
+            { type: 'action-file',     label: 'Fichier / Excel',   icon: '📁', category: 'action',   output: 'Fichier',      inputType: 'Données', outputType: 'Fichier',      desc: 'Crée ou met à jour des fichiers Excel / CSV.' },
+            { type: 'action-ticket',   label: 'Ticket / Tâche',    icon: '🎫', category: 'action',   output: 'Ticket créé',  inputType: 'Données', outputType: 'Ticket ID',    desc: 'Crée un ticket dans Jira, Azure DevOps, etc.' },
+            { type: 'action-teams',    label: 'Notif. Teams',      icon: '💬', category: 'action',   output: 'Message',      inputType: 'Texte',   outputType: 'Confirmé',     desc: 'Envoie un résumé ou alerte sur un canal Teams.' },
+            { type: 'action-storage',  label: 'Stockage',          icon: '💾', category: 'action',   output: 'Fichier',      inputType: 'Données', outputType: 'Chemin',       desc: 'Enregistrement dans SharePoint & base SQL.' },
         ],
-        'Décision & Contrôle': [
-            { type: 'decision-if',        label: 'Condition (IF)',       icon: '⚡', category: 'decision', output: 'Branche' },
-            { type: 'decision-switch',    label: 'Switch / Routage',     icon: '🔀', category: 'decision', output: 'Route' },
-            { type: 'decision-loop',      label: 'Boucle',               icon: '🔁', category: 'decision', output: 'Itération' },
-            { type: 'decision-wait',      label: 'Attente',              icon: '⏳', category: 'decision', output: 'Signal' },
-            { type: 'decision-validate',  label: 'Validation humaine',   icon: '✅', category: 'human',    output: 'Décision' },
-            { type: 'decision-approve',   label: 'Approbation',          icon: '👤', category: 'human',    output: 'Approbation' },
-            { type: 'decision-sign',      label: 'Signature',            icon: '✍', category: 'human',    output: 'Document signé' },
+        'DÉCISION & CONTRÔLE': [
+            { type: 'decision-if',        label: 'Condition (IF)',     icon: '⚡', category: 'decision', output: 'Branche',       inputType: 'Données', outputType: 'Branche',   desc: 'Dirige le flux selon une condition booléenne.' },
+            { type: 'decision-switch',    label: 'Switch / Routage',   icon: '🔀', category: 'decision', output: 'Route',         inputType: 'Données', outputType: 'Route',     desc: 'Distribue vers plusieurs branches selon une valeur.' },
+            { type: 'decision-loop',      label: 'Boucle',             icon: '🔁', category: 'decision', output: 'Itération',     inputType: 'Liste',   outputType: 'Itération', desc: 'Itère sur chaque élément d\'une collection.' },
+            { type: 'decision-wait',      label: 'Attente',            icon: '⏳', category: 'decision', output: 'Signal',        inputType: '—',       outputType: 'Signal',    desc: 'Suspend l\'exécution pendant une durée définie.' },
+            { type: 'decision-validate',  label: 'Validation humaine', icon: '✅', category: 'human',    output: 'Décision',      inputType: 'Données', outputType: 'Décision',  desc: 'Validation des données critiques par un opérateur.' },
+            { type: 'decision-approve',   label: 'Approbation',        icon: '👤', category: 'human',    output: 'Approbation',   inputType: 'Demande', outputType: 'Décision',  desc: 'Demande d\'approbation à un responsable désigné.' },
+            { type: 'decision-sign',      label: 'Signature',          icon: '✍', category: 'human',    output: 'Document signé',inputType: 'Document',outputType: 'Signé',     desc: 'Envoie le document pour signature électronique.' },
         ],
-        'Utilitaires': [
-            { type: 'util-variables', label: 'Variables',    icon: '📋', category: 'utility', output: 'Valeurs' },
-            { type: 'util-secrets',   label: 'Secrets',      icon: '🔐', category: 'utility', output: 'Credentials' },
-            { type: 'util-cache',     label: 'Cache',        icon: '💾', category: 'utility', output: 'Données' },
-            { type: 'util-logs',      label: 'Journal / Logs',icon: '📊', category: 'monitor', output: 'Logs' },
+        'UTILITAIRES': [
+            { type: 'util-variables', label: 'Variables',     icon: '📋', category: 'utility', output: 'Valeurs',      inputType: '—',    outputType: 'Valeurs',     desc: 'Stocke et partage des variables entre les étapes.' },
+            { type: 'util-secrets',   label: 'Secrets Vault', icon: '🔐', category: 'utility', output: 'Credentials',  inputType: '—',    outputType: 'Credentials', desc: 'Accès sécurisé aux secrets chiffrés dans le Vault.' },
+            { type: 'util-cache',     label: 'Cache',         icon: '💾', category: 'utility', output: 'Données',      inputType: 'Clé', outputType: 'Données',     desc: 'Met en cache les résultats pour éviter les doublons.' },
+            { type: 'util-logs',      label: 'Journal / Logs',icon: '📊', category: 'monitor', output: 'Logs',         inputType: 'Tout', outputType: 'Logs',        desc: 'Enregistre les traces et métriques d\'exécution.' },
         ],
     };
 
@@ -62,11 +65,11 @@
         ia:        '#8b5cf6',
         decision:  '#3b82f6',
         database:  '#22c55e',
-        action:    '#ef4444',
+        action:    '#10b981',
         api:       '#06b6d4',
-        human:     '#eab308',
+        human:     '#f59e0b',
         monitor:   '#6b7280',
-        connector: '#ec4899',
+        connector: '#3b82f6',
         utility:   '#8b8fa8',
         validation:'#22c55e',
     };
@@ -292,8 +295,9 @@
     /* ── State ───────────────────────────────────────────────── */
     const DRAFT_KEY = 'agentia-designer-draft';
     const MODE_KEY  = 'agentia-creation-mode';
-    const NODE_W    = 160;
-    const NODE_H    = 44;
+    const NODE_W    = 280;
+    const NODE_H    = 148;
+    const NODE_GAP  = 60;
 
     let state = {
         version: 2,
@@ -369,19 +373,20 @@
     }
     function getCanvasRect() { return canvasWrap.getBoundingClientRect(); }
 
-    /* ── Port positions (vertical flow: top/bottom center) ───── */
+    /* ── Port positions (horizontal flow: left/right center) ── */
     function getNodeH(nodeId) {
         return nodeHeights[nodeId] || NODE_H;
     }
     function portPos(node, side) {
-        if (side === 'in')  return { x: node.x + NODE_W / 2, y: node.y };
-        return { x: node.x + NODE_W / 2, y: node.y + getNodeH(node.id) };
+        const h = getNodeH(node.id);
+        if (side === 'in')  return { x: node.x,          y: node.y + h / 2 };
+        return                       { x: node.x + NODE_W, y: node.y + h / 2 };
     }
 
-    /* ── Vertical bezier path ────────────────────────────────── */
+    /* ── Horizontal bezier path ──────────────────────────────── */
     function bezierPath(x1, y1, x2, y2) {
-        const ctl = Math.max(70, Math.abs(y2 - y1) * 0.5);
-        return `M ${x1} ${y1} C ${x1} ${y1 + ctl}, ${x2} ${y2 - ctl}, ${x2} ${y2}`;
+        const ctl = Math.max(80, Math.abs(x2 - x1) * 0.45);
+        return `M ${x1} ${y1} C ${x1 + ctl} ${y1}, ${x2 - ctl} ${y2}, ${x2} ${y2}`;
     }
 
     /* ── Render edges ────────────────────────────────────────── */
@@ -409,13 +414,29 @@
             g.classList.add('edge-group');
             g.dataset.edgeId = edge.id;
 
+            // Ghost path for wider click target
+            const ghostPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            ghostPath.setAttribute('d', bezierPath(sx1, sy1, sx2, sy2));
+            ghostPath.setAttribute('fill', 'none');
+            ghostPath.setAttribute('stroke', 'transparent');
+            ghostPath.setAttribute('stroke-width', '12');
+            ghostPath.style.cursor = 'pointer';
+            g.appendChild(ghostPath);
+
             const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             path.classList.add('edge-path');
             path.style.stroke = edgeColor;
+            path.style.opacity = selectedEdgeIds.has(edge.id) ? '1' : '0.65';
             if (selectedEdgeIds.has(edge.id)) path.classList.add('selected');
             path.setAttribute('d', bezierPath(sx1, sy1, sx2, sy2));
             path.setAttribute('marker-end', `url(#arrowhead-${fromCat})`);
 
+            ghostPath.addEventListener('click', (e) => {
+                e.stopPropagation();
+                selectedEdgeIds.clear(); selectedEdgeIds.add(edge.id);
+                selectedNodeIds.clear();
+                renderEdges(); renderInspectorPanel();
+            });
             path.addEventListener('click', (e) => {
                 e.stopPropagation();
                 selectedEdgeIds.clear(); selectedEdgeIds.add(edge.id);
@@ -425,19 +446,22 @@
 
             g.appendChild(path);
 
-            // Data flow label at bezier midpoint
-            const mx = sx1 + (sx2 - sx1) * 0.5;
-            const my = sy1 + (sy2 - sy1) * 0.5 - 2;
-            const flowLabel = getEdgeFlowLabel(fromNode);
-            if (flowLabel && zoom > 0.6) {
+            // Data flow label at horizontal bezier midpoint
+            if (zoom > 0.5) {
+                const mx = (sx1 + sx2) / 2;
+                const my = (sy1 + sy2) / 2;
+                const flowLabel = getEdgeFlowLabel(fromNode, edge);
                 const fo = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
-                fo.setAttribute('x', mx - 55);
-                fo.setAttribute('y', my - 12);
-                fo.setAttribute('width', '110');
-                fo.setAttribute('height', '24');
+                fo.setAttribute('x', mx - 40);
+                fo.setAttribute('y', my - 13);
+                fo.setAttribute('width', '80');
+                fo.setAttribute('height', '26');
                 fo.setAttribute('pointer-events', 'none');
                 const div = document.createElement('div');
                 div.className = 'edge-flow-label';
+                div.style.textAlign = 'center';
+                div.style.color = edgeColor;
+                div.style.borderColor = edgeColor + '44';
                 div.textContent = flowLabel;
                 fo.appendChild(div);
                 g.appendChild(fo);
@@ -447,7 +471,9 @@
         });
     }
 
-    function getEdgeFlowLabel(fromNode) {
+    function getEdgeFlowLabel(fromNode, edge) {
+        const entry = getCatalogueEntry(fromNode.type);
+        if (entry && entry.outputType) return entry.outputType.split(' ')[0];
         return '→';
     }
 
@@ -496,11 +522,12 @@
     }
 
     function refreshNodeCard(node, el) {
+        if (!el) return;
         const configured = isNodeConfigured(node);
         const dot = el.querySelector('.node-status-dot');
         if (dot) dot.className = 'node-status-dot ' + (configured ? 'configured' : 'warning');
-        const labelEl = el.querySelector('.node-label');
-        if (labelEl) labelEl.textContent = node.label;
+        const titleEl = el.querySelector('.node-title');
+        if (titleEl) titleEl.textContent = node.label;
     }
 
     function createNodeElement(node) {
@@ -511,21 +538,41 @@
         const catColor = getCategoryColor(category);
         const configured = isNodeConfigured(node);
         const isTrigger  = category === 'trigger';
+        const desc     = entry ? (entry.desc || '') : '';
+        const inputType  = entry ? (entry.inputType  || '—') : '—';
+        const outputType = entry ? (entry.outputType || '—') : '—';
+
+        // Node number from index in state
+        const numIdx = state.nodes.findIndex(n => n.id === node.id);
+        const num = numIdx >= 0 ? numIdx + 1 : '';
 
         const el = document.createElement('div');
         el.className = `designer-node node-cat-${category}`;
         el.dataset.nodeId = node.id;
+        el.style.borderLeftColor = catColor;
 
         el.innerHTML = `
-            ${!isTrigger ? `<div class="designer-port designer-port-top" data-port="in" data-node="${node.id}"></div>` : ''}
-            <div class="node-icon-circle" style="background:${catColor}2a;color:${catColor}">${escHtml(icon)}</div>
-            <div class="node-info">
-                <div class="node-label" title="${escHtml(node.label)}">${escHtml(node.label)}</div>
-                <div class="node-type-badge" style="color:${catColor}">${escHtml(badge)}</div>
+            <div class="designer-port designer-port-left" data-port="in" data-node="${escHtml(node.id)}"${isTrigger ? ' style="display:none"' : ''}></div>
+            <div class="node-header">
+                <div class="node-icon-circle" style="background:${catColor}22;color:${catColor}">${escHtml(icon)}</div>
+                <div class="node-meta">
+                    <div class="node-num-name">
+                        ${num ? `<span class="node-number">${num}.</span>` : ''}
+                        <span class="node-title" title="${escHtml(node.label)}">${escHtml(node.label)}</span>
+                    </div>
+                    <div class="node-type-badge" style="background:${catColor}22;color:${catColor};border-color:${catColor}44">${escHtml(badge)}</div>
+                </div>
+                <div class="node-status-dot ${configured ? 'configured' : 'warning'}"></div>
             </div>
-            <div class="node-status-dot ${configured ? 'configured' : 'warning'}"></div>
-            <button class="node-delete-btn" data-action="delete-node" data-node="${node.id}" title="Supprimer">×</button>
-            <div class="designer-port designer-port-bottom" data-port="out" data-node="${node.id}"></div>`;
+            <button class="node-delete-btn" data-action="delete-node" data-node="${escHtml(node.id)}" title="Supprimer">×</button>
+            <div class="node-divider"></div>
+            <div class="node-description">${escHtml(desc || 'Configurez cette capacité dans le panneau Propriétés.')}</div>
+            <div class="node-divider"></div>
+            <div class="node-io-row">
+                <span class="node-io-in">↗ Entrée: ${escHtml(inputType)}</span>
+                <span class="node-io-out">↘ Sortie: ${escHtml(outputType)}</span>
+            </div>
+            <div class="designer-port designer-port-right" data-port="out" data-node="${escHtml(node.id)}"></div>`;
 
         // Drag the whole node (excluding ports and buttons)
         el.addEventListener('mousedown', e => {
@@ -535,50 +582,49 @@
         });
         // Delete
         el.querySelector('[data-action="delete-node"]').addEventListener('click', e => { e.stopPropagation(); deleteNode(node.id); });
-        // Click to select (mousedown already handles drag; click handles selection when not dragging)
+        // Click to select
         el.addEventListener('click', e => {
             if (e.target.closest('[data-port]') || e.target.closest('[data-action]')) return;
             selectNode(node.id, e.shiftKey);
             e.stopPropagation();
         });
-        // Port connections
-        const portTop = el.querySelector('[data-port="in"]');
-        const portBot = el.querySelector('[data-port="out"]');
-        if (portBot) portBot.addEventListener('mousedown', e => { e.stopPropagation(); startConnect(node.id, e); });
-        if (portTop) portTop.addEventListener('mouseup',   e => { e.stopPropagation(); endConnect(node.id); });
+        // Port connections (left=in, right=out)
+        const portLeft  = el.querySelector('[data-port="in"]');
+        const portRight = el.querySelector('[data-port="out"]');
+        if (portRight) portRight.addEventListener('mousedown', e => { e.stopPropagation(); startConnect(node.id, e); });
+        if (portLeft)  portLeft.addEventListener('mouseup',   e => { e.stopPropagation(); endConnect(node.id); });
 
         return el;
     }
 
-    /* ── Render "+" add-step buttons ─────────────────────────── */
+    /* ── Render "+" add-step buttons (horizontal) ────────────── */
     function renderAddStepButtons() {
         canvasNodes.querySelectorAll('.designer-add-step-btn').forEach(el => el.remove());
         if (state.nodes.length === 0) return;
 
         const nodesWithOutput = new Set(state.edges.map(e => e.from));
 
-        // "+" below each leaf node (no outgoing edge)
+        // "+" to the right of each leaf node (no outgoing edge)
         state.nodes.forEach(node => {
             if (nodesWithOutput.has(node.id)) return;
             const h = getNodeH(node.id);
             const btn = document.createElement('div');
             btn.className = 'designer-add-step-btn';
             btn.dataset.afterNode = node.id;
-            btn.innerHTML = `<span style="font-size:1rem;font-weight:700">+</span> Ajouter une étape`;
-            btn.style.left = (node.x + NODE_W / 2 - 75) + 'px';
-            btn.style.top  = (node.y + h + 28) + 'px';
+            btn.innerHTML = `<span style="font-size:1rem;font-weight:700">+</span> Étape`;
+            btn.style.left = (node.x + NODE_W + 16) + 'px';
+            btn.style.top  = (node.y + h / 2 - 14) + 'px';
             btn.addEventListener('click', e => { e.stopPropagation(); showAddStepPopup(node.id, null, null); });
             canvasNodes.appendChild(btn);
         });
 
-        // Small "+" circles between connected nodes
+        // Small "+" circles between connected nodes (horizontal midpoint)
         state.edges.forEach(edge => {
             const fromNode = state.nodes.find(n => n.id === edge.from);
             const toNode   = state.nodes.find(n => n.id === edge.to);
             if (!fromNode || !toNode) return;
-            const fromH = getNodeH(fromNode.id);
-            const midY = fromNode.y + fromH + (toNode.y - fromNode.y - fromH) / 2 - 11;
-            const midX = fromNode.x + NODE_W / 2 - 11;
+            const midX = fromNode.x + NODE_W + (toNode.x - fromNode.x - NODE_W) / 2 - 11;
+            const midY = fromNode.y + getNodeH(fromNode.id) / 2 - 11;
             const btn = document.createElement('div');
             btn.className = 'designer-add-step-btn designer-add-step-between';
             btn.dataset.afterNode  = edge.from;
@@ -590,8 +636,6 @@
             btn.addEventListener('click', e => { e.stopPropagation(); showAddStepPopup(edge.from, edge.to, edge.id); });
             canvasNodes.appendChild(btn);
         });
-
-        // Initial "+" when no nodes yet is handled in empty canvas hint
     }
 
     /* ── Add Step Popup ──────────────────────────────────────── */
@@ -681,19 +725,19 @@
     }
 
     function doAddNode(type) {
-        // Determine position
+        // Determine position — horizontal flow (left to right)
         let x, y;
         const afterNode = addPopupAfterNode ? state.nodes.find(n => n.id === addPopupAfterNode) : null;
         if (afterNode) {
-            x = afterNode.x;
-            y = afterNode.y + getNodeH(afterNode.id) + 80;
+            x = afterNode.x + NODE_W + NODE_GAP;
+            y = afterNode.y;
         } else if (state.nodes.length > 0) {
             const lastNode = state.nodes[state.nodes.length - 1];
-            x = lastNode.x;
-            y = lastNode.y + getNodeH(lastNode.id) + 80;
+            x = lastNode.x + NODE_W + NODE_GAP;
+            y = lastNode.y;
         } else {
             const rect = getCanvasRect();
-            const cp   = screenToCanvas(rect.width / 2 - NODE_W / 2, 80);
+            const cp   = screenToCanvas(60, rect.height / 2 - NODE_H / 2);
             x = cp.x; y = cp.y;
         }
 
@@ -923,7 +967,7 @@
     }
     function fitView() {
         if (state.nodes.length === 0) {
-            state.layout = { zoom: 1, panX: 60, panY: 60 };
+            state.layout = { zoom: 0.9, panX: 60, panY: 60 };
             setTransform(); renderEdges(); updateMinimap(); return;
         }
         const rect = getCanvasRect();
@@ -931,10 +975,10 @@
         const ys = state.nodes.map(n => n.y);
         const minX = Math.min(...xs) - 60;
         const minY = Math.min(...ys) - 60;
-        const maxX = Math.max(...xs) + NODE_W + 60;
+        const maxX = Math.max(...xs) + NODE_W + 100;
         const maxY = Math.max(...state.nodes.map(n => n.y + getNodeH(n.id))) + 60;
         const bw = maxX - minX; const bh = maxY - minY;
-        const zoom = Math.min(2, Math.max(0.2, Math.min((rect.width - 80) / bw, (rect.height - 80) / bh)));
+        const zoom = Math.min(1.2, Math.max(0.2, Math.min((rect.width - 80) / bw, (rect.height - 80) / bh)));
         state.layout.zoom = zoom;
         state.layout.panX = (rect.width  - bw * zoom) / 2 - minX * zoom;
         state.layout.panY = (rect.height - bh * zoom) / 2 - minY * zoom;
@@ -1050,6 +1094,10 @@
             });
         });
 
+        // Bind delete button in inspector
+        const delBtn = propBody.querySelector('[data-action="delete-node"]');
+        if (delBtn) delBtn.addEventListener('click', e => { e.stopPropagation(); deleteNode(node.id); });
+
         // Bind config field inputs
         const entry    = getCatalogueEntry(node.type);
         const category = entry ? entry.category : getNodeCategory(node.type);
@@ -1060,7 +1108,7 @@
             nameIn.value = node.label;
             nameIn.addEventListener('input', e => {
                 node.label = e.target.value;
-                const titleEl = canvasNodes.querySelector(`[data-node-id="${node.id}"] .designer-node-title`);
+                const titleEl = canvasNodes.querySelector(`[data-node-id="${node.id}"] .node-title`);
                 if (titleEl) titleEl.textContent = e.target.value;
                 saveDraft();
             });
@@ -1093,6 +1141,9 @@
         const badge    = CAT_LABEL[category] || category.toUpperCase();
         const configured = isNodeConfigured(node);
         const fields   = NODE_CONFIG_FIELDS[node.type] || [];
+        const statusIcon = configured ? '✓' : '⚠';
+        const statusTxt  = configured ? 'Connecté' : 'À configurer';
+        const statusClr  = configured ? '#10b981' : '#f59e0b';
 
         const tabActive = (id) => activeInspectorTab === id ? ' active' : '';
 
@@ -1155,31 +1206,43 @@
         return `
             <div class="designer-inspector-node-preview">
                 <div class="designer-inspector-node-icon" style="background:${catColor}22;color:${catColor}">${escHtml(icon)}</div>
-                <div>
+                <div style="flex:1;min-width:0">
                     <div class="designer-inspector-node-name">${escHtml(node.label)}</div>
                     <div class="designer-inspector-node-type">
-                        <span style="background:${catColor};color:#fff;padding:1px 6px;border-radius:4px;font-size:0.6rem;font-weight:700">${escHtml(badge)}</span>
-                        &nbsp;${configured ? '<span style="color:#22c55e;font-size:0.68rem">✓ Configurée</span>' : '<span style="color:#f59e0b;font-size:0.68rem">⚠ À configurer</span>'}
+                        <span style="background:${catColor};color:#fff;padding:1px 7px;border-radius:4px;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em">${escHtml(badge)}</span>
+                        <span class="designer-inspector-node-status" style="color:${statusClr}">${statusIcon} ${statusTxt}</span>
                     </div>
                 </div>
             </div>
             <div class="designer-inspector-tabs">
                 <div class="designer-inspector-tab${tabActive('params')}" data-tab="params">Paramètres</div>
-                <div class="designer-inspector-tab${tabActive('io')}" data-tab="io">I/O</div>
-                <div class="designer-inspector-tab${tabActive('metrics')}" data-tab="metrics">Métriques</div>
-                <div class="designer-inspector-tab${tabActive('logs')}" data-tab="logs">Logs</div>
+                <div class="designer-inspector-tab${tabActive('io')}" data-tab="io">E/S</div>
+                <div class="designer-inspector-tab${tabActive('metrics')}" data-tab="metrics">Avancé</div>
             </div>
             <div class="designer-inspector-tab-panel${tabActive('params')}" data-tab-panel="params">
                 ${configFieldsHtml}
+                <div class="designer-inspector-divider"></div>
+                <div class="designer-inspector-toggle-row">
+                    <span class="designer-inspector-toggle-label">Actif</span>
+                    <label class="designer-inspector-toggle">
+                        <input type="checkbox" checked />
+                        <span class="designer-inspector-toggle-slider"></span>
+                    </label>
+                </div>
                 <div class="designer-inspector-divider"></div>
                 <div class="designer-inspector-actions">
                     <button class="designer-inspector-action-btn run">▶ Tester</button>
                     <button class="designer-inspector-action-btn">📋 Historique</button>
                 </div>
+                <button class="designer-inspector-delete-btn" data-action="delete-node" data-node="${escHtml(node.id)}">🗑 Supprimer cette capacité</button>
             </div>
-            <div class="designer-inspector-tab-panel${tabActive('io')}" data-tab-panel="io">${ioHtml}</div>
-            <div class="designer-inspector-tab-panel${tabActive('metrics')}" data-tab-panel="metrics">${metricsHtml}</div>
-            <div class="designer-inspector-tab-panel${tabActive('logs')}" data-tab-panel="logs">${logsHtml}</div>`;
+            <div class="designer-inspector-tab-panel${tabActive('io')}" data-tab-panel="io">
+                <div class="designer-inspector-section">Entrées</div>
+                <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px;">${buildIOChips(node, 'in')}</div>
+                <div class="designer-inspector-section">Sorties</div>
+                <div style="display:flex;flex-wrap:wrap;gap:5px;">${buildIOChips(node, 'out')}</div>
+            </div>
+            <div class="designer-inspector-tab-panel${tabActive('metrics')}" data-tab-panel="metrics">${metricsHtml}</div>`;
     }
 
     function buildIOChips(node, direction) {
@@ -1813,19 +1876,83 @@
 
     /* ── SVG defs (arrowheads per category) ─────────────────── */
     function injectSvgDefs() {
+        // Inject CSS animation for edge flow
+        if (!document.getElementById('designer-edge-anim-style')) {
+            const style = document.createElement('style');
+            style.id = 'designer-edge-anim-style';
+            style.textContent = `
+                @keyframes flowDash { to { stroke-dashoffset: -20; } }
+                .edge-path { stroke-dasharray: 6 4; animation: flowDash 1.5s linear infinite; }
+                .edge-path.selected { stroke-dasharray: none; animation: none; stroke-width: 3; opacity: 1 !important; }
+            `;
+            document.head.appendChild(style);
+        }
+
         const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
         let defsHtml = '';
         Object.entries(CAT_COLOR).forEach(([cat, color]) => {
-            defsHtml += `<marker id="arrowhead-${cat}" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-                <polygon points="0 0, 8 3, 0 6" fill="${color}" />
+            defsHtml += `<marker id="arrowhead-${cat}" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
+                <polygon points="0 0, 7 2.5, 0 5" fill="${color}" opacity="0.8" />
             </marker>`;
         });
         // Fallback arrowhead
-        defsHtml += `<marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-            <polygon points="0 0, 8 3, 0 6" fill="#7c3aed" />
+        defsHtml += `<marker id="arrowhead" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
+            <polygon points="0 0, 7 2.5, 0 5" fill="#7c3aed" opacity="0.8" />
         </marker>`;
         defs.innerHTML = defsHtml;
         canvasSvg.appendChild(defs);
+    }
+
+    /* ── Metrics Bar ─────────────────────────────────────────── */
+    function renderMetricsBar() {
+        const bar = document.getElementById('designerMetricsBar');
+        if (!bar) return;
+
+        const metrics = [
+            { icon: '📊', label: 'Exécutions (24h)', value: '128', delta: '+12%', positive: true,  sparkPoints: [40,55,48,60,52,70,65,80,72,85,78,90,84,95,88,100,92,105,98,110,102,115,108,118,112,120,115,125,120,128] },
+            { icon: '✓',  label: 'Taux de réussite', value: '98.4%', delta: '+2.1%', positive: true, sparkPoints: [90,91,89,92,93,90,94,93,95,94,96,95,97,96,97,98,97,98,98,97,98,99,98,99,98,99,99,98,99,98] },
+            { icon: '⏱',  label: 'Temps moyen',      value: '2.34s', delta: '-0.4s', positive: true, sparkPoints: [3.2,3.1,3.0,2.9,2.8,2.9,2.8,2.7,2.8,2.7,2.6,2.7,2.6,2.5,2.6,2.5,2.4,2.5,2.4,2.5,2.4,2.4,2.3,2.4,2.3,2.4,2.3,2.3,2.4,2.34] },
+            { icon: '💰',  label: 'Coût IA (24h)',    value: '$3.42', delta: '-8%',   positive: true, sparkPoints: [5.2,5.0,4.8,4.6,4.5,4.4,4.3,4.2,4.1,4.0,3.9,3.9,3.8,3.8,3.7,3.7,3.7,3.6,3.6,3.6,3.5,3.5,3.5,3.5,3.4,3.4,3.4,3.4,3.4,3.42] },
+            { icon: '⚠',  label: 'Erreurs',           value: '2',     delta: '-60%',  positive: true, sparkPoints: [8,7,6,5,6,5,5,4,5,4,4,4,3,4,3,3,4,3,3,3,3,2,3,2,3,2,2,3,2,2] },
+            { icon: '✅',  label: 'Statut global',     value: 'Excellent', delta: '✓', positive: true, sparkPoints: [80,82,83,85,86,87,88,89,90,91,92,93,94,94,95,95,96,96,97,97,97,98,98,98,99,99,99,99,99,100] },
+        ];
+
+        bar.innerHTML = metrics.map(m => {
+            const mn = Math.min(...m.sparkPoints);
+            const mx2 = Math.max(...m.sparkPoints);
+            const range = mx2 - mn || 1;
+            const w = 50, h = 20;
+            const pts = m.sparkPoints.map((v, i) => {
+                const px = (i / (m.sparkPoints.length - 1)) * w;
+                const py = h - ((v - mn) / range) * h;
+                return `${px},${py}`;
+            }).join(' ');
+            const sparkColor = m.positive ? '#10b981' : '#ef4444';
+            return `<div class="designer-metric-item">
+                <div class="designer-metric-icon">${m.icon}</div>
+                <div class="designer-metric-content">
+                    <div class="designer-metric-label">${escHtml(m.label)}</div>
+                    <div class="designer-metric-value">
+                        ${escHtml(m.value)}
+                        <span class="designer-metric-delta ${m.positive ? 'positive' : 'negative'}">${escHtml(m.delta)}</span>
+                    </div>
+                </div>
+                <svg class="designer-metric-sparkline" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+                    <polyline points="${pts}" fill="none" stroke="${sparkColor}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
+                </svg>
+            </div>`;
+        }).join('');
+    }
+
+    /* ── Sub-nav tabs binding ────────────────────────────────── */
+    function bindSubNavTabs() {
+        const tabs = document.querySelectorAll('.designer-sub-tab');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+            });
+        });
     }
 
     /* ── Utility ─────────────────────────────────────────────── */
@@ -1867,6 +1994,8 @@
         initAiDrawer();
 
         renderPalette('designerPaletteContainer');
+        renderMetricsBar();
+        bindSubNavTabs();
 
         // Initial render
         renderNodes();
