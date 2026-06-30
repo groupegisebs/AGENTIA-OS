@@ -16,6 +16,7 @@
             { type: 'trigger-event',   label: 'Événement système',  icon: '⚡', category: 'trigger',   output: 'Événement',     inputType: '—',      outputType: 'Payload',     desc: 'Déclenché par un événement applicatif ou système.' },
         ],
         'CONNECTEURS': [
+            { type: 'gmail',            label: 'Gmail',          icon: '📧', category: 'connector', output: 'Email',         inputType: 'OAuth',       outputType: 'Email',    desc: 'Surveille la boîte Gmail et récupère les pièces jointes.',              metric1val: '352',   metric1label: 'emails',      metric2val: '320ms', metric2label: 'moyen' },
             { type: 'connector-outlook',    label: 'Outlook',        icon: '📧', category: 'connector', output: 'Email/Fichier', inputType: 'Credentials', outputType: 'Email',    desc: 'Lit et envoie des emails via Microsoft Outlook.' },
             { type: 'connector-teams',      label: 'Teams',          icon: '💬', category: 'connector', output: 'Message',       inputType: 'Credentials', outputType: 'Message',  desc: 'Envoie un message ou fichier sur un canal Teams.' },
             { type: 'connector-sharepoint', label: 'SharePoint',     icon: '📁', category: 'connector', output: 'Document',      inputType: 'Credentials', outputType: 'Document', desc: 'Lit et écrit des documents dans SharePoint.' },
@@ -26,6 +27,8 @@
             { type: 'connector-dropbox',    label: 'Dropbox',        icon: '📦', category: 'connector', output: 'Fichier',       inputType: 'OAuth',       outputType: 'Fichier',  desc: 'Synchronise et transfère des fichiers Dropbox.' },
         ],
         'IA — COGNITION': [
+            { type: 'ocr-classify',   label: 'OCR & Classification', icon: '🔍', category: 'ia', output: 'Type document',  inputType: 'Image',    outputType: 'Classification', desc: 'Analyse le document et identifie son type.',                            metric1val: '98.5%', metric1label: 'précision',   metric2val: '1.2s',  metric2label: 'moyen' },
+            { type: 'extraction-ia',  label: 'Extraction IA',        icon: '🧠', category: 'ia', output: 'JSON structuré', inputType: 'Document', outputType: 'JSON structuré', desc: "Extrait les champs d'identité selon le type de document.",              metric1val: '97.8%', metric1label: 'précision',   metric2val: '1.8s',  metric2label: 'moyen' },
             { type: 'skill-understand',   label: 'Compréhension IA',     icon: '🧠', category: 'ia', output: 'Classification', inputType: 'Texte',    outputType: 'Classification', desc: 'Analyse et classe le contenu avec un modèle LLM.' },
             { type: 'skill-extraction',   label: 'Extraction IA',        icon: '🔍', category: 'ia', output: 'JSON structuré', inputType: 'Document', outputType: 'JSON structuré', desc: 'Extraction intelligente de données depuis documents.' },
             { type: 'skill-summary',      label: 'Résumé IA',            icon: '📝', category: 'ia', output: 'Texte',          inputType: 'Texte',    outputType: 'Résumé',         desc: 'Génère un résumé concis du contenu fourni.' },
@@ -295,8 +298,8 @@
     /* ── State ───────────────────────────────────────────────── */
     const DRAFT_KEY = 'agentia-designer-draft';
     const MODE_KEY  = 'agentia-creation-mode';
-    const NODE_W    = 280;
-    const NODE_H    = 148;
+    const NODE_W    = 220;
+    const NODE_H    = 128;
     const NODE_GAP  = 60;
 
     let state = {
