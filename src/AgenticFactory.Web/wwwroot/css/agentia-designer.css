@@ -1266,6 +1266,38 @@ body.designer-active .creation-mode-toggle {
     line-height: 1.5;
 }
 
+/* Password & number field types (share .designer-inspector-input base) */
+.designer-inspector-input[type="password"] {
+    letter-spacing: 0.08em;
+    font-family: inherit;
+}
+.designer-inspector-input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+.designer-inspector-input[type="number"]::-webkit-outer-spin-button,
+.designer-inspector-input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* Readonly fields (e.g. generated webhook URL) */
+.designer-inspector-input-readonly {
+    opacity: 0.72;
+    cursor: not-allowed;
+    background: rgba(148, 163, 184, 0.08);
+    color: var(--d-text-dim);
+}
+.designer-inspector-input-readonly:focus {
+    border-color: var(--d-border-strong);
+    box-shadow: none;
+}
+
+/* Inline config toggle rows inside the params panel */
+.designer-inspector-config-toggle {
+    margin-bottom: 14px;
+}
+
 /* Select with checkmark (connected status) */
 .designer-inspector-input-with-badge {
     position: relative;

@@ -95,41 +95,375 @@
         validation:'VALIDATION',
     };
 
-    /* ── Config field definitions per type ───────────────────── */
+    /* ── Config field definitions per type ───────────────────────
+       Field types: text | password | number | select | textarea | toggle | readonly
+       Keys MUST match the `type` values declared in NODE_CATALOGUE.
+       ─────────────────────────────────────────────────────────── */
     const NODE_CONFIG_FIELDS = {
-        'trigger-cron':    [{ key:'cron', label:'Expression cron', type:'text', placeholder:'0 9 * * 1-5' }],
-        'trigger-email':   [{ key:'account', label:'Compte email', type:'text', placeholder:'factures@entreprise.com' },
-                            { key:'folder',  label:'Dossier',      type:'text', placeholder:'Inbox' }],
-        'trigger-webhook': [{ key:'path', label:'Chemin', type:'text', placeholder:'/webhook/agent' }],
-        'trigger-folder':  [{ key:'path', label:'Chemin dossier', type:'text', placeholder:'/data/entrants/' }],
-        'skill-understand':  [{ key:'model', label:'Modèle IA', type:'select', options:['gpt-4o-mini','gpt-4o','claude-3-haiku','claude-3-sonnet'] },
-                              { key:'mission', label:'Mission', type:'textarea', placeholder:'Identifier le type de document…' }],
-        'skill-extraction':  [{ key:'model', label:'Modèle IA', type:'select', options:['gpt-4o-mini','gpt-4o'] },
-                              { key:'fields', label:'Champs', type:'text', placeholder:'nom, date, montant…' }],
-        'skill-summary':     [{ key:'model', label:'Modèle IA', type:'select', options:['gpt-4o-mini','gpt-4o'] },
-                              { key:'length', label:'Longueur', type:'select', options:['Court (2-3 phrases)','Moyen (1 paragraphe)','Long (page)'] }],
-        'skill-classify':    [{ key:'model', label:'Modèle IA', type:'select', options:['gpt-4o-mini','gpt-4o'] },
-                              { key:'categories', label:'Catégories', type:'text', placeholder:'Facture, Contrat, CV…' }],
-        'skill-vision':      [{ key:'model', label:'Modèle Vision', type:'select', options:['gpt-4o','claude-3-sonnet'] }],
-        'skill-rag':         [{ key:'index', label:'Index vectoriel', type:'text', placeholder:'Nom de l\'index' }],
-        'decision-if':     [{ key:'condition', label:'Condition', type:'text', placeholder:'valeur > 0' }],
-        'decision-switch': [{ key:'field', label:'Champ de routage', type:'text', placeholder:'type_document' }],
-        'decision-wait':   [{ key:'duration', label:'Durée', type:'text', placeholder:'5m, 1h, 1d…' }],
-        'action-email':    [{ key:'recipient', label:'Destinataire', type:'text', placeholder:'dest@entreprise.com' },
-                            { key:'subject',   label:'Sujet', type:'text', placeholder:'Notification {date}' }],
-        'action-api':      [{ key:'url', label:'URL', type:'text', placeholder:'https://api.exemple.com/endpoint' },
-                            { key:'method', label:'Méthode', type:'select', options:['POST','GET','PUT','PATCH','DELETE'] }],
-        'action-database': [{ key:'connection', label:'Connexion', type:'text', placeholder:'Server=...;Database=...' },
-                            { key:'query', label:'Requête', type:'textarea', placeholder:'INSERT INTO ...' }],
-        'action-file':     [{ key:'path', label:'Chemin', type:'text', placeholder:'/output/{date}.xlsx' }],
-        'action-ticket':   [{ key:'system', label:'Système', type:'select', options:['Jira','Azure DevOps','ServiceNow','GitHub Issues'] },
-                            { key:'project', label:'Projet', type:'text', placeholder:'MON-PROJET' }],
-        'connector-outlook':  [{ key:'account', label:'Compte', type:'text', placeholder:'user@contoso.com' }],
-        'connector-teams':    [{ key:'team', label:'Équipe', type:'text', placeholder:'Nom de l\'équipe' }],
-        'connector-sap':      [{ key:'server', label:'Serveur SAP', type:'text', placeholder:'hostname:port' }],
-        'connector-dynamics': [{ key:'org', label:'Organisation', type:'text', placeholder:'orgname.crm.dynamics.com' }],
-        'util-variables':  [{ key:'vars', label:'Variables (JSON)', type:'textarea', placeholder:'{"clé": "valeur"}' }],
-        'util-cache':      [{ key:'ttl', label:'Durée de vie', type:'text', placeholder:'1h, 24h, 7d' }],
+        /* ── Déclencheurs ───────────────────────────────────────── */
+        'trigger-cron': [
+            { key:'cron',     label:'Expression cron',  type:'text',   placeholder:'0 9 * * 1-5' },
+            { key:'timezone', label:'Fuseau horaire',   type:'select', options:['Europe/Paris','Europe/London','UTC','America/New_York','Asia/Tokyo'] },
+            { key:'maxRuns',  label:'Exécutions max',   type:'number', min:0, placeholder:'0 = illimité' },
+        ],
+        'trigger-email': [
+            { key:'protocol', label:'Protocole',       type:'select',   options:['IMAP','POP3'] },
+            { key:'server',   label:'Serveur',         type:'text',     placeholder:'imap.entreprise.com' },
+            { key:'port',     label:'Port',            type:'number',   min:1, max:65535, placeholder:'993' },
+            { key:'ssl',      label:'SSL / TLS',       type:'toggle',   default:true },
+            { key:'account',  label:'Compte',          type:'text',     placeholder:'factures@entreprise.com' },
+            { key:'password', label:'Mot de passe',    type:'password', placeholder:'••••••••' },
+            { key:'folder',   label:'Dossier',         type:'text',     placeholder:'Inbox' },
+            { key:'filter',   label:'Filtre',          type:'text',     placeholder:'objet contient « facture »' },
+        ],
+        'trigger-webhook': [
+            { key:'url',      label:'URL générée',          type:'readonly', default:(n) => `https://api.agentia.os/hooks/${(n.id || 'agent')}` },
+            { key:'method',   label:'Méthode',              type:'select',   options:['POST','GET','PUT','PATCH','DELETE'] },
+            { key:'secret',   label:'Secret de vérification', type:'password', placeholder:'Clé de signature HMAC' },
+            { key:'format',   label:'Format',               type:'select',   options:['JSON','XML','Form'] },
+            { key:'auth',     label:'Authentification',     type:'select',   options:['Aucune','Bearer Token','API Key','Basic'] },
+        ],
+        'trigger-folder': [
+            { key:'source',    label:'Source',          type:'select', options:['Local','SharePoint','Google Drive','Dropbox'] },
+            { key:'path',      label:'Chemin dossier',  type:'text',   placeholder:'/data/entrants/' },
+            { key:'fileTypes', label:'Types de fichiers', type:'text', placeholder:'pdf, png, xlsx' },
+            { key:'recursive', label:'Récursif',        type:'toggle', default:false },
+            { key:'frequency', label:'Fréquence',       type:'select', options:['Temps réel','1 min','5 min','15 min','1 h'] },
+        ],
+        'trigger-event': [
+            { key:'eventName', label:'Nom de l\'événement', type:'text', placeholder:'commande.créée' },
+            { key:'source',    label:'Source',             type:'text', placeholder:'Module / Application' },
+            { key:'filter',    label:'Filtre',             type:'text', placeholder:'statut = « validé »' },
+        ],
+
+        /* ── Connecteurs ────────────────────────────────────────── */
+        'gmail': [
+            { key:'account',       label:'Compte Gmail',     type:'text',     placeholder:'agent@gmail.com' },
+            { key:'clientId',      label:'Client ID OAuth',  type:'text',     placeholder:'xxxxxxxx.apps.googleusercontent.com' },
+            { key:'clientSecret',  label:'Client Secret',    type:'password', placeholder:'••••••••' },
+            { key:'scope',         label:'Scope',            type:'text',     placeholder:'https://www.googleapis.com/auth/gmail.readonly' },
+            { key:'folder',        label:'Dossier / Label',  type:'text',     placeholder:'INBOX' },
+            { key:'subjectFilter', label:'Filtre sujet',     type:'text',     placeholder:'objet contient…' },
+            { key:'attachments',   label:'Pièces jointes',   type:'toggle',   default:true },
+        ],
+        'connector-gmail': [
+            { key:'account',       label:'Compte Gmail',     type:'text',     placeholder:'agent@gmail.com' },
+            { key:'clientId',      label:'Client ID OAuth',  type:'text',     placeholder:'xxxxxxxx.apps.googleusercontent.com' },
+            { key:'clientSecret',  label:'Client Secret',    type:'password', placeholder:'••••••••' },
+            { key:'scope',         label:'Scope',            type:'text',     placeholder:'https://www.googleapis.com/auth/gmail.readonly' },
+            { key:'folder',        label:'Dossier / Label',  type:'text',     placeholder:'INBOX' },
+            { key:'subjectFilter', label:'Filtre sujet',     type:'text',     placeholder:'objet contient…' },
+            { key:'attachments',   label:'Pièces jointes',   type:'toggle',   default:true },
+        ],
+        'connector-outlook': [
+            { key:'account',      label:'Compte',        type:'text',     placeholder:'user@contoso.com' },
+            { key:'tenantId',     label:'Tenant ID',     type:'text',     placeholder:'00000000-0000-0000-0000-000000000000' },
+            { key:'clientId',     label:'Client ID',     type:'text',     placeholder:'ID de l\'application' },
+            { key:'clientSecret', label:'Client Secret', type:'password', placeholder:'••••••••' },
+            { key:'folder',       label:'Dossier',       type:'text',     placeholder:'Boîte de réception' },
+            { key:'filter',       label:'Filtre',        type:'text',     placeholder:'objet contient…' },
+        ],
+        'connector-teams': [
+            { key:'tenantId',     label:'Tenant ID',     type:'text',     placeholder:'00000000-0000-0000-0000-000000000000' },
+            { key:'clientId',     label:'Client ID',     type:'text',     placeholder:'ID de l\'application' },
+            { key:'clientSecret', label:'Client Secret', type:'password', placeholder:'••••••••' },
+            { key:'team',         label:'Équipe',        type:'text',     placeholder:'Nom de l\'équipe' },
+            { key:'channel',      label:'Canal',         type:'text',     placeholder:'Général' },
+            { key:'webhookUrl',   label:'Webhook URL',   type:'text',     placeholder:'https://outlook.office.com/webhook/…' },
+        ],
+        'connector-sharepoint': [
+            { key:'siteUrl',      label:'URL du site',   type:'text',     placeholder:'https://contoso.sharepoint.com/sites/equipe' },
+            { key:'tenantId',     label:'Tenant ID',     type:'text',     placeholder:'00000000-0000-0000-0000-000000000000' },
+            { key:'clientId',     label:'Client ID',     type:'text',     placeholder:'ID de l\'application' },
+            { key:'clientSecret', label:'Client Secret', type:'password', placeholder:'••••••••' },
+            { key:'library',      label:'Bibliothèque',  type:'text',     placeholder:'Documents' },
+            { key:'folder',       label:'Dossier',       type:'text',     placeholder:'/Factures' },
+        ],
+        'connector-gdrive': [
+            { key:'account',      label:'Compte Google', type:'text',     placeholder:'agent@gmail.com' },
+            { key:'clientId',     label:'Client ID',     type:'text',     placeholder:'xxxxxxxx.apps.googleusercontent.com' },
+            { key:'clientSecret', label:'Client Secret', type:'password', placeholder:'••••••••' },
+            { key:'folderId',     label:'ID dossier',    type:'text',     placeholder:'1A2b3C4d5E6f…' },
+            { key:'filter',       label:'Filtre',        type:'text',     placeholder:'type = PDF' },
+            { key:'recursive',    label:'Récursif',      type:'toggle',   default:false },
+        ],
+        'connector-sap': [
+            { key:'server',       label:'Serveur',           type:'text',     placeholder:'sap.entreprise.com' },
+            { key:'systemNumber', label:'Numéro de système', type:'text',     placeholder:'00' },
+            { key:'clientId',     label:'ID de client (mandant)', type:'text', placeholder:'100' },
+            { key:'user',         label:'Utilisateur',       type:'text',     placeholder:'SAPUSER' },
+            { key:'password',     label:'Mot de passe',      type:'password', placeholder:'••••••••' },
+            { key:'language',     label:'Langue',            type:'select',   options:['FR','EN','DE','ES','IT'] },
+        ],
+        'connector-dynamics': [
+            { key:'org',          label:'Organisation',  type:'text',     placeholder:'orgname.crm.dynamics.com' },
+            { key:'tenantId',     label:'Tenant ID',     type:'text',     placeholder:'00000000-0000-0000-0000-000000000000' },
+            { key:'clientId',     label:'Client ID',     type:'text',     placeholder:'ID de l\'application' },
+            { key:'clientSecret', label:'Client Secret', type:'password', placeholder:'••••••••' },
+            { key:'entity',       label:'Entité',        type:'text',     placeholder:'accounts, contacts…' },
+            { key:'filter',       label:'Filtre OData',  type:'text',     placeholder:'$filter=statecode eq 0' },
+        ],
+        'connector-dropbox': [
+            { key:'accessToken', label:'Token d\'accès', type:'password', placeholder:'••••••••' },
+            { key:'folder',      label:'Dossier',        type:'text',     placeholder:'/Apps/Agentia' },
+            { key:'filter',      label:'Filtre',         type:'text',     placeholder:'*.pdf' },
+        ],
+
+        /* ── IA / Cognition ─────────────────────────────────────── */
+        'ocr-classify': [
+            { key:'model',               label:'Modèle IA',          type:'select',   options:['gpt-4o','gpt-4o-mini','claude-3-sonnet','claude-3-haiku'] },
+            { key:'temperature',         label:'Température',         type:'number',   min:0, max:1, step:0.1, placeholder:'0.2' },
+            { key:'systemPrompt',        label:'Prompt système',     type:'textarea', placeholder:'Identifie le type du document…' },
+            { key:'confidenceThreshold', label:'Seuil de confiance', type:'number',   min:0, max:100, placeholder:'90' },
+            { key:'maxTokens',           label:'Tokens max',         type:'number',   min:1, placeholder:'2048' },
+            { key:'outputFormat',        label:'Format de sortie',   type:'select',   options:['JSON','Texte','XML'] },
+        ],
+        'skill-vision': [
+            { key:'model',               label:'Modèle Vision',      type:'select',   options:['gpt-4o','claude-3-sonnet'] },
+            { key:'temperature',         label:'Température',         type:'number',   min:0, max:1, step:0.1, placeholder:'0.2' },
+            { key:'systemPrompt',        label:'Prompt système',     type:'textarea', placeholder:'Extrait le texte de l\'image…' },
+            { key:'confidenceThreshold', label:'Seuil de confiance', type:'number',   min:0, max:100, placeholder:'90' },
+            { key:'maxTokens',           label:'Tokens max',         type:'number',   min:1, placeholder:'2048' },
+            { key:'outputFormat',        label:'Format de sortie',   type:'select',   options:['Texte','JSON','XML'] },
+        ],
+        'extraction-ia': [
+            { key:'model',        label:'Modèle IA',         type:'select',   options:['gpt-4o','gpt-4o-mini','claude-3-sonnet'] },
+            { key:'fields',       label:'Champs à extraire', type:'textarea', placeholder:'nom, date, montant, n° facture…' },
+            { key:'language',     label:'Langue',            type:'select',   options:['Français','Anglais','Allemand','Espagnol','Auto'] },
+            { key:'outputFormat', label:'Format de sortie',  type:'select',   options:['JSON','XML','CSV'] },
+        ],
+        'skill-extraction': [
+            { key:'model',        label:'Modèle IA',         type:'select',   options:['gpt-4o','gpt-4o-mini','claude-3-sonnet'] },
+            { key:'fields',       label:'Champs à extraire', type:'textarea', placeholder:'nom, date, montant, n° facture…' },
+            { key:'language',     label:'Langue',            type:'select',   options:['Français','Anglais','Allemand','Espagnol','Auto'] },
+            { key:'outputFormat', label:'Format de sortie',  type:'select',   options:['JSON','XML','CSV'] },
+        ],
+        'skill-understand': [
+            { key:'model',          label:'Modèle IA',        type:'select',   options:['gpt-4o-mini','gpt-4o','claude-3-haiku','claude-3-sonnet'] },
+            { key:'mission',        label:'Mission',          type:'textarea', placeholder:'Identifier le type de document…' },
+            { key:'temperature',    label:'Température',       type:'number',   min:0, max:1, step:0.1, placeholder:'0.3' },
+            { key:'outputLanguage', label:'Langue de sortie', type:'select',   options:['Français','Anglais','Allemand','Espagnol'] },
+        ],
+        'skill-summary': [
+            { key:'model',    label:'Modèle IA', type:'select', options:['gpt-4o-mini','gpt-4o'] },
+            { key:'length',   label:'Longueur',  type:'select', options:['Court (2-3 phrases)','Moyen (1 paragraphe)','Long (page)'] },
+            { key:'language', label:'Langue',    type:'select', options:['Français','Anglais','Allemand','Espagnol'] },
+            { key:'format',   label:'Format',    type:'select', options:['Texte','Markdown','Puces'] },
+        ],
+        'skill-classify': [
+            { key:'model',      label:'Modèle IA',  type:'select',   options:['gpt-4o-mini','gpt-4o'] },
+            { key:'categories', label:'Catégories', type:'textarea', placeholder:'Facture, Contrat, CV, Bon de commande…' },
+        ],
+        'skill-rag': [
+            { key:'index',               label:'Index vectoriel',      type:'text',   placeholder:'Nom de l\'index' },
+            { key:'topK',                label:'Nombre de résultats',  type:'number', min:1, max:100, placeholder:'5' },
+            { key:'similarityThreshold', label:'Seuil de similarité',  type:'number', min:0, max:1, step:0.01, placeholder:'0.75' },
+        ],
+
+        /* ── Actions ────────────────────────────────────────────── */
+        'action-email': [
+            { key:'smtpServer', label:'Serveur SMTP',  type:'text',     placeholder:'smtp.entreprise.com' },
+            { key:'port',       label:'Port',          type:'number',   min:1, max:65535, placeholder:'587' },
+            { key:'ssl',        label:'SSL / TLS',     type:'toggle',   default:true },
+            { key:'sender',     label:'Expéditeur',    type:'text',     placeholder:'agent@entreprise.com' },
+            { key:'password',   label:'Mot de passe',  type:'password', placeholder:'••••••••' },
+            { key:'recipient',  label:'Destinataire',  type:'text',     placeholder:'dest@entreprise.com' },
+            { key:'cc',         label:'CC',            type:'text',     placeholder:'copie@entreprise.com' },
+            { key:'subject',    label:'Sujet',         type:'text',     placeholder:'Notification {date}' },
+            { key:'body',       label:'Corps',         type:'textarea', placeholder:'Bonjour, …' },
+            { key:'format',     label:'Format',        type:'select',   options:['HTML','Texte'] },
+        ],
+        'action-api': [
+            { key:'url',       label:'URL',            type:'text',     placeholder:'https://api.exemple.com/endpoint' },
+            { key:'method',    label:'Méthode',        type:'select',   options:['POST','GET','PUT','PATCH','DELETE'] },
+            { key:'authType',  label:'Type d\'auth',   type:'select',   options:['Aucune','Bearer','API Key','Basic','OAuth2'] },
+            { key:'token',     label:'Token / Clé',    type:'password', placeholder:'••••••••' },
+            { key:'headers',   label:'En-têtes',       type:'textarea', placeholder:'{"Content-Type": "application/json"}' },
+            { key:'body',      label:'Corps',          type:'textarea', placeholder:'{"clé": "valeur"}' },
+            { key:'timeout',   label:'Timeout (s)',    type:'number',   min:1, placeholder:'30' },
+            { key:'verifySSL', label:'Vérifier SSL',   type:'toggle',   default:true },
+        ],
+        'action-database': [
+            { key:'dbType',   label:'Type BDD',          type:'select',   options:['PostgreSQL','MySQL','SQL Server','Oracle','MongoDB'] },
+            { key:'host',     label:'Hôte',              type:'text',     placeholder:'db.entreprise.com' },
+            { key:'port',     label:'Port',              type:'number',   min:1, max:65535, placeholder:'5432' },
+            { key:'database', label:'Base de données',   type:'text',     placeholder:'production' },
+            { key:'user',     label:'Utilisateur',       type:'text',     placeholder:'app_user' },
+            { key:'password', label:'Mot de passe',      type:'password', placeholder:'••••••••' },
+            { key:'ssl',      label:'SSL',               type:'toggle',   default:true },
+            { key:'table',    label:'Table / Collection', type:'text',    placeholder:'factures' },
+            { key:'mode',     label:'Mode',              type:'select',   options:['INSERT','UPSERT','UPDATE','SELECT'] },
+            { key:'query',    label:'Requête SQL',       type:'textarea', placeholder:'INSERT INTO factures …' },
+        ],
+        'stockage-bdd': [
+            { key:'dbType',   label:'Type BDD',          type:'select',   options:['PostgreSQL','MySQL','SQL Server','Oracle','MongoDB'] },
+            { key:'host',     label:'Hôte',              type:'text',     placeholder:'db.entreprise.com' },
+            { key:'port',     label:'Port',              type:'number',   min:1, max:65535, placeholder:'5432' },
+            { key:'database', label:'Base de données',   type:'text',     placeholder:'production' },
+            { key:'user',     label:'Utilisateur',       type:'text',     placeholder:'app_user' },
+            { key:'password', label:'Mot de passe',      type:'password', placeholder:'••••••••' },
+            { key:'ssl',      label:'SSL',               type:'toggle',   default:true },
+            { key:'table',    label:'Table / Collection', type:'text',    placeholder:'factures' },
+            { key:'mode',     label:'Mode',              type:'select',   options:['INSERT','UPSERT','UPDATE'] },
+            { key:'query',    label:'Requête SQL',       type:'textarea', placeholder:'INSERT INTO factures …' },
+        ],
+        'action-file': [
+            { key:'fileType',  label:'Type',          type:'select', options:['Excel','CSV','JSON','XML'] },
+            { key:'path',      label:'Chemin',        type:'text',   placeholder:'/output/' },
+            { key:'fileName',  label:'Nom du fichier', type:'text',  placeholder:'{date}.xlsx' },
+            { key:'encoding',  label:'Encodage',      type:'select', options:['UTF-8','UTF-16','ISO-8859-1','Windows-1252'] },
+            { key:'delimiter', label:'Délimiteur',    type:'text',   placeholder:';' },
+        ],
+        'action-ticket': [
+            { key:'system',   label:'Système',  type:'select',   options:['Jira','Azure DevOps','ServiceNow','GitHub','Linear'] },
+            { key:'url',      label:'URL',      type:'text',     placeholder:'https://entreprise.atlassian.net' },
+            { key:'project',  label:'Projet',   type:'text',     placeholder:'MON-PROJET' },
+            { key:'apiToken', label:'Token API', type:'password', placeholder:'••••••••' },
+            { key:'type',     label:'Type',     type:'text',     placeholder:'Bug, Tâche, Story…' },
+            { key:'priority', label:'Priorité', type:'select',   options:['Basse','Moyenne','Haute','Critique'] },
+        ],
+        'notif-teams': [
+            { key:'webhookUrl', label:'Webhook URL',   type:'text',     placeholder:'https://outlook.office.com/webhook/…' },
+            { key:'cardName',   label:'Nom de la carte', type:'text',   placeholder:'Notification Agentia' },
+            { key:'message',    label:'Message',       type:'textarea', placeholder:'Le traitement est terminé : {résumé}' },
+            { key:'color',      label:'Couleur',       type:'select',   options:['Bleu','Vert','Orange','Rouge','Violet'] },
+        ],
+        'action-teams': [
+            { key:'webhookUrl', label:'Webhook URL', type:'text',     placeholder:'https://outlook.office.com/webhook/…' },
+            { key:'title',      label:'Titre',       type:'text',     placeholder:'Alerte Agentia' },
+            { key:'message',    label:'Message',     type:'textarea', placeholder:'Contenu de la notification…' },
+        ],
+        'action-storage': [
+            { key:'destination', label:'Destination', type:'select', options:['SharePoint','Base SQL','Disque local','Azure Blob'] },
+            { key:'path',        label:'Chemin',      type:'text',   placeholder:'/Documents/Sortie' },
+            { key:'fileName',    label:'Nom du fichier', type:'text', placeholder:'{date}-resultat' },
+        ],
+
+        /* ── Décision & Contrôle ────────────────────────────────── */
+        'validation': [
+            { key:'rules',     label:'Règles (JSON)',     type:'textarea', placeholder:'{"montant": "> 0", "date": "requis"}' },
+            { key:'mode',      label:'Mode',              type:'select',   options:['Strict','Souple'] },
+            { key:'onInvalid', label:'Action si invalide', type:'select',  options:['Bloquer','Avertir','Ignorer','Router'] },
+        ],
+        'decision-if': [
+            { key:'field',     label:'Champ',         type:'text',   placeholder:'montant' },
+            { key:'operator',  label:'Opérateur',     type:'select', options:['=','!=','>','<','>=','<=','contient','est vide'] },
+            { key:'value',     label:'Valeur',        type:'text',   placeholder:'1000' },
+            { key:'valueType', label:'Type de valeur', type:'select', options:['Texte','Nombre','Booléen','Date'] },
+        ],
+        'decision-switch': [
+            { key:'field',   label:'Champ de routage',   type:'text', placeholder:'type_document' },
+            { key:'case1',   label:'Cas 1',              type:'text', placeholder:'Facture' },
+            { key:'case2',   label:'Cas 2',              type:'text', placeholder:'Contrat' },
+            { key:'case3',   label:'Cas 3',              type:'text', placeholder:'Autre' },
+            { key:'default', label:'Valeur par défaut',  type:'text', placeholder:'Non classé' },
+        ],
+        'decision-loop': [
+            { key:'source',    label:'Source (champ liste)', type:'text',   placeholder:'items' },
+            { key:'batchSize',  label:'Taille de lot',       type:'number', min:1, placeholder:'10' },
+            { key:'delay',      label:'Délai entre lots (ms)', type:'number', min:0, placeholder:'0' },
+        ],
+        'decision-wait': [
+            { key:'type',       label:'Type',       type:'select', options:['Durée','Signal','Jusqu\'à'] },
+            { key:'duration',   label:'Durée',      type:'text',   placeholder:'5m, 1h, 1d…' },
+            { key:'targetDate', label:'Date cible', type:'text',   placeholder:'2026-01-01 09:00' },
+        ],
+        'decision-validate': [
+            { key:'assignee', label:'Utilisateur assigné', type:'text', placeholder:'opérateur@entreprise.com' },
+            { key:'message',  label:'Message',             type:'textarea', placeholder:'Merci de vérifier ces données…' },
+            { key:'timeout',  label:'Délai',               type:'text', placeholder:'24h' },
+            { key:'onExpire', label:'Action si expiré',    type:'select', options:['Approuver','Rejeter','Escalader','Relancer'] },
+        ],
+        'decision-approve': [
+            { key:'approvers',  label:'Approbateur(s)', type:'text',   placeholder:'manager@entreprise.com' },
+            { key:'levels',     label:'Niveaux',        type:'number', min:1, placeholder:'1' },
+            { key:'timeout',    label:'Délai',          type:'text',   placeholder:'48h' },
+            { key:'escalation', label:'Escalade',       type:'text',   placeholder:'directeur@entreprise.com' },
+        ],
+        'decision-sign': [
+            { key:'service', label:'Service',        type:'select',   options:['DocuSign','Adobe Sign','Yousign'] },
+            { key:'apiUrl',  label:'URL API',        type:'text',     placeholder:'https://api.docusign.net' },
+            { key:'token',   label:'Token',          type:'password', placeholder:'••••••••' },
+            { key:'signers', label:'Signataire(s)',  type:'text',     placeholder:'client@entreprise.com' },
+        ],
+
+        /* ── Utilitaires ────────────────────────────────────────── */
+        'util-variables': [
+            { key:'vars', label:'Variables (JSON)', type:'textarea', placeholder:'{"clé": "valeur"}' },
+        ],
+        'util-secrets': [
+            { key:'name',          label:'Nom',              type:'text',     placeholder:'API_KEY' },
+            { key:'value',         label:'Valeur',           type:'password', placeholder:'••••••••' },
+            { key:'vaultProvider', label:'Fournisseur Vault', type:'select',  options:['Azure Key Vault','HashiCorp Vault','AWS Secrets Manager','Local'] },
+            { key:'vaultUrl',      label:'URL Vault',        type:'text',     placeholder:'https://vault.entreprise.com' },
+        ],
+        'util-cache': [
+            { key:'key',       label:'Clé',          type:'text',   placeholder:'resultat_{id}' },
+            { key:'ttl',       label:'Durée de vie', type:'select', options:['5 min','1 h','24 h','7 j','30 j'] },
+            { key:'cacheType', label:'Type de cache', type:'select', options:['Mémoire','Redis','Disque'] },
+        ],
+        'util-logs': [
+            { key:'level',       label:'Niveau',      type:'select', options:['DEBUG','INFO','WARNING','ERROR'] },
+            { key:'destination', label:'Destination', type:'text',   placeholder:'fichier / console / Datadog' },
+            { key:'format',      label:'Format',      type:'select', options:['Texte','JSON','CSV'] },
+        ],
+    };
+
+    /* ── Required fields per type (drives configured/unconfigured status) ─
+       A node is "configured" only when every required key has a non-empty
+       value in node.config. Types absent here fall back to the default
+       behaviour in isNodeConfigured().
+       ─────────────────────────────────────────────────────────── */
+    const NODE_REQUIRED_FIELDS = {
+        // Déclencheurs
+        'trigger-cron':        ['cron'],
+        'trigger-email':       ['server', 'account', 'password'],
+        'trigger-webhook':     ['method'],
+        'trigger-folder':      ['source', 'path'],
+        'trigger-event':       ['eventName'],
+        // Connecteurs
+        'gmail':               ['account', 'clientId', 'clientSecret'],
+        'connector-gmail':     ['account', 'clientId', 'clientSecret'],
+        'connector-outlook':   ['account', 'tenantId', 'clientId', 'clientSecret'],
+        'connector-teams':     ['tenantId', 'clientId', 'clientSecret', 'team'],
+        'connector-sharepoint':['siteUrl', 'tenantId', 'clientId', 'clientSecret'],
+        'connector-gdrive':    ['account', 'clientId', 'clientSecret'],
+        'connector-sap':       ['server', 'clientId', 'user', 'password'],
+        'connector-dynamics':  ['org', 'tenantId', 'clientId', 'clientSecret'],
+        'connector-dropbox':   ['accessToken'],
+        // IA / Cognition
+        'ocr-classify':        ['model'],
+        'skill-vision':        ['model'],
+        'extraction-ia':       ['model', 'fields'],
+        'skill-extraction':    ['model', 'fields'],
+        'skill-understand':    ['model', 'mission'],
+        'skill-summary':       ['model'],
+        'skill-classify':      ['model', 'categories'],
+        'skill-rag':           ['index'],
+        // Actions
+        'action-email':        ['smtpServer', 'sender', 'recipient'],
+        'action-api':          ['url'],
+        'action-database':     ['dbType', 'host', 'database', 'user', 'password'],
+        'stockage-bdd':        ['dbType', 'host', 'database', 'user', 'password'],
+        'action-file':         ['fileType', 'path'],
+        'action-ticket':       ['system', 'project', 'apiToken'],
+        'notif-teams':         ['webhookUrl', 'message'],
+        'action-teams':        ['webhookUrl', 'message'],
+        'action-storage':      ['destination', 'path'],
+        // Décision & Contrôle
+        'validation':          ['rules'],
+        'decision-if':         ['field', 'operator', 'value'],
+        'decision-switch':     ['field'],
+        'decision-loop':       ['source'],
+        'decision-wait':       ['type'],
+        'decision-validate':   ['assignee'],
+        'decision-approve':    ['approvers'],
+        'decision-sign':       ['service', 'token', 'signers'],
+        // Utilitaires
+        'util-variables':      ['vars'],
+        'util-secrets':        ['name', 'value'],
+        'util-cache':          ['key'],
+        'util-logs':           ['level'],
     };
 
     /* ── Node body builders (rich card content) ─────────────── */
@@ -484,13 +818,23 @@
         return '→';
     }
 
+    function hasValue(v) {
+        if (v === undefined || v === null) return false;
+        if (typeof v === 'string') return v.trim() !== '';
+        return true;
+    }
+
     function isNodeConfigured(node) {
         if (node.configured === false) return false;
         if (node.configured === true)  return true;
+        const cfg = node.config || {};
+        const required = NODE_REQUIRED_FIELDS[node.type];
+        if (required && required.length) {
+            return required.every(k => hasValue(cfg[k]));
+        }
         const fields = NODE_CONFIG_FIELDS[node.type] || [];
         if (fields.length === 0) return true;
-        const cfg = node.config || {};
-        return fields.some(f => cfg[f.key] && cfg[f.key] !== '');
+        return fields.some(f => hasValue(cfg[f.key]));
     }
 
     /* ── Render nodes ────────────────────────────────────────── */
@@ -1134,20 +1478,46 @@
         }
 
         // Config fields
+        if (!node.config) node.config = {};
         const fields = NODE_CONFIG_FIELDS[node.type] || [];
+        const commit = () => {
+            refreshNodeCard(node, canvasNodes.querySelector(`[data-node-id="${node.id}"]`));
+            updateToolbarStats(); updateAgentStats(); saveDraft();
+        };
         fields.forEach(f => {
             const el = propBody.querySelector(`[data-config-key="${f.key}"]`);
             if (!el) return;
-            el.value = node.config[f.key] || '';
+
+            if (f.type === 'toggle') {
+                const current = node.config[f.key] !== undefined ? !!node.config[f.key] : !!f.default;
+                el.checked = current;
+                node.config[f.key] = current;
+                el.addEventListener('change', e => {
+                    node.config[f.key] = e.target.checked;
+                    commit();
+                });
+                return;
+            }
+
+            if (f.type === 'readonly') {
+                let val = node.config[f.key];
+                if (!hasValue(val)) {
+                    val = typeof f.default === 'function' ? f.default(node) : (f.default || '');
+                }
+                el.value = val;
+                node.config[f.key] = val;
+                return;
+            }
+
+            // text, password, number, select, textarea
+            el.value = node.config[f.key] !== undefined ? node.config[f.key] : '';
             el.addEventListener('input', e => {
                 node.config[f.key] = e.target.value;
-                refreshNodeCard(node, canvasNodes.querySelector(`[data-node-id="${node.id}"]`));
-                updateToolbarStats(); updateAgentStats(); saveDraft();
+                commit();
             });
             el.addEventListener('change', e => {
                 node.config[f.key] = e.target.value;
-                refreshNodeCard(node, canvasNodes.querySelector(`[data-node-id="${node.id}"]`));
-                updateToolbarStats(); updateAgentStats(); saveDraft();
+                commit();
             });
         });
     }
@@ -1177,16 +1547,37 @@
             configFieldsHtml += `<div class="designer-inspector-hint">Aucune configuration requise pour ce type de capacité.</div>`;
         } else {
             fields.forEach(f => {
-                configFieldsHtml += `<div class="designer-inspector-group"><label class="designer-inspector-label">${escHtml(f.label)}</label>`;
+                const key = escHtml(f.key);
+                const lbl = escHtml(f.label);
+                if (f.type === 'toggle') {
+                    configFieldsHtml += `<div class="designer-inspector-toggle-row designer-inspector-config-toggle">
+                        <span class="designer-inspector-toggle-label">${lbl}</span>
+                        <label class="designer-inspector-toggle">
+                            <input type="checkbox" data-config-key="${key}" />
+                            <span class="designer-inspector-toggle-slider"></span>
+                        </label>
+                    </div>`;
+                    return;
+                }
+                configFieldsHtml += `<div class="designer-inspector-group"><label class="designer-inspector-label">${lbl}</label>`;
                 if (f.type === 'select') {
-                    configFieldsHtml += `<select class="designer-inspector-select" data-config-key="${escHtml(f.key)}">` +
+                    configFieldsHtml += `<select class="designer-inspector-select" data-config-key="${key}">` +
                         (f.options || []).map(o => `<option value="${escHtml(o)}">${escHtml(o)}</option>`).join('') +
                         `</select>`;
                 } else if (f.type === 'textarea') {
-                    configFieldsHtml += `<textarea class="designer-inspector-textarea" data-config-key="${escHtml(f.key)}" placeholder="${escHtml(f.placeholder || '')}" rows="3"></textarea>`;
+                    configFieldsHtml += `<textarea class="designer-inspector-textarea" data-config-key="${key}" placeholder="${escHtml(f.placeholder || '')}" rows="3"></textarea>`;
+                } else if (f.type === 'number') {
+                    const min  = f.min  !== undefined ? ` min="${escHtml(String(f.min))}"`   : '';
+                    const max  = f.max  !== undefined ? ` max="${escHtml(String(f.max))}"`   : '';
+                    const step = f.step !== undefined ? ` step="${escHtml(String(f.step))}"` : '';
+                    configFieldsHtml += `<input class="designer-inspector-input" data-config-key="${key}" type="number"${min}${max}${step} placeholder="${escHtml(f.placeholder || '')}" />`;
+                } else if (f.type === 'password') {
+                    configFieldsHtml += `<input class="designer-inspector-input" data-config-key="${key}" type="password" placeholder="${escHtml(f.placeholder || '')}" autocomplete="new-password" />`;
+                } else if (f.type === 'readonly') {
+                    configFieldsHtml += `<input class="designer-inspector-input designer-inspector-input-readonly" data-config-key="${key}" type="text" readonly />`;
                 } else {
                     const ro = f.readonly ? ' readonly' : '';
-                    configFieldsHtml += `<input class="designer-inspector-input" data-config-key="${escHtml(f.key)}" type="text" placeholder="${escHtml(f.placeholder || '')}"${ro} />`;
+                    configFieldsHtml += `<input class="designer-inspector-input" data-config-key="${key}" type="text" placeholder="${escHtml(f.placeholder || '')}"${ro} />`;
                 }
                 configFieldsHtml += `</div>`;
             });
