@@ -292,15 +292,15 @@
     /* ── State ───────────────────────────────────────────────── */
     const DRAFT_KEY = 'agentia-designer-draft';
     const MODE_KEY  = 'agentia-creation-mode';
-    const NODE_W    = 180;
-    const NODE_H    = 64;
+    const NODE_W    = 160;
+    const NODE_H    = 44;
 
     let state = {
         version: 2,
         meta:    { name: '', mission: '', businessDomain: '', avatar: '🤖' },
         nodes:   [],
         edges:   [],
-        layout:  { zoom: 1, panX: 0, panY: 0 },
+        layout:  { zoom: 0.85, panX: 0, panY: 0 },
     };
 
     // Heights are tracked after DOM render
