@@ -294,13 +294,46 @@
     <!-- ── Visual Designer Container ─────────────────────────── -->
     <div class="designer-container" id="designerContainer">
         <div id="designerValidationBanner" class="designer-validation-banner"></div>
+
+        <!-- Sub-navigation tabs -->
+        <div class="designer-sub-nav">
+            <button class="designer-sub-tab active" data-subtab="canvas">🎨 Designer visuel</button>
+            <button class="designer-sub-tab" data-subtab="definition">📋 Définition de l'agent</button>
+            <button class="designer-sub-tab" data-subtab="knowledge">📚 Connaissances</button>
+            <button class="designer-sub-tab" data-subtab="tests">🧪 Tests &amp; Logs</button>
+            <button class="designer-sub-tab" data-subtab="metrics">📊 Métriques</button>
+            <div class="designer-sub-nav-right">
+                <button class="designer-sub-nav-btn">Mode avancé</button>
+                <button class="designer-sub-nav-btn">Partage</button>
+                <button class="designer-sub-nav-btn publish">▶ Publier</button>
+            </div>
+        </div>
+
+        <!-- Agentic runtime steps indicator -->
+        <div class="designer-runtime-steps">
+            <span class="designer-runtime-step active">👁 Observer</span>
+            <span class="designer-runtime-step-arrow">→</span>
+            <span class="designer-runtime-step">🧠 Comprendre</span>
+            <span class="designer-runtime-step-arrow">→</span>
+            <span class="designer-runtime-step">⚡ Décider</span>
+            <span class="designer-runtime-step-arrow">→</span>
+            <span class="designer-runtime-step">🚀 Agir</span>
+            <span class="designer-runtime-step-arrow">→</span>
+            <span class="designer-runtime-step">✅ Vérifier</span>
+            <span class="designer-runtime-step-arrow">→</span>
+            <span class="designer-runtime-step">📊 Journaliser</span>
+            <span class="designer-runtime-step-arrow">→</span>
+            <span class="designer-runtime-step">⏳ Attendre</span>
+        </div>
+
         <div class="designer-layout">
 
-            <!-- ── Palette (left, dark) ─────────────────────── -->
+            <!-- ── Palette (left, dark — CAPACITÉS) ─────────── -->
             <div class="designer-palette" id="designerPaletteContainer">
                 <div class="designer-palette-header">
                     <span class="designer-palette-header-icon">⚡</span>
-                    Ajouter une capacité
+                    CAPACITÉS
+                    <button class="designer-palette-header-close" title="Fermer">✕</button>
                 </div>
                 <div class="designer-palette-search">
                     <input type="text" id="paletteSearchInput" placeholder="Rechercher une capacité…" />
@@ -385,7 +418,7 @@
             <!-- ── Inspector panel (right, dark) ─────────────── -->
             <div class="designer-inspector">
                 <div class="designer-inspector-header">
-                    <div class="designer-inspector-title">⚙ Inspecteur</div>
+                    <div class="designer-inspector-title">⚙ PROPRIÉTÉS</div>
                 </div>
                 <!-- Empty state (no node selected) -->
                 <div class="designer-inspector-empty" id="designerInspectorEmpty" style="display:flex">
@@ -429,6 +462,10 @@
         <div class="designer-add-popup-recents-label">Récemment utilisés</div>
         <div class="designer-add-popup-recents"></div>
     </div>
+
+        <!-- Bottom Metrics Bar -->
+        <div class="designer-metrics-bar" id="designerMetricsBar"></div>
+    </div><!-- end designerContainer -->
 
     <!-- ── Blueprint Review Overlay ────────────────────────── -->
     <div class="designer-blueprint-overlay" id="designerBlueprintOverlay">
