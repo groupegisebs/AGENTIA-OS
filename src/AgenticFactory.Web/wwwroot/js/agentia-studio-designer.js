@@ -1636,6 +1636,7 @@
             renderInspectorPanel(); saveDraft();
         });
         bind('designerBtnBlueprint', () => showBlueprintReview());
+        bind('designerBtnTest',      () => showToast('✨ Simulation de l\'agent en cours…'));
 
         // Initial "Add capacité" button in empty canvas
         const addFirstBtn = document.getElementById('designerAddFirstBtn');
