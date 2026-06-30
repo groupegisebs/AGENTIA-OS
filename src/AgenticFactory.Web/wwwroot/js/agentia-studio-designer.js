@@ -37,6 +37,8 @@
             { type: 'skill-rag',          label: 'Recherche sémantique', icon: '🔎', category: 'ia', output: 'Résultats',      inputType: 'Requête',  outputType: 'Résultats',      desc: 'Recherche dans une base vectorielle par sémantique.' },
         ],
         'ACTIONS': [
+            { type: 'stockage-bdd',    label: 'Stockage BDD',         icon: '🗄', category: 'action',   output: 'Données BDD',  inputType: 'JSON',    outputType: 'Confirmation', desc: 'Enregistre les données dans la base sécurisée.',                        metric1val: '346',   metric1label: 'exécutions',  metric2val: '340ms', metric2label: 'moyen' },
+            { type: 'notif-teams',     label: 'Notification Teams',   icon: '💬', category: 'human',    output: 'Message',      inputType: 'Données', outputType: 'Confirmé',     desc: 'Envoie un résumé et les données au canal Teams.',                       metric1val: '342',   metric1label: 'messages',    metric2val: '480ms', metric2label: 'moyen' },
             { type: 'action-email',    label: 'Envoi email',       icon: '📤', category: 'action',   output: 'Email envoyé', inputType: 'Données', outputType: 'Email envoyé', desc: 'Envoie un email formaté vers les destinataires.' },
             { type: 'action-api',      label: 'Appel API',         icon: '🔗', category: 'api',      output: 'Réponse HTTP', inputType: 'Payload', outputType: 'Réponse HTTP', desc: 'Effectue un appel HTTP vers une API externe.' },
             { type: 'action-database', label: 'Base de données',   icon: '🗄', category: 'database', output: 'Résultat SQL', inputType: 'Requête', outputType: 'Résultat SQL', desc: 'Exécute des requêtes SQL en lecture ou écriture.' },
@@ -46,6 +48,7 @@
             { type: 'action-storage',  label: 'Stockage',          icon: '💾', category: 'action',   output: 'Fichier',      inputType: 'Données', outputType: 'Chemin',       desc: 'Enregistrement dans SharePoint & base SQL.' },
         ],
         'DÉCISION & CONTRÔLE': [
+            { type: 'validation',         label: 'Validation',          icon: '✅', category: 'decision', output: 'Résultat',      inputType: 'Données', outputType: 'Résultat',  desc: 'Valide les données extraites (Formats, règles, cohérence).',            metric1val: '99.1%', metric1label: 'réussite',    metric2val: '210ms', metric2label: 'moyen' },
             { type: 'decision-if',        label: 'Condition (IF)',     icon: '⚡', category: 'decision', output: 'Branche',       inputType: 'Données', outputType: 'Branche',   desc: 'Dirige le flux selon une condition booléenne.' },
             { type: 'decision-switch',    label: 'Switch / Routage',   icon: '🔀', category: 'decision', output: 'Route',         inputType: 'Données', outputType: 'Route',     desc: 'Distribue vers plusieurs branches selon une valeur.' },
             { type: 'decision-loop',      label: 'Boucle',             icon: '🔁', category: 'decision', output: 'Itération',     inputType: 'Liste',   outputType: 'Itération', desc: 'Itère sur chaque élément d\'une collection.' },
@@ -481,6 +484,8 @@
     }
 
     function isNodeConfigured(node) {
+        if (node.configured === false) return false;
+        if (node.configured === true)  return true;
         const fields = NODE_CONFIG_FIELDS[node.type] || [];
         if (fields.length === 0) return true;
         const cfg = node.config || {};
@@ -490,7 +495,7 @@
     /* ── Render nodes ────────────────────────────────────────── */
     function renderNodes() {
         const existing = {};
-        canvasNodes.querySelectorAll('.designer-node').forEach(el => {
+        canvasNodes.querySelectorAll('.designer-node, .cap-card').forEach(el => {
             existing[el.dataset.nodeId] = el;
         });
         const keepIds = new Set(state.nodes.map(n => n.id));
@@ -510,7 +515,7 @@
         });
         // Update heights after DOM render
         requestAnimationFrame(() => {
-            canvasNodes.querySelectorAll('.designer-node').forEach(el => {
+            canvasNodes.querySelectorAll('.designer-node, .cap-card').forEach(el => {
                 nodeHeights[el.dataset.nodeId] = el.offsetHeight;
             });
             renderEdges();
