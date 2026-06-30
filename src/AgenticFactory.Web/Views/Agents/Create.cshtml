@@ -302,22 +302,37 @@
                     <button class="designer-agent-avatar-btn" id="designerAgentAvatarBtn" title="Changer l'avatar">🤖</button>
                     <div class="designer-emoji-picker" id="designerEmojiPicker"></div>
                 </div>
+                <span style="font-size:11px;color:#64748b;white-space:nowrap;flex-shrink:0">Agents /</span>
                 <input type="text" class="designer-agent-name-input" id="designerAgentName"
                        placeholder="Nom de votre agent…" autocomplete="off" />
-                <span class="designer-agent-state-badge">🟡 Brouillon</span>
-                <span class="topbar-version-chip">v1.0</span>
+                <span class="designer-agent-state-badge" id="designerAgentStateBadge" style="background:rgba(34,197,94,0.12);border-color:rgba(34,197,94,0.3);color:#22c55e">Actif</span>
+                <span class="topbar-version-chip">v2.3.1</span>
+                <span style="font-size:10px;color:#64748b;white-space:nowrap;flex-shrink:0;padding-left:4px">Score de maturité</span>
+                <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+                    <div style="width:72px;height:5px;background:rgba(148,163,184,0.15);border-radius:3px;overflow:hidden">
+                        <div style="width:97%;height:100%;background:linear-gradient(90deg,#7c3aed,#a78bfa);border-radius:3px"></div>
+                    </div>
+                    <span style="font-size:10px;font-weight:700;color:#a78bfa;white-space:nowrap">97%</span>
+                </div>
             </div>
             <div class="topbar-center">
-                <button class="designer-subnav-btn active" data-subnav="canvas">🎨 Designer</button>
-                <button class="designer-subnav-btn" data-subnav="definition">📋 Définition</button>
-                <button class="designer-subnav-btn" data-subnav="knowledge">📚 Connaissances</button>
-                <button class="designer-subnav-btn" data-subnav="tests">🧪 Tests &amp; Logs</button>
-                <button class="designer-subnav-btn" data-subnav="metrics">📊 Métriques</button>
+                <button class="designer-subnav-btn" data-subnav="overview">Vue d'ensemble</button>
+                <button class="designer-subnav-btn" data-subnav="mission">Mission</button>
+                <button class="designer-subnav-btn active" data-subnav="canvas">Capacités</button>
+                <button class="designer-subnav-btn" data-subnav="knowledge">Connaissances</button>
+                <button class="designer-subnav-btn" data-subnav="memory">Mémoire</button>
+                <button class="designer-subnav-btn" data-subnav="security">Sécurité</button>
+                <button class="designer-subnav-btn" data-subnav="tests">Tests</button>
+                <button class="designer-subnav-btn" data-subnav="monitoring">Monitoring</button>
+                <button class="designer-subnav-btn" data-subnav="marketplace">Marketplace</button>
+                <button class="designer-subnav-btn" data-subnav="versions">Versions</button>
+                <button class="designer-subnav-btn" data-subnav="deploy">Déploiement</button>
             </div>
             <div class="topbar-right">
-                <button class="btn-ghost-sm">Mode avancé</button>
-                <button class="btn-ghost-sm">Partage</button>
-                <button class="btn-publish" id="designerBtnPublish"><i class="bi bi-stars"></i> Créer l'agent</button>
+                <button class="btn-ghost-sm" title="Historique">⏱</button>
+                <button class="btn-ghost-sm" title="Partager">↗</button>
+                <button class="btn-ghost-sm" title="Paramètres">⚙</button>
+                <button class="btn-publish" id="designerBtnPublish">▶ Publier</button>
             </div>
         </div>
 

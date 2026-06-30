@@ -458,9 +458,9 @@
                 const my = (sy1 + sy2) / 2;
                 const flowLabel = getEdgeFlowLabel(fromNode, edge);
                 const fo = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
-                fo.setAttribute('x', mx - 40);
+                fo.setAttribute('x', mx - 60);
                 fo.setAttribute('y', my - 13);
-                fo.setAttribute('width', '80');
+                fo.setAttribute('width', '120');
                 fo.setAttribute('height', '26');
                 fo.setAttribute('pointer-events', 'none');
                 const div = document.createElement('div');
@@ -1122,8 +1122,13 @@
             nameIn.value = node.label;
             nameIn.addEventListener('input', e => {
                 node.label = e.target.value;
-                const titleEl = canvasNodes.querySelector(`[data-node-id="${node.id}"] .node-title`);
-                if (titleEl) titleEl.textContent = e.target.value;
+                const cardEl = canvasNodes.querySelector(`[data-node-id="${node.id}"]`);
+                if (cardEl) {
+                    const capNameEl = cardEl.querySelector('.cap-name');
+                    if (capNameEl) { const num = state.nodes.indexOf(node) + 1; capNameEl.textContent = `${num}. ${e.target.value}`; }
+                    const titleEl = cardEl.querySelector('.node-title');
+                    if (titleEl) titleEl.textContent = e.target.value;
+                }
                 saveDraft();
             });
         }
@@ -1159,7 +1164,7 @@
         const statusTxt  = configured ? 'Connecté' : 'À configurer';
         const statusClr  = configured ? '#10b981' : '#f59e0b';
 
-        const tabActive = (id) => activeInspectorTab === id ? ' active' : '';
+        const tabActive = (id) => (activeInspectorTab === id || (activeInspectorTab === 'io' && id === 'in')) ? ' active' : '';
 
         // Build config fields HTML
         let configFieldsHtml = `
@@ -1230,7 +1235,8 @@
             </div>
             <div class="designer-inspector-tabs">
                 <div class="designer-inspector-tab${tabActive('params')}" data-tab="params">Paramètres</div>
-                <div class="designer-inspector-tab${tabActive('io')}" data-tab="io">E/S</div>
+                <div class="designer-inspector-tab${tabActive('in')}" data-tab="in">Entrées</div>
+                <div class="designer-inspector-tab${tabActive('out')}" data-tab="out">Sorties</div>
                 <div class="designer-inspector-tab${tabActive('metrics')}" data-tab="metrics">Avancé</div>
             </div>
             <div class="designer-inspector-tab-panel${tabActive('params')}" data-tab-panel="params">
@@ -1245,15 +1251,17 @@
                 </div>
                 <div class="designer-inspector-divider"></div>
                 <div class="designer-inspector-actions">
-                    <button class="designer-inspector-action-btn run">▶ Tester</button>
-                    <button class="designer-inspector-action-btn">📋 Historique</button>
+                    <button class="designer-inspector-action-btn run prop-btn prop-btn-primary">▶ Tester</button>
+                    <button class="designer-inspector-action-btn prop-btn prop-btn-secondary">📋 Historique</button>
                 </div>
                 <button class="designer-inspector-delete-btn" data-action="delete-node" data-node="${escHtml(node.id)}">🗑 Supprimer cette capacité</button>
             </div>
-            <div class="designer-inspector-tab-panel${tabActive('io')}" data-tab-panel="io">
-                <div class="designer-inspector-section">Entrées</div>
-                <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px;">${buildIOChips(node, 'in')}</div>
-                <div class="designer-inspector-section">Sorties</div>
+            <div class="designer-inspector-tab-panel${tabActive('in')}" data-tab-panel="in">
+                <div class="designer-inspector-section" style="margin-bottom:10px">Entrées</div>
+                <div style="display:flex;flex-wrap:wrap;gap:5px;">${buildIOChips(node, 'in')}</div>
+            </div>
+            <div class="designer-inspector-tab-panel${tabActive('out')}" data-tab-panel="out">
+                <div class="designer-inspector-section" style="margin-bottom:10px">Sorties</div>
                 <div style="display:flex;flex-wrap:wrap;gap:5px;">${buildIOChips(node, 'out')}</div>
             </div>
             <div class="designer-inspector-tab-panel${tabActive('metrics')}" data-tab-panel="metrics">${metricsHtml}</div>`;
@@ -1927,12 +1935,13 @@
         if (!bar) return;
 
         const metrics = [
-            { icon: '📊', label: 'Exécutions (24h)', value: '128', delta: '+12%', positive: true,  sparkPoints: [40,55,48,60,52,70,65,80,72,85,78,90,84,95,88,100,92,105,98,110,102,115,108,118,112,120,115,125,120,128] },
-            { icon: '✓',  label: 'Taux de réussite', value: '98.4%', delta: '+2.1%', positive: true, sparkPoints: [90,91,89,92,93,90,94,93,95,94,96,95,97,96,97,98,97,98,98,97,98,99,98,99,98,99,99,98,99,98] },
-            { icon: '⏱',  label: 'Temps moyen',      value: '2.34s', delta: '-0.4s', positive: true, sparkPoints: [3.2,3.1,3.0,2.9,2.8,2.9,2.8,2.7,2.8,2.7,2.6,2.7,2.6,2.5,2.6,2.5,2.4,2.5,2.4,2.5,2.4,2.4,2.3,2.4,2.3,2.4,2.3,2.3,2.4,2.34] },
-            { icon: '💰',  label: 'Coût IA (24h)',    value: '$3.42', delta: '-8%',   positive: true, sparkPoints: [5.2,5.0,4.8,4.6,4.5,4.4,4.3,4.2,4.1,4.0,3.9,3.9,3.8,3.8,3.7,3.7,3.7,3.6,3.6,3.6,3.5,3.5,3.5,3.5,3.4,3.4,3.4,3.4,3.4,3.42] },
-            { icon: '⚠',  label: 'Erreurs',           value: '2',     delta: '-60%',  positive: true, sparkPoints: [8,7,6,5,6,5,5,4,5,4,4,4,3,4,3,3,4,3,3,3,3,2,3,2,3,2,2,3,2,2] },
-            { icon: '✅',  label: 'Statut global',     value: 'Excellent', delta: '✓', positive: true, sparkPoints: [80,82,83,85,86,87,88,89,90,91,92,93,94,94,95,95,96,96,97,97,97,98,98,98,99,99,99,99,99,100] },
+            { icon: '📊', label: 'Exécutions (24h)', value: '1,248',    delta: '+12.8%', positive: true,  sparkPoints: [700,750,720,800,760,830,810,860,840,880,860,900,870,920,890,930,900,950,920,970,940,980,960,990,970,1000,980,1010,1000,1020,1010,1030,1020,1040,1030,1060,1050,1080,1060,1100,1080,1120,1100,1150,1120,1180,1150,1200,1220,1248] },
+            { icon: '✓',  label: 'Taux de réussite', value: '98.4%',    delta: '+2.1%',  positive: true,  sparkPoints: [94,94,95,95,95,96,95,96,96,96,97,96,97,97,97,97,98,97,98,97,98,98,98,98,98,99,98,98,99,98,99,98,98,99,98,99,98,98,99,98,99,98,98,99,98,99,98,98,99,98] },
+            { icon: '⏱',  label: 'Temps moyen',      value: '2.34s',    delta: '+0.4s',  positive: false, sparkPoints: [2.1,2.1,2.2,2.1,2.2,2.1,2.2,2.2,2.2,2.3,2.2,2.3,2.2,2.3,2.2,2.3,2.3,2.3,2.3,2.4,2.3,2.4,2.3,2.4,2.3,2.4,2.4,2.4,2.4,2.4,2.3,2.4,2.4,2.3,2.4,2.3,2.4,2.4,2.3,2.4,2.3,2.4,2.4,2.3,2.4,2.3,2.3,2.4,2.3,2.34] },
+            { icon: '💰',  label: 'Coût IA (24h)',    value: '$3.42',    delta: '-8%',    positive: true,  sparkPoints: [4.2,4.1,4.1,4.0,4.0,3.9,3.9,3.9,3.9,3.8,3.8,3.8,3.8,3.8,3.7,3.8,3.7,3.7,3.8,3.7,3.7,3.6,3.7,3.6,3.6,3.7,3.6,3.5,3.6,3.5,3.6,3.5,3.5,3.6,3.5,3.5,3.4,3.5,3.4,3.5,3.4,3.5,3.4,3.4,3.5,3.4,3.4,3.4,3.4,3.42] },
+            { icon: '🔤', label: 'Tokens (24h)',      value: '2.4M',     delta: '+19%',   positive: true,  sparkPoints: [1.6,1.7,1.7,1.8,1.8,1.8,1.9,1.9,1.9,2.0,1.9,2.0,2.0,2.0,2.0,2.1,2.0,2.1,2.1,2.1,2.1,2.2,2.1,2.2,2.1,2.2,2.2,2.2,2.2,2.3,2.2,2.3,2.2,2.3,2.3,2.3,2.3,2.3,2.4,2.3,2.4,2.3,2.4,2.4,2.4,2.4,2.4,2.4,2.4,2.4] },
+            { icon: '⚠',  label: 'Erreurs (24h)',     value: '12',       delta: '+60%',   positive: false, sparkPoints: [5,5,6,5,6,6,5,6,7,6,7,6,7,7,6,7,7,7,8,7,8,7,8,8,8,8,9,8,9,9,9,9,9,10,9,10,9,10,10,10,10,11,10,11,10,11,11,11,12,12] },
+            { icon: '✅',  label: 'Statut global',     value: 'Excellent',delta: '90.98%', positive: true,  sparkPoints: [85,86,86,87,87,87,88,88,88,88,89,88,89,89,89,89,90,89,90,90,90,90,90,91,90,91,90,91,91,91,91,91,91,91,91,91,91,91,91,91,91,91,91,91,91,91,91,91,91,91] },
         ];
 
         bar.innerHTML = metrics.map(m => {
@@ -2001,15 +2010,21 @@
         if (!canvasWrap || !canvasSvg || !canvasNodes) return;
 
         loadDraft();
-        // If no draft, load sample nodes to demonstrate what's possible
+        // If no draft, load sample nodes (2-column layout matching reference image)
         if (state.nodes.length === 0) {
-            const nGmail = { id: uid(), type: 'connector-gmail', label: 'Gmail', x: 80,  y: 100, config: { account: 'demo@exemple.com' }, meta: {} };
-            const nExtract = { id: uid(), type: 'skill-extraction', label: 'Extraction IA', x: 440, y: 100, config: { model: 'gpt-4o-mini', fields: 'nom, date, montant' }, meta: { confidence: 96 } };
-            const nStorage = { id: uid(), type: 'action-storage', label: 'Stockage', x: 800, y: 100, config: {}, meta: {} };
-            state.nodes = [nGmail, nExtract, nStorage];
+            const s1 = { id: uid(), type: 'gmail',        label: 'Gmail',               x:  80, y:  80, configured: true,  config: {} };
+            const s2 = { id: uid(), type: 'ocr-classify', label: 'OCR & Classification', x: 360, y:  80, configured: true,  config: {} };
+            const s3 = { id: uid(), type: 'extraction-ia',label: 'Extraction IA',        x: 640, y: 240, configured: true,  config: {} };
+            const s4 = { id: uid(), type: 'validation',   label: 'Validation',           x: 360, y: 400, configured: false, config: {} };
+            const s5 = { id: uid(), type: 'stockage-bdd', label: 'Stockage BDD',         x:  80, y: 400, configured: true,  config: {} };
+            const s6 = { id: uid(), type: 'notif-teams',  label: 'Notification Teams',   x: 640, y: 560, configured: true,  config: {} };
+            state.nodes = [s1, s2, s3, s4, s5, s6];
             state.edges = [
-                { id: uid(), from: nGmail.id,   to: nExtract.id, label: 'Email + PJ' },
-                { id: uid(), from: nExtract.id, to: nStorage.id, label: 'JSON structuré' },
+                { id: uid(), from: s1.id, to: s2.id, label: 'Documents 352' },
+                { id: uid(), from: s2.id, to: s3.id, label: 'Données 346' },
+                { id: uid(), from: s3.id, to: s4.id, label: 'Champs 34K' },
+                { id: uid(), from: s4.id, to: s5.id, label: 'Résultats 345' },
+                { id: uid(), from: s5.id, to: s6.id, label: 'Validés 342' },
             ];
         }
         injectSvgDefs();
