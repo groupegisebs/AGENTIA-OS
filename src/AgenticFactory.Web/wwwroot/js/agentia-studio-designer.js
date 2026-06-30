@@ -478,6 +478,7 @@
     }
 
     function getEdgeFlowLabel(fromNode, edge) {
+        if (edge && edge.label) return edge.label;
         const entry = getCatalogueEntry(fromNode.type);
         if (entry && entry.outputType) return entry.outputType.split(' ')[0];
         return '→';
@@ -532,6 +533,15 @@
     function refreshNodeCard(node, el) {
         if (!el) return;
         const configured = isNodeConfigured(node);
+        // cap-card fields
+        const capDot = el.querySelector('.cap-status-dot');
+        if (capDot) capDot.className = 'cap-status-dot ' + (configured ? 'ok' : 'warn');
+        const capName = el.querySelector('.cap-name');
+        if (capName) {
+            const num = state.nodes.indexOf(node) + 1;
+            capName.textContent = `${num}. ${node.label}`;
+        }
+        // legacy .designer-node fields
         const dot = el.querySelector('.node-status-dot');
         if (dot) dot.className = 'node-status-dot ' + (configured ? 'configured' : 'warning');
         const titleEl = el.querySelector('.node-title');
@@ -539,68 +549,64 @@
     }
 
     function createNodeElement(node) {
-        const entry    = getCatalogueEntry(node.type);
-        const category = entry ? entry.category : getNodeCategory(node.type);
-        const icon     = entry ? entry.icon : '⚙️';
-        const badge    = CAT_LABEL[category] || category.toUpperCase();
-        const catColor = getCategoryColor(category);
+        const entry      = getCatalogueEntry(node.type) || {};
+        const category   = entry.category || getNodeCategory(node.type);
+        const icon       = entry.icon || '⚙';
+        const catLabel   = CAT_LABEL[category] || category.toUpperCase();
+        const catColor   = getCategoryColor(category);
         const configured = isNodeConfigured(node);
+        const desc       = entry.desc || (node.config && node.config.description) || "Capacité de l'agent.";
+        const m1val      = entry.metric1val   || (node.config && node.config.execCount ? String(node.config.execCount) : '0');
+        const m1label    = entry.metric1label || 'exécutions';
+        const m2val      = entry.metric2val   || (node.config && node.config.avgTime   ? String(node.config.avgTime)   : '—');
+        const m2label    = entry.metric2label || 'moyen';
         const isTrigger  = category === 'trigger';
-        const desc     = entry ? (entry.desc || '') : '';
-        const inputType  = entry ? (entry.inputType  || '—') : '—';
-        const outputType = entry ? (entry.outputType || '—') : '—';
-
-        // Node number from index in state
-        const numIdx = state.nodes.findIndex(n => n.id === node.id);
-        const num = numIdx >= 0 ? numIdx + 1 : '';
+        const num        = state.nodes.indexOf(node) + 1;
 
         const el = document.createElement('div');
-        el.className = `designer-node node-cat-${category}`;
+        el.className = 'cap-card';
         el.dataset.nodeId = node.id;
-        el.style.borderLeftColor = catColor;
+        el.style.setProperty('--cat-color', catColor);
 
         el.innerHTML = `
-            <div class="designer-port designer-port-left" data-port="in" data-node="${escHtml(node.id)}"${isTrigger ? ' style="display:none"' : ''}></div>
-            <div class="node-header">
-                <div class="node-icon-circle" style="background:${catColor}22;color:${catColor}">${escHtml(icon)}</div>
-                <div class="node-meta">
-                    <div class="node-num-name">
-                        ${num ? `<span class="node-number">${num}.</span>` : ''}
-                        <span class="node-title" title="${escHtml(node.label)}">${escHtml(node.label)}</span>
-                    </div>
-                    <div class="node-type-badge" style="background:${catColor}22;color:${catColor};border-color:${catColor}44">${escHtml(badge)}</div>
+            ${!isTrigger ? `<div class="cap-port cap-port-left" data-port="in" data-node="${escHtml(node.id)}"></div>` : ''}
+            <div class="cap-header">
+                <div class="cap-icon" style="background:${catColor}2e;color:${catColor}">${escHtml(icon)}</div>
+                <div class="cap-meta">
+                    <div class="cap-name">${num}. ${escHtml(node.label)}</div>
+                    <div class="cap-type">${escHtml(catLabel)}</div>
                 </div>
-                <div class="node-status-dot ${configured ? 'configured' : 'warning'}"></div>
+                <div class="cap-status-dot ${configured ? 'ok' : 'warn'}"></div>
             </div>
-            <button class="node-delete-btn" data-action="delete-node" data-node="${escHtml(node.id)}" title="Supprimer">×</button>
-            <div class="node-divider"></div>
-            <div class="node-description">${escHtml(desc || 'Configurez cette capacité dans le panneau Propriétés.')}</div>
-            <div class="node-divider"></div>
-            <div class="node-io-row">
-                <span class="node-io-in">↗ Entrée: ${escHtml(inputType)}</span>
-                <span class="node-io-out">↘ Sortie: ${escHtml(outputType)}</span>
+            <div class="cap-divider"></div>
+            <div class="cap-desc">${escHtml(desc)}</div>
+            <div class="cap-divider"></div>
+            <div class="cap-metrics">
+                <div class="cap-metric">
+                    <div class="cap-metric-val">${escHtml(m1val)}</div>
+                    <div class="cap-metric-label">${escHtml(m1label)}</div>
+                </div>
+                <div class="cap-metric">
+                    <div class="cap-metric-val">${escHtml(m2val)}</div>
+                    <div class="cap-metric-label">${escHtml(m2label)}</div>
+                </div>
             </div>
-            <div class="designer-port designer-port-right" data-port="out" data-node="${escHtml(node.id)}"></div>`;
+            <div class="cap-port cap-port-right" data-port="out" data-node="${escHtml(node.id)}"></div>`;
 
-        // Drag the whole node (excluding ports and buttons)
         el.addEventListener('mousedown', e => {
-            if (e.target.closest('[data-port]') || e.target.closest('[data-action]')) return;
+            if (e.target.closest('[data-port]')) return;
             if (e.button !== 0) return;
             onNodeDragStart(e);
         });
-        // Delete
-        el.querySelector('[data-action="delete-node"]').addEventListener('click', e => { e.stopPropagation(); deleteNode(node.id); });
-        // Click to select
         el.addEventListener('click', e => {
-            if (e.target.closest('[data-port]') || e.target.closest('[data-action]')) return;
+            if (e.target.closest('[data-port]')) return;
             selectNode(node.id, e.shiftKey);
             e.stopPropagation();
         });
-        // Port connections (left=in, right=out)
-        const portLeft  = el.querySelector('[data-port="in"]');
-        const portRight = el.querySelector('[data-port="out"]');
-        if (portRight) portRight.addEventListener('mousedown', e => { e.stopPropagation(); startConnect(node.id, e); });
-        if (portLeft)  portLeft.addEventListener('mouseup',   e => { e.stopPropagation(); endConnect(node.id); });
+        const portL = el.querySelector('.cap-port-left');
+        const portR = el.querySelector('.cap-port-right');
+        if (portR) portR.addEventListener('mousedown', e => { e.stopPropagation(); startConnect(node.id, e); });
+        if (portL) portL.addEventListener('mouseup',   e => { e.stopPropagation(); endConnect(node.id); });
 
         return el;
     }
