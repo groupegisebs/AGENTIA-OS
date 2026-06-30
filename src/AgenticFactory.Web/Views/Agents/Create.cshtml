@@ -295,35 +295,41 @@
     <div class="designer-container" id="designerContainer">
         <div id="designerValidationBanner" class="designer-validation-banner"></div>
 
-        <!-- Sub-navigation tabs -->
-        <div class="designer-sub-nav">
-            <button class="designer-sub-tab active" data-subtab="canvas">🎨 Designer visuel</button>
-            <button class="designer-sub-tab" data-subtab="definition">📋 Définition de l'agent</button>
-            <button class="designer-sub-tab" data-subtab="knowledge">📚 Connaissances</button>
-            <button class="designer-sub-tab" data-subtab="tests">🧪 Tests &amp; Logs</button>
-            <button class="designer-sub-tab" data-subtab="metrics">📊 Métriques</button>
-            <div class="designer-sub-nav-right">
-                <button class="designer-sub-nav-btn">Mode avancé</button>
-                <button class="designer-sub-nav-btn">Partage</button>
-                <button class="designer-sub-nav-btn publish">▶ Publier</button>
+        <!-- ── Compact designer topbar (48px) ─────────────────── -->
+        <div class="designer-topbar">
+            <div class="topbar-left">
+                <div style="position:relative;flex-shrink:0">
+                    <button class="designer-agent-avatar-btn" id="designerAgentAvatarBtn" title="Changer l'avatar">🤖</button>
+                    <div class="designer-emoji-picker" id="designerEmojiPicker"></div>
+                </div>
+                <input type="text" class="designer-agent-name-input" id="designerAgentName"
+                       placeholder="Nom de votre agent…" autocomplete="off" />
+                <span class="designer-agent-state-badge">🟡 Brouillon</span>
+                <span class="topbar-version-chip">v1.0</span>
+            </div>
+            <div class="topbar-center">
+                <button class="designer-subnav-btn active" data-subnav="canvas">🎨 Designer</button>
+                <button class="designer-subnav-btn" data-subnav="definition">📋 Définition</button>
+                <button class="designer-subnav-btn" data-subnav="knowledge">📚 Connaissances</button>
+                <button class="designer-subnav-btn" data-subnav="tests">🧪 Tests &amp; Logs</button>
+                <button class="designer-subnav-btn" data-subnav="metrics">📊 Métriques</button>
+            </div>
+            <div class="topbar-right">
+                <button class="btn-ghost-sm">Mode avancé</button>
+                <button class="btn-ghost-sm">Partage</button>
+                <button class="btn-publish" id="designerBtnPublish"><i class="bi bi-stars"></i> Créer l'agent</button>
             </div>
         </div>
 
-        <!-- Agentic runtime steps indicator -->
-        <div class="designer-runtime-steps">
-            <span class="designer-runtime-step active">👁 Observer</span>
-            <span class="designer-runtime-step-arrow">→</span>
-            <span class="designer-runtime-step">🧠 Comprendre</span>
-            <span class="designer-runtime-step-arrow">→</span>
-            <span class="designer-runtime-step">⚡ Décider</span>
-            <span class="designer-runtime-step-arrow">→</span>
-            <span class="designer-runtime-step">🚀 Agir</span>
-            <span class="designer-runtime-step-arrow">→</span>
-            <span class="designer-runtime-step">✅ Vérifier</span>
-            <span class="designer-runtime-step-arrow">→</span>
-            <span class="designer-runtime-step">📊 Journaliser</span>
-            <span class="designer-runtime-step-arrow">→</span>
-            <span class="designer-runtime-step">⏳ Attendre</span>
+        <!-- ── Runtime steps mini-bar (26px, decorative) ────────── -->
+        <div class="runtime-steps-mini">
+            <span>Observer</span><span class="step-sep">›</span>
+            <span>Comprendre</span><span class="step-sep">›</span>
+            <span>Décider</span><span class="step-sep">›</span>
+            <span>Agir</span><span class="step-sep">›</span>
+            <span>Vérifier</span><span class="step-sep">›</span>
+            <span>Journaliser</span><span class="step-sep">›</span>
+            <span>Attendre</span>
         </div>
 
         <div class="designer-layout">
@@ -343,17 +349,6 @@
 
             <!-- ── Canvas area (center) ─────────────────────── -->
             <div class="designer-canvas-area">
-
-                <!-- Agent Identity Card (compact single row) -->
-                <div class="designer-agent-card">
-                    <div style="position:relative;flex-shrink:0">
-                        <button class="designer-agent-avatar-btn" id="designerAgentAvatarBtn" title="Changer l'avatar">🤖</button>
-                        <div class="designer-emoji-picker" id="designerEmojiPicker"></div>
-                    </div>
-                    <input type="text" class="designer-agent-name-input" id="designerAgentName"
-                           placeholder="Nom de votre agent…" autocomplete="off" />
-                    <div class="designer-agent-state-badge">🟡 Brouillon</div>
-                </div>
 
                 <!-- Floating Toolbar -->
                 <div class="designer-canvas-toolbar">

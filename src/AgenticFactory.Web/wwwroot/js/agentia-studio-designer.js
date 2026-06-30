@@ -304,7 +304,7 @@
         meta:    { name: '', mission: '', businessDomain: '', avatar: '🤖' },
         nodes:   [],
         edges:   [],
-        layout:  { zoom: 0.85, panX: 0, panY: 0 },
+        layout:  { zoom: 0.75, panX: 60, panY: 60 },
     };
 
     // Heights are tracked after DOM render
@@ -350,11 +350,11 @@
             const raw = localStorage.getItem(DRAFT_KEY);
             if (!raw) return;
             const p = JSON.parse(raw);
-            if (p && (p.version === 1 || p.version === 2)) {
+            if (p && (p.version === 1 || p.version === 2 || p.version === 3)) {
                 state = p;
                 state.nodes   = state.nodes   || [];
                 state.edges   = state.edges   || [];
-                state.layout  = state.layout  || { zoom: 1, panX: 0, panY: 0 };
+                state.layout  = state.layout  || { zoom: 0.75, panX: 60, panY: 60 };
                 state.meta    = state.meta    || { name: '', mission: '', businessDomain: '', avatar: '🤖' };
                 if (!state.meta.avatar) state.meta.avatar = '🤖';
             }
@@ -1595,6 +1595,8 @@
             const designerEl = document.getElementById('designerContainer');
             if (wizardEl)   wizardEl.style.display = mode === 'guided' ? '' : 'none';
             if (designerEl) designerEl.classList.toggle('visible', mode === 'designer');
+            // Body class for hiding page title/header when designer is active
+            document.body.classList.toggle('designer-active', mode === 'designer');
             if (modeInput)  modeInput.value = mode;
             try { localStorage.setItem(MODE_KEY, mode); } catch (_) {}
         }
@@ -1636,6 +1638,7 @@
             renderInspectorPanel(); saveDraft();
         });
         bind('designerBtnBlueprint', () => showBlueprintReview());
+        bind('designerBtnPublish',   () => showBlueprintReview());
         bind('designerBtnTest',      () => showToast('✨ Simulation de l\'agent en cours…'));
 
         // Initial "Add capacité" button in empty canvas
@@ -1947,10 +1950,19 @@
 
     /* ── Sub-nav tabs binding ────────────────────────────────── */
     function bindSubNavTabs() {
-        const tabs = document.querySelectorAll('.designer-sub-tab');
-        tabs.forEach(tab => {
+        // Bind new topbar subnav buttons
+        const topbarBtns = document.querySelectorAll('.designer-subnav-btn');
+        topbarBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                topbarBtns.forEach(t => t.classList.remove('active'));
+                btn.classList.add('active');
+            });
+        });
+        // Also keep legacy sub-tab support for backward compat
+        const legacyTabs = document.querySelectorAll('.designer-sub-tab');
+        legacyTabs.forEach(tab => {
             tab.addEventListener('click', () => {
-                tabs.forEach(t => t.classList.remove('active'));
+                legacyTabs.forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
             });
         });
@@ -1975,6 +1987,17 @@
         if (!canvasWrap || !canvasSvg || !canvasNodes) return;
 
         loadDraft();
+        // If no draft, load sample nodes to demonstrate what's possible
+        if (state.nodes.length === 0) {
+            const nGmail = { id: uid(), type: 'connector-gmail', label: 'Gmail', x: 80,  y: 100, config: { account: 'demo@exemple.com' }, meta: {} };
+            const nExtract = { id: uid(), type: 'skill-extraction', label: 'Extraction IA', x: 440, y: 100, config: { model: 'gpt-4o-mini', fields: 'nom, date, montant' }, meta: { confidence: 96 } };
+            const nStorage = { id: uid(), type: 'action-storage', label: 'Stockage', x: 800, y: 100, config: {}, meta: {} };
+            state.nodes = [nGmail, nExtract, nStorage];
+            state.edges = [
+                { id: uid(), from: nGmail.id,   to: nExtract.id, label: 'Email + PJ' },
+                { id: uid(), from: nExtract.id, to: nStorage.id, label: 'JSON structuré' },
+            ];
+        }
         injectSvgDefs();
 
         // Canvas events
