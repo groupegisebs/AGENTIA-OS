@@ -1,49 +1,51 @@
+@model List<AgenticFactory.Web.Services.MarketplaceListingVm>
 @{
     ViewData["Title"] = "Marketplace";
 }
 
-<div class="mb-4">
-    <h2 class="mb-1">Marketplace</h2>
-    <p class="text-muted mb-0">Découvrez et partagez des agents prêts à l'emploi.</p>
-</div>
-
-<div class="row g-4">
-    <div class="col-md-4">
-        <div class="af-card h-100">
-            <div class="text-muted small text-uppercase fw-semibold mb-2">Starter</div>
-            <div class="af-stat-value">Gratuit</div>
-            <ul class="mt-3 mb-0 ps-3 text-muted small">
-                <li>Jusqu'à 5 agents</li>
-                <li>Runs limités / mois</li>
-                <li>Mode IA mock inclus</li>
-            </ul>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="af-card h-100 border-primary">
-            <div class="text-primary small text-uppercase fw-semibold mb-2">Pro</div>
-            <div class="af-stat-value">Bientôt</div>
-            <ul class="mt-3 mb-0 ps-3 text-muted small">
-                <li>Agents illimités</li>
-                <li>Providers IA réels</li>
-                <li>Support prioritaire</li>
-            </ul>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="af-card h-100">
-            <div class="text-muted small text-uppercase fw-semibold mb-2">Enterprise</div>
-            <div class="af-stat-value">Sur mesure</div>
-            <ul class="mt-3 mb-0 ps-3 text-muted small">
-                <li>Multi-tenant avancé</li>
-                <li>SLA &amp; audit</li>
-                <li>Déploiement dédié</li>
-            </ul>
-        </div>
+<div class="mb-4 d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div>
+        <h2 class="mb-1">Marketplace</h2>
+        <p class="text-muted mb-0">Catalogue d'agents publiés — prêts à commercialiser.</p>
     </div>
 </div>
 
-<div class="af-card mt-4">
-    <h5 class="mb-2">Catalogue d'agents</h5>
-    <p class="text-muted mb-0">Le catalogue public arrive prochainement. En attendant, créez vos propres agents depuis la section <a asp-controller="Agents" asp-action="Index">Agents</a>.</p>
-</div>
+@if (TempData["Success"] is string ok)
+{
+    <div class="alert alert-success">@ok</div>
+}
+@if (TempData["Error"] is string err)
+{
+    <div class="alert alert-danger">@err</div>
+}
+
+@if (Model is null || Model.Count == 0)
+{
+    <div class="af-card">
+        <h5 class="mb-2">Aucun agent publié</h5>
+        <p class="text-muted mb-0">Publiez un agent déployé depuis la fiche agent, ou créez-en un dans <a asp-controller="Agents" asp-action="Index">Mes Agents</a>.</p>
+    </div>
+}
+else
+{
+    <div class="row g-4">
+        @foreach (var item in Model)
+        {
+            <div class="col-md-4">
+                <div class="af-card h-100">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="badge bg-primary-subtle text-primary">@item.Category</span>
+                        <span class="text-muted small">v@(item.VersionNumber)</span>
+                    </div>
+                    <h5 class="mb-1">@item.AgentName</h5>
+                    <div class="text-muted small mb-2">@item.Author · @item.License</div>
+                    <p class="small mb-3">@(item.Description.Length > 140 ? item.Description[..140] + "…" : item.Description)</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <strong>@item.PriceUsd.ToString("0.00") $</strong>
+                        <span class="badge @(item.Status == "Published" ? "bg-success" : "bg-secondary")">@item.Status</span>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}

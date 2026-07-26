@@ -1,0 +1,46 @@
+@model AgenticFactory.Web.Services.ObservatorySnapshotVm?
+@{
+    ViewData["Title"] = "Observatoire";
+}
+
+<div class="mb-4">
+    <h2 class="mb-1">Agentia Control Center</h2>
+    <p class="text-muted mb-0">Supervision temps réel des agents de votre organisation.</p>
+</div>
+
+@if (Model is null)
+{
+    <div class="alert alert-warning">Impossible de charger l'observatoire. Vérifiez l'API.</div>
+}
+else
+{
+    <div class="row g-3 mb-4">
+        <div class="col-md-2"><div class="af-card"><div class="text-muted small">Agents actifs</div><div class="af-stat-value">@Model.ActiveAgents</div></div></div>
+        <div class="col-md-2"><div class="af-card"><div class="text-muted small">Runs (24h)</div><div class="af-stat-value">@Model.DocumentsProcessed</div></div></div>
+        <div class="col-md-2"><div class="af-card"><div class="text-muted small">Coût IA</div><div class="af-stat-value">@Model.AiCostUsd.ToString("0.00") $</div></div></div>
+        <div class="col-md-3"><div class="af-card"><div class="text-muted small">Temps moyen</div><div class="af-stat-value">@Model.AvgDurationSeconds.ToString("0.00") s</div></div></div>
+        <div class="col-md-3"><div class="af-card"><div class="text-muted small">Santé globale</div><div class="af-stat-value">@Model.GlobalHealthPercent.ToString("0.0") %</div></div></div>
+    </div>
+
+    <div class="af-card">
+        <h5 class="mb-3">Agents</h5>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead><tr><th>Agent</th><th>Santé</th><th>Runs 24h</th><th>Succès</th><th>Coût</th></tr></thead>
+                <tbody>
+                @foreach (var a in Model.Agents ?? [])
+                {
+                    var badge = a.Status switch { "green" => "success", "yellow" => "warning", "red" => "danger", _ => "secondary" };
+                    <tr>
+                        <td>@a.Name</td>
+                        <td><span class="badge bg-@badge">@a.Status</span></td>
+                        <td>@a.Runs24h</td>
+                        <td>@a.SuccessRate %</td>
+                        <td>@a.Cost24hUsd.ToString("0.000") $</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

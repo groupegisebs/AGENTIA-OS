@@ -120,6 +120,11 @@
                             <i class="bi bi-graph-up"></i> Monitoring
                         </a>
                     </div>
+                    <div class="af-nav-item">
+                        <a asp-controller="Observatory" asp-action="Index" class="@(activeNav == "Observatory" ? "active" : "")">
+                            <i class="bi bi-globe2"></i> Observatoire
+                        </a>
+                    </div>
                 </div>
             </div>
 
@@ -188,7 +193,7 @@
                         </a>
                     </div>
                     <div class="af-nav-item">
-                        <a asp-controller="ComingSoon" asp-action="Index" asp-route-name="Audit Logs">
+                        <a asp-controller="Audit" asp-action="Index" class="@(activeNav == "Audit" ? "active" : "")">
                             <i class="bi bi-journal-text"></i> Audit Logs
                         </a>
                     </div>

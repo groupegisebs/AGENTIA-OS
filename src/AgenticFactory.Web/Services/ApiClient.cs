@@ -54,7 +54,7 @@ public record InvokeAgentResponse(
     int PromptTokens,
     int CompletionTokens,
     decimal EstimatedCostUsd);
-public record ChatRequest(string Message, Guid? ExistingAgentId = null);
+public record ChatRequest(string Message, Guid? ExistingAgentId = null, string? CapabilityGraphJson = null);
 public record SubmitDomainRequestPayload(string DomainName, string? Industry, string? UseCase, string? Description);
 public record SubmitObjectiveRequestPayload(string ObjectiveName, string? RelatedDomain, string? UseCase, string? Description);
 public record SubmitDomainRequestResponse(
@@ -371,11 +371,11 @@ public class ApiClient(HttpClient http)
         return JsonSerializer.Deserialize<List<RunListItemResponse>>(content, _json);
     }
 
-    public async Task<(BlueprintResult? Result, string? Error)> CreateAgentFromChatAsync(string message)
+    public async Task<(BlueprintResult? Result, string? Error)> CreateAgentFromChatAsync(string message, string? capabilityGraphJson = null)
     {
         try
         {
-            var body = JsonSerializer.Serialize(new ChatRequest(message), _json);
+            var body = JsonSerializer.Serialize(new ChatRequest(message, null, capabilityGraphJson), _json);
             using var response = await http.PostAsync("/api/agent-creation/chat",
                 new StringContent(body, Encoding.UTF8, "application/json"));
             var content = await response.Content.ReadAsStringAsync();
@@ -664,4 +664,84 @@ public class ApiClient(HttpClient http)
 
         return (JsonSerializer.Deserialize<BillingConfirmResponse>(content, _json), null);
     }
+
+    public async Task<List<MarketplaceListingVm>?> GetMarketplaceAsync()
+    {
+        using var response = await http.GetAsync("/api/enterprise/marketplace");
+        if (!response.IsSuccessStatusCode) return [];
+        var content = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<List<MarketplaceListingVm>>(content, _json) ?? [];
+    }
+
+    public async Task<(bool Ok, string? Error)> PublishMarketplaceAsync(
+        Guid agentId, decimal priceUsd, string license, string description, string category)
+    {
+        var body = JsonSerializer.Serialize(new
+        {
+            priceUsd,
+            license,
+            description,
+            category,
+            documentationUrl = (string?)null
+        }, _json);
+        using var response = await http.PostAsync($"/api/enterprise/marketplace/publish?agentId={agentId}",
+            new StringContent(body, Encoding.UTF8, "application/json"));
+        if (response.IsSuccessStatusCode) return (true, null);
+        var content = await response.Content.ReadAsStringAsync();
+        return (false, TryReadErrorMessage(content) ?? "Publication impossible.");
+    }
+
+    public async Task<ObservatorySnapshotVm?> GetObservatoryAsync()
+    {
+        using var response = await http.GetAsync("/api/enterprise/observatory");
+        if (!response.IsSuccessStatusCode) return null;
+        var content = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<ObservatorySnapshotVm>(content, _json);
+    }
+
+    public async Task<List<AuditLogVm>?> GetAuditAsync()
+    {
+        using var response = await http.GetAsync("/api/enterprise/audit");
+        if (!response.IsSuccessStatusCode) return [];
+        var content = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<List<AuditLogVm>>(content, _json) ?? [];
+    }
+
+    public async Task<JsonElement?> DryRunGraphAsync(string capabilityGraphJson, Dictionary<string, object?>? input = null)
+    {
+        var body = JsonSerializer.Serialize(new { capabilityGraphJson, input }, _json);
+        using var response = await http.PostAsync("/api/enterprise/graph/dry-run",
+            new StringContent(body, Encoding.UTF8, "application/json"));
+        if (!response.IsSuccessStatusCode) return null;
+        var content = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<JsonElement>(content, _json);
+    }
+
+    public async Task<List<AgentOptimizationVm>?> GetOptimizationsAsync(Guid agentId)
+    {
+        using var response = await http.GetAsync($"/api/enterprise/agents/{agentId}/optimize");
+        if (!response.IsSuccessStatusCode) return [];
+        var content = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<List<AgentOptimizationVm>>(content, _json) ?? [];
+    }
 }
+
+public record MarketplaceListingVm(
+    Guid Id, Guid AgentId, string AgentName, string Author, decimal PriceUsd,
+    string License, string Description, string Category, string Status,
+    int VersionNumber, DateTime UpdatedAtUtc, string? PayGatewayProductCode);
+
+public record ObservatorySnapshotVm(
+    int ActiveAgents, long DocumentsProcessed, decimal AiCostUsd,
+    double AvgDurationSeconds, double GlobalHealthPercent,
+    List<ObservatoryAgentRowVm>? Agents);
+
+public record ObservatoryAgentRowVm(
+    Guid AgentId, string Name, string Status, int Runs24h, double SuccessRate, decimal Cost24hUsd);
+
+public record AuditLogVm(
+    Guid Id, Guid OrganizationId, string Action, string? ActorEmail,
+    string? ResourceType, Guid? ResourceId, string DetailsJson, DateTime CreatedAtUtc);
+
+public record AgentOptimizationVm(
+    string Code, string Title, string Detail, string Impact, double EstimatedSavingsPercent);

@@ -88,7 +88,8 @@ public static class DependencyInjection
         });
 
         services.AddScoped<ICurrentTenantService, CurrentTenantService>();
-        services.AddScoped<IBlueprintGenerator, MockBlueprintGenerator>();
+        services.AddScoped<MockBlueprintGenerator>();
+        services.AddScoped<IBlueprintGenerator, LlmBlueprintGenerator>();
         services.AddScoped<IAgentCreationService, AgentCreationService>();
         services.AddScoped<IAgentDeploymentService, AgentDeploymentService>();
         services.AddScoped<IAgentInvocationService, AgentInvocationService>();
@@ -97,8 +98,16 @@ public static class DependencyInjection
         services.AddScoped<IAgentToolExecutor, AgentToolExecutor>();
         services.AddScoped<IAgentMemoryService, AgentMemoryService>();
         services.AddScoped<IAgentModelProvider, AgentModelProvider>();
+        services.AddScoped<IGraphRuntimeEngine, GraphRuntimeEngine>();
+        services.AddScoped<ISecretStore, AesSecretStore>();
+        services.AddScoped<IKnowledgeService, KnowledgeService>();
+        services.AddScoped<IMarketplaceService, MarketplaceService>();
+        services.AddScoped<IAgentOptimizationService, AgentOptimizationService>();
+        services.AddScoped<IObservatoryService, ObservatoryService>();
+        services.AddScoped<AuditService>();
         services.AddScoped<IAgentRuntime, RuntimeEngine>();
         services.AddScoped<IdentitySeedService>();
+        services.AddHttpClient();
 
         services.AddSingleton<WindowsRuntimeProvider>();
         services.AddSingleton<IEnumerable<IExecutionProvider>>(sp =>

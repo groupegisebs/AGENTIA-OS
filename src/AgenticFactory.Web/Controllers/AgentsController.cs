@@ -76,7 +76,10 @@ public class AgentsController(ApiClient api) : AuthenticatedController
         }
 
         AuthenticateApi(api);
-        var (result, apiError) = await api.CreateAgentFromChatAsync(message);
+        var capabilityGraphJson = !string.IsNullOrWhiteSpace(model.DesignerWorkflow)
+            ? model.DesignerWorkflow
+            : model.WizardJson;
+        var (result, apiError) = await api.CreateAgentFromChatAsync(message, capabilityGraphJson);
         if (result is null)
         {
             ModelState.AddModelError(string.Empty, apiError ?? "Impossible de générer le blueprint. Vérifiez vos droits ou réessayez.");
@@ -501,6 +504,16 @@ public class AgentsController(ApiClient api) : AuthenticatedController
         return RedirectToAction(nameof(Index));
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DryRunGraph([FromBody] DesignerDryRunModel model)
+    {
+        AuthenticateApi(api);
+        var result = await api.DryRunGraphAsync(model.CapabilityGraphJson ?? "{}", model.Input);
+        if (result is null) return StatusCode(502, new { message = "Dry-run impossible." });
+        return Content(result.Value.GetRawText(), "application/json");
+    }
+
     private static PublishEligibilityInfo MapPublishEligibility(PublishEligibilityResponse e) =>
         new(e.CanPublish, e.BlockReason, e.Message, e.CtaLabel, e.CheckoutAction,
             e.RequiredAmountUsd, e.SubscriptionPlanId, e.PublishCreditsBalance, e.DeployedAgents, e.MaxAgents);
@@ -529,4 +542,10 @@ public class AgentsController(ApiClient api) : AuthenticatedController
             a.CostLast30Days,
             a.RunsSparkline ?? []);
     }
+}
+
+public sealed class DesignerDryRunModel
+{
+    public string? CapabilityGraphJson { get; set; }
+    public Dictionary<string, object?>? Input { get; set; }
 }

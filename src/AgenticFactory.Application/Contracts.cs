@@ -2,7 +2,7 @@ using AgenticFactory.Domain;
 
 namespace AgenticFactory.Application;
 
-public sealed record ChatMessageRequest(string Message, Guid? ExistingAgentId);
+public sealed record ChatMessageRequest(string Message, Guid? ExistingAgentId = null, string? CapabilityGraphJson = null);
 public sealed record BlueprintResponse(
     string BlueprintJson,
     string Summary,
@@ -92,12 +92,114 @@ public interface IAgentToolExecutor
 public interface IAgentMemoryService
 {
     Task RememberAsync(Guid runId, string data, CancellationToken cancellationToken);
+    Task RememberEntryAsync(Guid organizationId, Guid agentId, Guid runId, string key, string value, bool isShortTerm, CancellationToken cancellationToken);
+    Task<IReadOnlyList<AgentMemorySnapshot>> GetRecentAsync(Guid organizationId, Guid agentId, int take, CancellationToken cancellationToken);
 }
+
+public sealed record AgentMemorySnapshot(Guid Id, string Key, string Value, bool IsShortTerm, DateTime CreatedAtUtc);
 
 public interface IAgentModelProvider
 {
     Task<ModelGenerationResult> GenerateAsync(ModelGenerationRequest request, CancellationToken cancellationToken);
 }
+
+public interface IGraphRuntimeEngine
+{
+    bool CanExecute(string? definitionJson);
+    Task<GraphExecutionResult> ExecuteAsync(
+        Guid organizationId,
+        Guid agentId,
+        Guid runId,
+        string definitionJson,
+        Dictionary<string, object?> input,
+        CancellationToken cancellationToken);
+    Task<GraphExecutionResult> ExecuteDryAsync(
+        Guid organizationId,
+        string definitionJson,
+        Dictionary<string, object?> input,
+        CancellationToken cancellationToken);
+}
+
+public interface ISecretStore
+{
+    Task<Guid> UpsertAsync(Guid organizationId, string name, string plaintextValue, string? provider, CancellationToken cancellationToken);
+    Task<string?> GetPlaintextAsync(Guid organizationId, Guid secretId, CancellationToken cancellationToken);
+    Task<string?> ResolveRefAsync(Guid organizationId, string? secretRefOrPlain, CancellationToken cancellationToken);
+    Task<IReadOnlyList<SecretListItem>> ListAsync(Guid organizationId, CancellationToken cancellationToken);
+}
+
+public sealed record SecretListItem(Guid Id, string Name, string? Provider, DateTime UpdatedAtUtc);
+
+public interface IKnowledgeService
+{
+    Task<Guid> CreateBaseAsync(Guid organizationId, Guid agentId, string name, CancellationToken cancellationToken);
+    Task<Guid> IngestDocumentAsync(Guid organizationId, Guid knowledgeBaseId, string title, string content, CancellationToken cancellationToken);
+    Task<IReadOnlyList<KnowledgeHit>> SearchAsync(Guid organizationId, Guid agentId, string query, int topK, CancellationToken cancellationToken);
+}
+
+public sealed record KnowledgeHit(Guid DocumentId, string Title, string Snippet, double Score);
+
+public interface IMarketplaceService
+{
+    Task<MarketplaceListingDto> PublishAsync(Guid organizationId, Guid agentId, MarketplacePublishRequest request, CancellationToken cancellationToken);
+    Task<IReadOnlyList<MarketplaceListingDto>> ListPublishedAsync(CancellationToken cancellationToken);
+    Task<MarketplaceListingDto?> GetAsync(Guid listingId, CancellationToken cancellationToken);
+    Task RollbackVersionAsync(Guid organizationId, Guid agentId, int versionNumber, CancellationToken cancellationToken);
+}
+
+public sealed record MarketplacePublishRequest(
+    decimal PriceUsd,
+    string License,
+    string Description,
+    string Category,
+    string? DocumentationUrl);
+
+public sealed record MarketplaceListingDto(
+    Guid Id,
+    Guid AgentId,
+    string AgentName,
+    string Author,
+    decimal PriceUsd,
+    string License,
+    string Description,
+    string Category,
+    string Status,
+    int VersionNumber,
+    DateTime UpdatedAtUtc,
+    string? PayGatewayProductCode);
+
+public interface IAgentOptimizationService
+{
+    Task<IReadOnlyList<AgentOptimizationSuggestion>> AnalyzeAsync(Guid organizationId, Guid agentId, CancellationToken cancellationToken);
+}
+
+public sealed record AgentOptimizationSuggestion(
+    string Code,
+    string Title,
+    string Detail,
+    string Impact,
+    double EstimatedSavingsPercent);
+
+public interface IObservatoryService
+{
+    Task<ObservatorySnapshot> GetSnapshotAsync(Guid organizationId, CancellationToken cancellationToken);
+}
+
+public sealed record ObservatorySnapshot(
+    int ActiveAgents,
+    long DocumentsProcessed,
+    decimal AiCostUsd,
+    double AvgDurationSeconds,
+    double GlobalHealthPercent,
+    IReadOnlyList<ObservatoryAgentRow> Agents);
+
+public sealed record ObservatoryAgentRow(
+    Guid AgentId,
+    string Name,
+    string Status,
+    int Runs24h,
+    double SuccessRate,
+    decimal Cost24hUsd);
 
 public sealed record BillingCheckoutRequest(
     Guid SubscriptionPlanId,

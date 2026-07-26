@@ -1780,6 +1780,45 @@
     }
 
     /* ── Toast notification ──────────────────────────────────── */
+    async function dryRunAgent() {
+        if (state.nodes.length === 0) {
+            showToast('Ajoutez au moins une capacité avant de tester.');
+            return;
+        }
+        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value
+            || document.querySelector('#studioForm input[name="__RequestVerificationToken"]')?.value;
+        const payload = getDesignerPayload();
+        showToast('Exécution du graphe…');
+        try {
+            const res = await fetch('/Agents/DryRunGraph', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': token || ''
+                },
+                body: JSON.stringify({
+                    capabilityGraphJson: JSON.stringify(payload),
+                    input: { message: state.meta.mission || 'test', source: 'designer-dry-run' }
+                })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                showToast(data.message || 'Échec du test');
+                return;
+            }
+            const ok = data.success !== false && data.Success !== false;
+            const steps = data.steps || data.Steps || [];
+            showToast(ok
+                ? `Test OK — ${steps.length} étape(s) exécutée(s)`
+                : `Test échoué — ${(data.errorMessage || data.ErrorMessage || 'erreur')}`);
+            // Surface result in inspector logs area if open
+            console.info('[Agentia dry-run]', data);
+        } catch (err) {
+            showToast('Erreur réseau pendant le test');
+            console.error(err);
+        }
+    }
+
     function showToast(msg) {
         const toast = document.getElementById('draftToast');
         if (!toast) return;
@@ -1995,7 +2034,8 @@
         const hDW   = document.getElementById('hiddenDesignerWorkflow');
         if (hWiz)  hWiz.value  = JSON.stringify(payload);
         if (hMsg)  hMsg.value  = message;
-        if (hDW)   hDW.value   = JSON.stringify(state);
+        // Persist full designer payload (includes designerWorkflow) for CapabilityGraph execution
+        if (hDW)   hDW.value   = JSON.stringify(payload);
     }
 
     /* ── Mode selector ───────────────────────────────────────── */
@@ -2052,7 +2092,7 @@
         });
         bind('designerBtnBlueprint', () => showBlueprintReview());
         bind('designerBtnPublish',   () => showBlueprintReview());
-        bind('designerBtnTest',      () => showToast('✨ Simulation de l\'agent en cours…'));
+        bind('designerBtnTest',      () => dryRunAgent());
 
         // Initial "Add capacité" button in empty canvas
         const addFirstBtn = document.getElementById('designerAddFirstBtn');

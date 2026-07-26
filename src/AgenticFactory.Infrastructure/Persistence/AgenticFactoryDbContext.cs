@@ -29,6 +29,13 @@ public class AgenticFactoryDbContext
     public DbSet<StudioDomainRequest> StudioDomainRequests => Set<StudioDomainRequest>();
     public DbSet<StudioObjectiveRequest> StudioObjectiveRequests => Set<StudioObjectiveRequest>();
     public DbSet<ActionExecutionProvider> ActionExecutionProviders => Set<ActionExecutionProvider>();
+    public DbSet<ActionExecutionLog> ActionExecutionLogs => Set<ActionExecutionLog>();
+    public DbSet<OrganizationSecret> OrganizationSecrets => Set<OrganizationSecret>();
+    public DbSet<AgentMemoryEntry> AgentMemoryEntries => Set<AgentMemoryEntry>();
+    public DbSet<KnowledgeBase> KnowledgeBases => Set<KnowledgeBase>();
+    public DbSet<KnowledgeDocument> KnowledgeDocuments => Set<KnowledgeDocument>();
+    public DbSet<MarketplaceListing> MarketplaceListings => Set<MarketplaceListing>();
+    public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -155,6 +162,56 @@ public class AgenticFactoryDbContext
             entity.Property(x => x.Category).HasMaxLength(80);
             entity.Property(x => x.Version).HasMaxLength(20);
             entity.Property(x => x.Author).HasMaxLength(120);
+        });
+
+        builder.Entity<ActionExecutionLog>(entity =>
+        {
+            entity.HasIndex(x => new { x.OrganizationId, x.RunId, x.CreatedAtUtc });
+            entity.HasIndex(x => new { x.OrganizationId, x.AgentId, x.CreatedAtUtc });
+            entity.HasOne(x => x.Run).WithMany().HasForeignKey(x => x.RunId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.Agent).WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<OrganizationSecret>(entity =>
+        {
+            entity.HasIndex(x => new { x.OrganizationId, x.Name }).IsUnique();
+        });
+
+        builder.Entity<AgentMemoryEntry>(entity =>
+        {
+            entity.HasIndex(x => new { x.OrganizationId, x.AgentId, x.CreatedAtUtc });
+            entity.HasOne(x => x.Agent).WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<KnowledgeBase>(entity =>
+        {
+            entity.HasIndex(x => new { x.OrganizationId, x.AgentId, x.Name });
+            entity.HasOne(x => x.Agent).WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<KnowledgeDocument>(entity =>
+        {
+            entity.HasIndex(x => new { x.OrganizationId, x.KnowledgeBaseId });
+            entity.HasOne(x => x.KnowledgeBase).WithMany(x => x.Documents).HasForeignKey(x => x.KnowledgeBaseId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<MarketplaceListing>(entity =>
+        {
+            entity.HasIndex(x => new { x.OrganizationId, x.AgentId }).IsUnique();
+            entity.HasIndex(x => x.Status);
+            entity.HasOne(x => x.Agent).WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<AuditLogEntry>(entity =>
+        {
+            entity.HasIndex(x => new { x.OrganizationId, x.CreatedAtUtc });
+        });
+
+        builder.Entity<Agent>(entity =>
+        {
+            entity.Property(x => x.AvatarEmoji).HasMaxLength(16);
+            entity.Property(x => x.PersonalityStyle).HasMaxLength(40);
+            entity.Property(x => x.PersonalityLanguages).HasMaxLength(80);
         });
     }
 

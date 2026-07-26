@@ -62,41 +62,74 @@ public sealed class MockBlueprintGenerator(IConfiguration configuration) : IBlue
     {
         var mode = configuration["AI:Mode"] ?? "mock";
         var metadata = AgentMessageParser.Parse(message);
-        var executionProviders = ExtractExecutionProviders(message);
-        var definition = new
+
+        // Prefer emitting an executable CapabilityGraph so deploy/invoke work without Designer JSON.
+        var graph = new CapabilityGraphDocument
         {
-            provider = mode,
-            name = metadata.Name,
-            domain = metadata.DomainId,
-            category = metadata.DomainLabel,
-            orchestrator = "WindowsService",
-            steps = new[]
+            Meta =
             {
-                "Parse incoming message",
-                "Call model provider",
-                "Execute configured tools",
-                "Return structured output"
+                Name = metadata.Name,
+                Mission = metadata.Description,
+                Domain = metadata.DomainId ?? metadata.DomainLabel ?? string.Empty
             },
-            actions = executionProviders.Select(p => new
-            {
-                p.Label,
-                p.ActuatorType,
-                executionProvider = p.ProviderName,
-                providerType = p.ProviderType,
-                p.ExecutionMode,
-                p.TimeoutSeconds
-            }).ToArray(),
-            executionProviders,
-            fallback = "mock-workflow"
+            Nodes =
+            [
+                new CapabilityNode { Id = "n1", Type = "trigger-webhook", Label = "Webhook", Config = new() },
+                new CapabilityNode
+                {
+                    Id = "n2",
+                    Type = "skill-summary",
+                    Label = "Compréhension IA",
+                    Config = new Dictionary<string, JsonElement>
+                    {
+                        ["model"] = JsonSerializer.SerializeToElement("gpt-4o-mini"),
+                        ["mission"] = JsonSerializer.SerializeToElement(metadata.Description)
+                    }
+                },
+                new CapabilityNode
+                {
+                    Id = "n3",
+                    Type = "action-api",
+                    Label = "Réponse API",
+                    Config = new Dictionary<string, JsonElement>
+                    {
+                        ["url"] = JsonSerializer.SerializeToElement("https://httpbin.org/post"),
+                        ["method"] = JsonSerializer.SerializeToElement("POST")
+                    }
+                }
+            ],
+            Edges =
+            [
+                new CapabilityEdge { Id = "e1", From = "n1", To = "n2" },
+                new CapabilityEdge { Id = "e2", From = "n2", To = "n3" }
+            ]
         };
 
-        var json = JsonSerializer.Serialize(definition, new JsonSerializerOptions { WriteIndented = true });
+        var executionProviders = ExtractExecutionProviders(message);
+        var envelope = new
+        {
+            graph.SchemaVersion,
+            graph.Kind,
+            graph.Meta,
+            graph.Nodes,
+            graph.Edges,
+            graph.Provider,
+            legacy = new
+            {
+                provider = mode,
+                orchestrator = "WindowsService",
+                actions = executionProviders,
+                fallback = "capability-graph"
+            }
+        };
+
+        var json = JsonSerializer.Serialize(envelope, new JsonSerializerOptions { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
         var estimate = AiPricingHelper.EstimateFromPrompt(message, configuration);
         return Task.FromResult(new BlueprintResponse(
             json,
             metadata.Description,
             true,
-            "Blueprint appears valid in mock mode.",
+            "CapabilityGraph mock généré (exécutable).",
             estimate.EstimatedCostUsd,
             estimate.PromptTokens,
             estimate.CompletionTokens));
@@ -180,6 +213,37 @@ public sealed class AgentCreationService(
         TenantGuard.RequireOrganization(organizationId);
         var generated = await blueprintGenerator.GenerateAsync(organizationId, request.Message, cancellationToken);
         var metadata = AgentMessageParser.Parse(request.Message);
+
+        // Prefer an explicit CapabilityGraph from Designer/Wizard when provided.
+        var blueprintJson = generated.BlueprintJson;
+        if (!string.IsNullOrWhiteSpace(request.CapabilityGraphJson)
+            && CapabilityGraphDocument.TryParse(request.CapabilityGraphJson, out var graph)
+            && graph is not null)
+        {
+            if (string.IsNullOrWhiteSpace(graph.Meta.Name) || graph.Meta.Name == "Agent")
+                graph.Meta.Name = metadata.Name;
+            if (string.IsNullOrWhiteSpace(graph.Meta.Mission))
+                graph.Meta.Mission = metadata.Description;
+            blueprintJson = graph.ToJson();
+            generated = generated with
+            {
+                BlueprintJson = blueprintJson,
+                Summary = string.IsNullOrWhiteSpace(graph.Meta.Mission) ? generated.Summary : graph.Meta.Mission,
+                IsValid = true,
+                ValidationNotes = "CapabilityGraph Designer/Wizard persisté."
+            };
+        }
+        else if (CapabilityGraphDocument.TryParse(request.Message, out var embedded)
+                 && embedded is not null)
+        {
+            blueprintJson = embedded.ToJson();
+            generated = generated with
+            {
+                BlueprintJson = blueprintJson,
+                IsValid = true,
+                ValidationNotes = "CapabilityGraph extrait du message."
+            };
+        }
 
         var planFee = await dbContext.OrganizationSubscriptions
             .AsNoTracking()
@@ -355,7 +419,8 @@ public sealed class AgentExecutor(
     AgenticFactoryDbContext dbContext,
     IAgentToolExecutor toolExecutor,
     IAgentMemoryService memoryService,
-    IAgentModelProvider modelProvider) : IAgentExecutor
+    IAgentModelProvider modelProvider,
+    IGraphRuntimeEngine graphRuntime) : IAgentExecutor
 {
     public async Task<InvokeAgentResponse> ExecuteAsync(Guid organizationId, Agent agent, AgentVersion version, Dictionary<string, object?> input, CancellationToken cancellationToken)
     {
@@ -363,7 +428,6 @@ public sealed class AgentExecutor(
         TenantGuard.EnsureMatch(organizationId, agent.OrganizationId, "Agent");
         TenantGuard.EnsureMatch(organizationId, version.OrganizationId, "Agent version");
 
-        // Future: persist ActionExecutionLog entries per action (Provider, Duration, Status, Error, Retry).
         var run = new AgentRun
         {
             OrganizationId = organizationId,
@@ -398,23 +462,56 @@ public sealed class AgentExecutor(
 
         try
         {
-            var toolOutput = await toolExecutor.ExecuteToolsAsync(organizationId, agent, input, cancellationToken);
-            var prompt = $"Agent: {agent.Name}\nInput:{JsonSerializer.Serialize(input)}\nTools:{JsonSerializer.Serialize(toolOutput)}";
-            var generation = await modelProvider.GenerateAsync(new ModelGenerationRequest(organizationId, prompt, null), cancellationToken);
-            var combinedOutput = new Dictionary<string, object?>(toolOutput)
+            Dictionary<string, object?> combinedOutput;
+            int promptTokens = 0;
+            int completionTokens = 0;
+            decimal estimatedCost = 0;
+
+            if (graphRuntime.CanExecute(version.DefinitionJson))
             {
-                ["modelResponse"] = generation.Output,
-                ["modelProvider"] = generation.Provider,
-                ["usedFallback"] = generation.UsedFallback
-            };
+                var graphResult = await graphRuntime.ExecuteAsync(
+                    organizationId, agent.Id, run.Id, version.DefinitionJson, input, cancellationToken);
+                combinedOutput = new Dictionary<string, object?>(graphResult.FinalOutput)
+                {
+                    ["graphSuccess"] = graphResult.Success,
+                    ["graphError"] = graphResult.ErrorMessage
+                };
+                if (!graphResult.Success)
+                    throw new InvalidOperationException(graphResult.ErrorMessage ?? "Échec d'exécution du graphe.");
+
+                // Aggregate token/cost hints from IA steps when present
+                foreach (var step in graphResult.Steps)
+                {
+                    if (step.Output.TryGetValue("promptTokens", out var pt) && pt is int pti) promptTokens += pti;
+                    if (step.Output.TryGetValue("completionTokens", out var ct) && ct is int cti) completionTokens += cti;
+                    if (step.Output.TryGetValue("estimatedCostUsd", out var cost) && cost is decimal d) estimatedCost += d;
+                    else if (step.Output.TryGetValue("estimatedCostUsd", out var costObj) && costObj is double dd) estimatedCost += (decimal)dd;
+                }
+            }
+            else
+            {
+                var toolOutput = await toolExecutor.ExecuteToolsAsync(organizationId, agent, input, cancellationToken);
+                var prompt = $"Agent: {agent.Name}\nInput:{JsonSerializer.Serialize(input)}\nTools:{JsonSerializer.Serialize(toolOutput)}";
+                var generation = await modelProvider.GenerateAsync(new ModelGenerationRequest(organizationId, prompt, null), cancellationToken);
+                combinedOutput = new Dictionary<string, object?>(toolOutput)
+                {
+                    ["modelResponse"] = generation.Output,
+                    ["modelProvider"] = generation.Provider,
+                    ["usedFallback"] = generation.UsedFallback,
+                    ["legacyPath"] = true
+                };
+                promptTokens = generation.PromptTokens;
+                completionTokens = generation.CompletionTokens;
+                estimatedCost = generation.EstimatedCostUsd;
+            }
 
             run.Status = RunStatus.Completed;
             run.OutputJson = JsonSerializer.Serialize(combinedOutput);
-            run.PromptTokens = generation.PromptTokens;
-            run.CompletionTokens = generation.CompletionTokens;
-            run.EstimatedCostUsd = generation.EstimatedCostUsd;
+            run.PromptTokens = promptTokens;
+            run.CompletionTokens = completionTokens;
+            run.EstimatedCostUsd = estimatedCost;
             run.CompletedAtUtc = DateTime.UtcNow;
-            await memoryService.RememberAsync(run.Id, run.OutputJson, cancellationToken);
+            await memoryService.RememberEntryAsync(organizationId, agent.Id, run.Id, "run-output", run.OutputJson, true, cancellationToken);
 
             if (subscription is not null)
             {
@@ -422,7 +519,7 @@ public sealed class AgentExecutor(
             }
 
             await dbContext.SaveChangesAsync(cancellationToken);
-            return new InvokeAgentResponse(run.Id, run.Status.ToString(), combinedOutput, generation.PromptTokens, generation.CompletionTokens, generation.EstimatedCostUsd);
+            return new InvokeAgentResponse(run.Id, run.Status.ToString(), combinedOutput, promptTokens, completionTokens, estimatedCost);
         }
         catch (Exception ex)
         {
@@ -435,20 +532,30 @@ public sealed class AgentExecutor(
     }
 }
 
-public sealed class AgentToolExecutor : IAgentToolExecutor
+public sealed class AgentToolExecutor(IGraphRuntimeEngine graphRuntime, AgenticFactoryDbContext db) : IAgentToolExecutor
 {
-    public Task<Dictionary<string, object?>> ExecuteToolsAsync(Guid organizationId, Agent agent, Dictionary<string, object?> input, CancellationToken cancellationToken)
-        => Task.FromResult(new Dictionary<string, object?>
+    public async Task<Dictionary<string, object?>> ExecuteToolsAsync(Guid organizationId, Agent agent, Dictionary<string, object?> input, CancellationToken cancellationToken)
+    {
+        var version = await db.AgentVersions.AsNoTracking()
+            .FirstOrDefaultAsync(v => v.AgentId == agent.Id && v.IsActive, cancellationToken);
+        if (version is not null && graphRuntime.CanExecute(version.DefinitionJson))
+        {
+            return new Dictionary<string, object?>
+            {
+                ["mode"] = "capability-graph",
+                ["definitionReady"] = true,
+                ["normalizedInput"] = input
+            };
+        }
+
+        return new Dictionary<string, object?>
         {
             ["toolCount"] = 1,
             ["normalizedInput"] = input,
-            ["organizationId"] = organizationId.ToString()
-        });
-}
-
-public sealed class AgentMemoryService : IAgentMemoryService
-{
-    public Task RememberAsync(Guid runId, string data, CancellationToken cancellationToken) => Task.CompletedTask;
+            ["organizationId"] = organizationId.ToString(),
+            ["mode"] = "legacy-stub"
+        };
+    }
 }
 
 public sealed class AgentModelProvider(

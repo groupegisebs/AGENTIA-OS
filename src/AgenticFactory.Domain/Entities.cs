@@ -195,6 +195,20 @@ public class Agent : BaseEntity, ITenantEntity
     /// <summary>Code produit consommable Pay Gateway (ex. AGENTIA-AGENT-A1B2C3D4).</summary>
     public string? PayGatewayProductCode { get; set; }
 
+    [MaxLength(16)]
+    public string AvatarEmoji { get; set; } = "🤖";
+
+    [MaxLength(40)]
+    public string PersonalityStyle { get; set; } = "Professionnel";
+
+    public double PersonalityTemperature { get; set; } = 0.2;
+
+    [MaxLength(80)]
+    public string PersonalityLanguages { get; set; } = "fr,en";
+
+    /// <summary>JSON array of KPI definitions.</summary>
+    public string KpisJson { get; set; } = "[]";
+
     public Organization? Organization { get; set; }
     public ICollection<AgentVersion> Versions { get; set; } = new List<AgentVersion>();
     public ICollection<AgentTrigger> Triggers { get; set; } = new List<AgentTrigger>();
