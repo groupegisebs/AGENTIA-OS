@@ -1,0 +1,14 @@
+@{
+    Layout = "_LandingLayout";
+    ViewData["Title"] = "Erreur";
+}
+
+<section class="landing-hero" style="min-height:60vh;align-items:center;">
+    <div class="landing-hero-copy" style="max-width:520px;">
+        <h1 class="landing-hero-title">Une erreur est survenue</h1>
+        <p class="landing-hero-sub">Le service est temporairement indisponible. Réessayez dans un instant.</p>
+        <p style="margin-top:1.5rem;">
+            <a asp-controller="Home" asp-action="Index" class="landing-btn-primary">Retour à l'accueil</a>
+        </p>
+    </div>
+</section>

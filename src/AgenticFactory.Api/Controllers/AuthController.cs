@@ -6,6 +6,7 @@ using AgenticFactory.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace AgenticFactory.Api.Controllers;
 
@@ -20,10 +21,41 @@ public class AuthController(
     [AllowAnonymous]
     public async Task<IActionResult> Register(RegisterRequest request, CancellationToken cancellationToken)
     {
+        var baseSlug = string.Join("-", request.OrganizationName
+            .ToLowerInvariant()
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        if (string.IsNullOrWhiteSpace(baseSlug))
+            baseSlug = "org";
+
+        var slug = baseSlug;
+        var suffix = 0;
+        while (await dbContext.Organizations.AnyAsync(x => x.Slug == slug, cancellationToken))
+        {
+            suffix++;
+            slug = $"{baseSlug}-{suffix}";
+        }
+
+        var starterPlan = await dbContext.SubscriptionPlans
+            .OrderBy(x => x.MonthlyPriceUsd)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (starterPlan is null)
+        {
+            starterPlan = new SubscriptionPlan
+            {
+                Name = "Starter",
+                MaxAgents = 5,
+                MaxRunsPerMonth = 5000,
+                MonthlyPriceUsd = 99,
+                PublishModel = PublishModel.SubscriptionIncluded
+            };
+            dbContext.SubscriptionPlans.Add(starterPlan);
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
         var organization = new Organization
         {
             Name = request.OrganizationName,
-            Slug = request.OrganizationName.ToLowerInvariant().Replace(" ", "-")
+            Slug = slug
         };
         dbContext.Organizations.Add(organization);
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -40,7 +72,9 @@ public class AuthController(
         var create = await userManager.CreateAsync(user, request.Password);
         if (!create.Succeeded)
         {
-            return BadRequest(create.Errors.Select(x => x.Description));
+            dbContext.Organizations.Remove(organization);
+            await dbContext.SaveChangesAsync(cancellationToken);
+            return BadRequest(new { message = string.Join(" ", create.Errors.Select(x => x.Description)) });
         }
 
         await userManager.AddToRoleAsync(user, SystemRoles.Creator);
@@ -54,7 +88,7 @@ public class AuthController(
         await dbContext.OrganizationSubscriptions.AddAsync(new OrganizationSubscription
         {
             OrganizationId = organization.Id,
-            SubscriptionPlanId = dbContext.SubscriptionPlans.First().Id,
+            SubscriptionPlanId = starterPlan.Id,
             IsActive = true
         }, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);

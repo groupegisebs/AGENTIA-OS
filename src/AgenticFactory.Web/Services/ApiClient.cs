@@ -297,20 +297,42 @@ public class ApiClient(HttpClient http)
 
     public async Task<(AuthResponse? Result, string? Error)> RegisterAsync(string email, string password, string fullName, string orgName)
     {
-        var body = JsonSerializer.Serialize(new RegisterRequest(orgName, email, fullName, password), _json);
-        var response = await http.PostAsync("/api/auth/register",
-            new StringContent(body, Encoding.UTF8, "application/json"));
-        var content = await response.Content.ReadAsStringAsync();
-        if (!response.IsSuccessStatusCode)
+        try
         {
-            try
+            var body = JsonSerializer.Serialize(new RegisterRequest(orgName, email, fullName, password), _json);
+            var response = await http.PostAsync("/api/auth/register",
+                new StringContent(body, Encoding.UTF8, "application/json"));
+            var content = await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode)
             {
-                var err = JsonSerializer.Deserialize<JsonElement>(content, _json);
-                return (null, err.TryGetProperty("message", out var m) ? m.GetString() : content);
+                try
+                {
+                    var err = JsonSerializer.Deserialize<JsonElement>(content, _json);
+                    if (err.ValueKind == JsonValueKind.Object && err.TryGetProperty("message", out var m))
+                        return (null, m.GetString());
+                    if (err.ValueKind == JsonValueKind.Array)
+                        return (null, string.Join(" ", err.EnumerateArray().Select(x => x.GetString()).Where(x => !string.IsNullOrWhiteSpace(x))));
+                    return (null, string.IsNullOrWhiteSpace(content) ? "Erreur lors de l'inscription." : content);
+                }
+                catch
+                {
+                    return (null, string.IsNullOrWhiteSpace(content) ? "Erreur lors de l'inscription." : content);
+                }
             }
-            catch { return (null, content); }
+
+            var auth = JsonSerializer.Deserialize<AuthResponse>(content, _json);
+            return string.IsNullOrWhiteSpace(auth?.Token)
+                ? (null, "Réponse d'inscription invalide.")
+                : (auth, null);
         }
-        return (JsonSerializer.Deserialize<AuthResponse>(content, _json), null);
+        catch (HttpRequestException)
+        {
+            return (null, "Service temporairement indisponible. Réessayez dans un instant.");
+        }
+        catch (TaskCanceledException)
+        {
+            return (null, "Délai dépassé lors de l'inscription. Réessayez.");
+        }
     }
 
     public async Task<DashboardResponse?> GetDashboardAsync()

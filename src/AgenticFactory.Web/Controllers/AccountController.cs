@@ -52,17 +52,30 @@ public class AccountController(ApiClient api) : Controller
     {
         if (!ModelState.IsValid) return View(model);
 
-        var (result, error) = await api.RegisterAsync(
-            model.Email, model.Password, model.DisplayName, model.OrganizationName);
-
-        if (result is null)
+        try
         {
-            ModelState.AddModelError(string.Empty, error ?? "Erreur lors de l'inscription.");
+            var (result, error) = await api.RegisterAsync(
+                model.Email, model.Password, model.DisplayName, model.OrganizationName);
+
+            if (result is null || string.IsNullOrWhiteSpace(result.Token))
+            {
+                ModelState.AddModelError(string.Empty, error ?? "Erreur lors de l'inscription. Réessayez dans un instant.");
+                return View(model);
+            }
+
+            await SignInWithCookieAsync(result);
+            return RedirectToAction("Index", "Dashboard");
+        }
+        catch (HttpRequestException)
+        {
+            ModelState.AddModelError(string.Empty, "Service temporairement indisponible. Réessayez dans un instant.");
             return View(model);
         }
-
-        await SignInWithCookieAsync(result);
-        return RedirectToAction("Index", "Dashboard");
+        catch (TaskCanceledException)
+        {
+            ModelState.AddModelError(string.Empty, "Délai dépassé lors de l'inscription. Réessayez.");
+            return View(model);
+        }
     }
 
     [HttpPost]
